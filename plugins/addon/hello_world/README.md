@@ -1,0 +1,23 @@
+# Hello World 示例插件
+
+## 定位
+
+本插件为**全功能示例插件**，用于演示慧眼护农插件系统的完整能力：数据表 CRUD、路由、权限节点、菜单注册、钩子、配置、前后端页面。它面向插件开发者作为参考模板，**不属于业务功能**。
+
+## 文档豁免声明
+
+按 `Docs/06-视觉设计规范.md` 第 20.3 节「豁免条款」，`hello_world` 定位为演示插件，其接口**不纳入 `Docs/API/Back/` 正式 API 文档体系**。开发者可直接阅读本插件源码（`router.py` / `schemas.py` / `models.py`）了解各接口的请求与响应结构，源码中已带完整中文注释。
+
+## 参考文件
+
+| 文件 | 说明 |
+|------|------|
+| `plugin.py` | 插件生命周期（install/enable/disable/uninstall）与配置声明 |
+| `router.py` | 管理员端 API 路由（CRUD 示例，含权限校验） |
+| `schemas.py` | Pydantic 请求/响应模型 |
+| `models.py` | ORM 数据模型 |
+| `hooks.py` | 钩子注册示例（问候钩子） |
+| `migrations/` | 建表迁移脚本 |
+| `templates/` | 前端页面模板 |
+
+> 正式业务插件（如 push、admin_notifier）的接口须在 `Docs/API/Back/` 下建立对应文档目录，不适用本豁免。

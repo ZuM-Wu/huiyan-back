@@ -1,0 +1,238 @@
+{% extends "base.html" %}
+{% block title %}安全中心 - 慧眼护农 农户端{% endblock %}
+{% block head %}
+<style>
+.security-checklist { display: flex; flex-direction: column; gap: var(--app-spacing-md); }
+.security-item {
+    display: flex; align-items: center; gap: var(--app-spacing-md);
+    padding: var(--app-spacing-md); border-radius: var(--app-radius-md);
+    background: var(--app-bg-container); border: 1px solid var(--app-border);
+}
+.security-item__icon {
+    width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+}
+.security-item__icon--success { background: var(--app-success-light); color: var(--app-success); }
+.security-item__icon--warning { background: var(--app-warning-light); color: var(--app-warning); }
+.security-item__icon--danger { background: var(--app-error-light); color: var(--app-error); }
+.security-item__body { flex: 1; min-width: 0; }
+.security-item__title { font-size: var(--app-font-size-md); font-weight: 500; color: var(--app-text-primary); }
+.security-item__desc { font-size: var(--app-font-size-sm); color: var(--app-text-secondary); margin-top: var(--app-spacing-xs); }
+.security-item__action { flex-shrink: 0; }
+.security-login-info {
+    display: flex; gap: var(--app-spacing-lg); flex-wrap: wrap;
+    padding: var(--app-spacing-md); border-radius: var(--app-radius-md);
+    background: var(--app-bg-container); border: 1px solid var(--app-border);
+}
+.security-login-item { display: flex; flex-direction: column; gap: 4px; }
+.security-login-label { font-size: var(--app-font-size-sm); color: var(--app-text-secondary); }
+.security-login-value { font-size: var(--app-font-size-md); color: var(--app-text-primary); font-weight: 500; }
+.security-tips { display: flex; flex-direction: column; gap: var(--app-spacing-sm); font-size: var(--app-font-size-sm); color: var(--app-text-secondary); line-height: 1.8; }
+.security-tips-item { display: flex; align-items: center; gap: var(--app-spacing-sm); }
+.security-tips-item .t-icon { color: var(--app-success); flex-shrink: 0; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="farmer-profile-layout">
+    <!-- 安全检测项 -->
+    <div class="farmer-profile-card">
+        <h3 class="farmer-profile-card-title">安全检测</h3>
+        <div class="security-checklist">
+            <!-- 密码安全 -->
+            <div class="security-item">
+                <div class="security-item__icon" :class="passwordStatus.iconClass">
+                    <t-icon :name="passwordStatus.icon"></t-icon>
+                </div>
+                <div class="security-item__body">
+                    <div class="security-item__title">登录密码</div>
+                    <div class="security-item__desc">[[ passwordStatus.desc ]]</div>
+                </div>
+                <div class="security-item__action">
+                    <t-button theme="primary" variant="text" size="small" @click="goPage('/farmer/profile')">修改</t-button>
+                </div>
+            </div>
+
+            <!-- 实名认证 -->
+            <div class="security-item">
+                <div class="security-item__icon" :class="certStatus.iconClass">
+                    <t-icon :name="certStatus.icon"></t-icon>
+                </div>
+                <div class="security-item__body">
+                    <div class="security-item__title">实名认证</div>
+                    <div class="security-item__desc">[[ certStatus.desc ]]</div>
+                </div>
+                <div class="security-item__action">
+                    <t-button theme="primary" variant="text" size="small" @click="goPage('/farmer/certification')">
+                        [[ certStatus.actionText ]]
+                    </t-button>
+                </div>
+            </div>
+
+            <!-- 邮箱绑定 -->
+            <div class="security-item">
+                <div class="security-item__icon" :class="emailBound ? 'security-item__icon--success' : 'security-item__icon--warning'">
+                    <t-icon :name="emailBound ? 'check-circle' : 'info-circle'"></t-icon>
+                </div>
+                <div class="security-item__body">
+                    <div class="security-item__title">邮箱绑定</div>
+                    <div class="security-item__desc">[[ emailBound ? ('已绑定：' + maskedEmail) : '未绑定邮箱，建议绑定以提升安全性' ]]</div>
+                </div>
+                <div class="security-item__action">
+                    <t-button theme="primary" variant="text" size="small" @click="goPage('/farmer/profile')">绑定</t-button>
+                </div>
+            </div>
+
+            <!-- 手机绑定 -->
+            <div class="security-item">
+                <div class="security-item__icon" :class="phoneBound ? 'security-item__icon--success' : 'security-item__icon--warning'">
+                    <t-icon :name="phoneBound ? 'check-circle' : 'info-circle'"></t-icon>
+                </div>
+                <div class="security-item__body">
+                    <div class="security-item__title">手机绑定</div>
+                    <div class="security-item__desc">[[ phoneBound ? ('已绑定：' + maskedPhone) : '未绑定手机号，建议绑定以提升安全性' ]]</div>
+                </div>
+                <div class="security-item__action">
+                    <t-button theme="primary" variant="text" size="small" @click="goPage('/farmer/profile')">绑定</t-button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 最近登录信息 -->
+    <div class="farmer-profile-card">
+        <h3 class="farmer-profile-card-title">最近登录</h3>
+        <div class="security-login-info">
+            <div class="security-login-item">
+                <span class="security-login-label">登录IP</span>
+                <span class="security-login-value">[[ lastLoginIp || '--' ]]</span>
+            </div>
+            <div class="security-login-item">
+                <span class="security-login-label">登录时间</span>
+                <span class="security-login-value">[[ lastLoginTime || '--' ]]</span>
+            </div>
+            <div class="security-login-item">
+                <span class="security-login-label">注册时间</span>
+                <span class="security-login-value">[[ registerTime || '--' ]]</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 安全建议 -->
+    <div class="farmer-profile-card">
+        <h3 class="farmer-profile-card-title">安全建议</h3>
+        <div class="security-tips">
+            <div class="security-tips-item"><t-icon name="check"></t-icon>定期修改密码，建议每 3 个月更换一次</div>
+            <div class="security-tips-item"><t-icon name="check"></t-icon>密码应包含大小写字母、数字和特殊字符</div>
+            <div class="security-tips-item"><t-icon name="check"></t-icon>不要将账号密码告知他人</div>
+            <div class="security-tips-item"><t-icon name="check"></t-icon>完成实名认证以保障账号权益</div>
+            <div class="security-tips-item"><t-icon name="check"></t-icon>绑定邮箱和手机号以便找回密码</div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+HuiYanFarmer.createApp({
+    setup() {
+        var ref = Vue.ref;
+        var computed = Vue.computed;
+        var reactive = Vue.reactive;
+        var onMounted = Vue.onMounted;
+
+        var profile = reactive({
+            email: '', phone: '', nickname: '',
+            last_login_ip: '', last_action_time: '', create_time: ''
+        });
+        var certStatusValue = ref(-1);
+
+        var emailBound = computed(function () { return !!profile.email; });
+        var phoneBound = computed(function () { return !!profile.phone; });
+
+        var maskedEmail = computed(function () {
+            if (!profile.email) return '';
+            var parts = profile.email.split('@');
+            if (parts.length !== 2) return profile.email;
+            var name = parts[0];
+            var masked = name.length > 2 ? name.charAt(0) + '***' + name.charAt(name.length - 1) : name;
+            return masked + '@' + parts[1];
+        });
+        var maskedPhone = computed(function () {
+            if (!profile.phone || profile.phone.length < 7) return profile.phone || '';
+            return profile.phone.substring(0, 3) + '****' + profile.phone.substring(7);
+        });
+
+        var passwordStatus = computed(function () {
+            var score = 0;
+            if (profile.email) score++;
+            if (profile.phone) score++;
+            if (profile.nickname) score++;
+            if (score >= 2) {
+                return { icon: 'check-circle', iconClass: 'security-item__icon--success', desc: '密码安全性良好' };
+            }
+            return { icon: 'info-circle', iconClass: 'security-item__icon--warning', desc: '建议完善个人信息以提升安全性' };
+        });
+
+        var certStatus = computed(function () {
+            var s = certStatusValue.value;
+            if (s === 1) {
+                return { icon: 'check-circle', iconClass: 'security-item__icon--success', desc: '已通过实名认证', actionText: '查看' };
+            }
+            if (s === 0) {
+                return { icon: 'time', iconClass: 'security-item__icon--warning', desc: '认证审核中，请耐心等待', actionText: '查看' };
+            }
+            if (s === 2) {
+                return { icon: 'close-circle', iconClass: 'security-item__icon--danger', desc: '认证未通过，请重新提交', actionText: '重新认证' };
+            }
+            return { icon: 'info-circle', iconClass: 'security-item__icon--warning', desc: '未完成实名认证', actionText: '去认证' };
+        });
+
+        var lastLoginIp = computed(function () { return profile.last_login_ip || ''; });
+        var lastLoginTime = computed(function () {
+            if (!profile.last_action_time) return '';
+            return String(profile.last_action_time).replace('T', ' ').split('.')[0];
+        });
+        var registerTime = computed(function () {
+            if (!profile.create_time) return '';
+            return String(profile.create_time).split(' ')[0];
+        });
+
+        onMounted(function () {
+            HuiYanFarmer.request.get('/profile').then(function (res) {
+                var d = (res.data && res.data.data) ? res.data.data : res.data;
+                profile.email = d.email || '';
+                profile.phone = d.phone || '';
+                profile.nickname = d.nickname || '';
+                profile.create_time = d.create_time || '';
+            }).catch(function () {});
+
+            HuiYanFarmer.request.get('/me').then(function (res) {
+                var d = res.data || {};
+                if (d.email) profile.email = d.email;
+                if (d.phone) profile.phone = d.phone;
+            }).catch(function () {});
+
+            HuiYanFarmer.request.get('/certification/status').then(function (res) {
+                var d = (res.data && res.data.data) ? res.data.data : res.data;
+                certStatusValue.value = d.cert_status != null ? d.cert_status : -1;
+            }).catch(function () {});
+        });
+
+        var goPage = function (path) {
+            if (window.HuiYanFarmer && window.HuiYanFarmer.loadPage) {
+                window.HuiYanFarmer.loadPage(path);
+            } else {
+                location.href = path;
+            }
+        };
+
+        return {
+            profile, emailBound, phoneBound, maskedEmail, maskedPhone,
+            passwordStatus, certStatus,
+            lastLoginIp, lastLoginTime, registerTime,
+            goPage
+        };
+    }
+});
+</script>
+{% endblock %}

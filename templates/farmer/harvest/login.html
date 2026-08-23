@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录 · 慧眼护农 农户端</title>
+    <link rel="icon" href="/static/img/favicon.png" type="image/png">
+    <!-- 主题防闪烁：页面加载前从 localStorage 读取主题偏好 -->
+    <script>(function(){try{var t=localStorage.getItem('farmer_theme');if(t==='dark'){document.documentElement.setAttribute('data-theme','dark');}}catch(e){}})();</script>
+    <style>[v-cloak]{display:none!important;}</style>
+    <link rel="stylesheet" href="/static/vendor/tdesign/tdesign.min.css">
+    <link rel="stylesheet" href="/static/css/theme.css?v={{ config.app_version }}">
+    <link rel="stylesheet" href="{{ theme_static }}/css/app.css?v={{ config.app_version }}">
+</head>
+<body class="farmer-login-body">
+<div id="farmer-login" v-cloak class="farmer-login-page">
+    <!-- 蓝色品牌卡片 -->
+    <div class="farmer-login-brand">
+        <div class="farmer-login-brand__stripes"></div>
+        <div class="farmer-login-brand__content">
+            <h1 class="farmer-login-brand__welcome">WELCOME</h1>
+            <p class="farmer-login-brand__title">[[ siteName ]] · 农户服务平台</p>
+            <p class="farmer-login-brand__desc">智慧农业管理，从这里开始</p>
+        </div>
+    </div>
+
+    <!-- 登录/注册表单卡片 -->
+    <div class="farmer-login-form-card">
+        <!-- 登录表单 -->
+        <template v-if="mode === 'login'">
+            <h2 class="farmer-login-form__title">登录</h2>
+            <p class="farmer-login-form__subtitle">请使用您的账号登录农户服务平台</p>
+
+            <t-form ref="loginFormRef" :data="loginForm" :rules="loginRules"
+                    @submit="onLoginSubmit" label-width="0" class="farmer-login-form">
+                <t-form-item name="username" :label-width="0">
+                    <t-input v-model="loginForm.username" placeholder="请输入用户名" clearable>
+                        <template #prefix-icon><t-icon name="user"></t-icon></template>
+                    </t-input>
+                </t-form-item>
+                <t-form-item name="password" :label-width="0">
+                    <t-input v-model="loginForm.password" type="password" placeholder="请输入密码" clearable>
+                        <template #prefix-icon><t-icon name="lock-on"></t-icon></template>
+                    </t-input>
+                </t-form-item>
+                <t-button theme="primary" block type="submit" :loading="loading"
+                          :disabled="loading || ((serviceUrl || privacyUrl) && !agreed)"
+                          class="farmer-login-btn">登录</t-button>
+
+                <!-- 协议同意复选框（仅配置了协议链接时显示） -->
+                <div v-if="serviceUrl || privacyUrl" class="farmer-login-agreement">
+                    <t-checkbox v-model="agreed">
+                        <span>我已阅读并同意</span>
+                        <a v-if="serviceUrl" :href="serviceUrl" target="_blank" @click.stop>《服务协议》</a>
+                        <span v-if="serviceUrl && privacyUrl">和</span>
+                        <a v-if="privacyUrl" :href="privacyUrl" target="_blank" @click.stop>《隐私协议》</a>
+                    </t-checkbox>
+                </div>
+            </t-form>
+
+            <p v-if="allowRegister" class="farmer-login-form__switch">
+                还没有账号？<a href="javascript:void(0)" @click="mode = 'register'">立即注册</a>
+            </p>
+        </template>
+
+        <!-- 注册表单 -->
+        <template v-else>
+            <h2 class="farmer-login-form__title">注册</h2>
+            <p class="farmer-login-form__subtitle">创建您的农户服务平台账号</p>
+
+            <t-form ref="regFormRef" :data="regForm" :rules="regRules"
+                    @submit="onRegisterSubmit" label-width="0" class="farmer-login-form">
+                <t-form-item name="username" :label-width="0">
+                    <t-input v-model="regForm.username" placeholder="请输入用户名" clearable>
+                        <template #prefix-icon><t-icon name="user"></t-icon></template>
+                    </t-input>
+                </t-form-item>
+                <t-form-item name="password" :label-width="0">
+                    <t-input v-model="regForm.password" type="password" placeholder="请输入密码" clearable>
+                        <template #prefix-icon><t-icon name="lock-on"></t-icon></template>
+                    </t-input>
+                </t-form-item>
+                <t-form-item name="nickname" :label-width="0">
+                    <t-input v-model="regForm.nickname" placeholder="请输入昵称" clearable>
+                        <template #prefix-icon><t-icon name="user-circle"></t-icon></template>
+                    </t-input>
+                </t-form-item>
+                <t-form-item v-if="phoneRequired || phoneOptional" name="phone" :label-width="0">
+                    <t-input v-model="regForm.phone"
+                             :placeholder="phoneRequired ? '请输入手机号' : '请输入手机号（选填）'"
+                             clearable>
+                        <template #prefix-icon><t-icon name="call"></t-icon></template>
+                    </t-input>
+                </t-form-item>
+                <t-form-item v-if="emailRequired || emailOptional" name="email" :label-width="0">
+                    <t-input v-model="regForm.email"
+                             :placeholder="emailRequired ? '请输入邮箱' : '请输入邮箱（选填）'"
+                             clearable>
+                        <template #prefix-icon><t-icon name="mail"></t-icon></template>
+                    </t-input>
+                </t-form-item>
+                <t-button theme="primary" block type="submit" :loading="loading"
+                          :disabled="loading || ((serviceUrl || privacyUrl) && !agreed)"
+                          class="farmer-login-btn">注册</t-button>
+
+                <!-- 协议同意复选框 -->
+                <div v-if="serviceUrl || privacyUrl" class="farmer-login-agreement">
+                    <t-checkbox v-model="agreed">
+                        <span>我已阅读并同意</span>
+                        <a v-if="serviceUrl" :href="serviceUrl" target="_blank" @click.stop>《服务协议》</a>
+                        <span v-if="serviceUrl && privacyUrl">和</span>
+                        <a v-if="privacyUrl" :href="privacyUrl" target="_blank" @click.stop>《隐私协议》</a>
+                    </t-checkbox>
+                </div>
+            </t-form>
+
+            <p class="farmer-login-form__switch">
+                已有账号？<a href="javascript:void(0)" @click="mode = 'login'">返回登录</a>
+            </p>
+        </template>
+    </div>
+</div>
+
+<script src="/static/vendor/vue/vue.global.prod.min.js"></script>
+<script src="/static/vendor/tdesign/tdesign.min.js"></script>
+<script src="/static/vendor/tdesign-icons/index.min.js"></script>
+<script src="/static/vendor/axios/axios.min.js"></script>
+<script src="{{ theme_static }}/js/farmer-app.js?v={{ config.app_version }}"></script>
+<script>
+HuiYanFarmer.createApp({
+    setup() {
+        var ref = Vue.ref;
+        var reactive = Vue.reactive;
+        var computed = Vue.computed;
+        var onMounted = Vue.onMounted;
+
+        /* ===== 视图模式：login / register ===== */
+        var mode = ref('login');
+        var loading = ref(false);
+        var siteName = ref('慧眼护农');
+
+        /* ===== 注册配置（从公开接口加载） ===== */
+        var allowRegister = ref(false);
+        var phoneRequired = ref(false);
+        var phoneOptional = ref(false);
+        var emailRequired = ref(false);
+        var emailOptional = ref(false);
+
+        /* ===== 协议链接（从公开接口加载） ===== */
+        var serviceUrl = ref('');
+        var privacyUrl = ref('');
+        var agreed = ref(false);
+
+        /* ===== 表单数据 ===== */
+        var loginForm = reactive({ username: '', password: '' });
+        var regForm = reactive({ username: '', password: '', nickname: '', phone: '', email: '' });
+
+        /* ===== 表单 ref ===== */
+        var loginFormRef = ref(null);
+        var regFormRef = ref(null);
+
+        /* ===== 登录校验规则（遵循视觉设计规范 §9.3） ===== */
+        var loginRules = {
+            username: [{ required: true, message: '请输入用户名', type: 'error' }],
+            password: [{ required: true, message: '请输入密码', type: 'error' }]
+        };
+
+        /* ===== 注册校验规则（动态，根据配置生成） ===== */
+        var regRules = computed(function () {
+            var rules = {
+                username: [
+                    { required: true, message: '请输入用户名', type: 'error' },
+                    { min: 2, message: '用户名至少2位', type: 'error' }
+                ],
+                password: [
+                    { required: true, message: '请输入密码', type: 'error' },
+                    { min: 6, message: '密码至少6位', type: 'error' }
+                ],
+                nickname: []
+            };
+            if (phoneRequired.value) {
+                rules.phone = [{ required: true, message: '请输入手机号', type: 'error' }];
+            }
+            if (emailRequired.value) {
+                rules.email = [
+                    { required: true, message: '请输入邮箱', type: 'error' },
+                    { email: true, message: '邮箱格式不正确', type: 'error' }
+                ];
+            }
+            return rules;
+        });
+
+        /* ===== 加载公开站点配置（含注册设置） ===== */
+        var loadSiteConfig = function () {
+            axios.get('/api/admin/v1/config/site').then(function (res) {
+                var list = (res.data && res.data.list) || [];
+                var map = {};
+                list.forEach(function (item) { map[item.key] = item.value; });
+                if (map.site_name) siteName.value = map.site_name;
+
+                /* 解析注册配置 */
+                allowRegister.value = parseInt(map.allow_farmer_register) === 1;
+                var phoneReq = parseInt(map.farmer_register_phone_required) === 1;
+                var emailReq = parseInt(map.farmer_register_email_required) === 1;
+                phoneRequired.value = phoneReq;
+                phoneOptional.value = !phoneReq;
+                emailRequired.value = emailReq;
+                emailOptional.value = !emailReq;
+
+                /* 解析协议链接 */
+                serviceUrl.value = map.farmer_service_agreement_url || '';
+                privacyUrl.value = map.farmer_privacy_policy_url || '';
+            }).catch(function () { /* 使用默认值 */ });
+        };
+
+        /* ===== 登录提交（@submit 回调，校验未通过时 params.validateResult !== true） ===== */
+        var onLoginSubmit = function (params) {
+            if (loading.value) return;
+            if (params && params.validateResult !== true) return;
+            loading.value = true;
+            HuiYanFarmer.request.post('/login', { username: loginForm.username, password: loginForm.password })
+                .then(function (res) {
+                    var d = res.data && res.data.data ? res.data.data : res.data;
+                    if (d && d.token) {
+                        localStorage.setItem('farmer_token', d.token);
+                        location.href = '/farmer/home';
+                    } else {
+                        TDesign.MessagePlugin.error((res.data && res.data.msg) || '登录失败');
+                    }
+                })
+                .catch(function (err) {
+                    var msg = (err.response && err.response.data && err.response.data.detail) || '登录失败，请检查账号密码';
+                    TDesign.MessagePlugin.error(msg);
+                })
+                .finally(function () { loading.value = false; });
+        };
+
+        /* ===== 注册提交（@submit 回调） ===== */
+        var onRegisterSubmit = function (params) {
+            if (loading.value) return;
+            if (params && params.validateResult !== true) return;
+            loading.value = true;
+            HuiYanFarmer.request.post('/register', {
+                username: regForm.username,
+                password: regForm.password,
+                nickname: regForm.nickname,
+                phone: regForm.phone,
+                email: regForm.email
+            })
+                .then(function (res) {
+                    var d = res.data && res.data.data ? res.data.data : res.data;
+                    if (d && d.token) {
+                        localStorage.setItem('farmer_token', d.token);
+                        TDesign.MessagePlugin.success('注册成功，正在进入...');
+                        setTimeout(function () { location.href = '/farmer/home'; }, 800);
+                    } else {
+                        TDesign.MessagePlugin.error((res.data && res.data.msg) || '注册失败');
+                    }
+                })
+                .catch(function (err) {
+                    var msg = (err.response && err.response.data && err.response.data.detail) || '注册失败，请稍后重试';
+                    TDesign.MessagePlugin.error(msg);
+                })
+                .finally(function () { loading.value = false; });
+        };
+
+        /* ===== 初始化 ===== */
+        onMounted(function () {
+            loadSiteConfig();
+        });
+
+        return {
+            mode: mode, loading: loading, siteName: siteName,
+            allowRegister: allowRegister,
+            phoneRequired: phoneRequired, phoneOptional: phoneOptional,
+            emailRequired: emailRequired, emailOptional: emailOptional,
+            loginForm: loginForm, loginRules: loginRules, loginFormRef: loginFormRef,
+            regForm: regForm, regRules: regRules, regFormRef: regFormRef,
+            onLoginSubmit: onLoginSubmit, onRegisterSubmit: onRegisterSubmit,
+            serviceUrl: serviceUrl, privacyUrl: privacyUrl, agreed: agreed
+        };
+    }
+}, '#farmer-login');
+</script>
+</body>
+</html>

@@ -1,0 +1,175 @@
+{% extends "plugin_page_shell.html" %}
+{% block title %}资料下载 · 慧眼护农 农户端{% endblock %}
+{#
+  文件下载插件农户端页面
+
+  模板名唯一化为 file_download_index.html：农户端插件模板经 ChoiceLoader
+  扁平收集（不带插件命名空间），同名 index.html 会与其他插件互相劫持。
+  下载必须走 HuiYanFarmer.request blob 方式（farmer_token 在 localStorage，
+  裸 <a href> 无法携带 JWT 会 401），文件名取 Content-Disposition。
+#}
+{% block content %}
+<section class="farmer-hero">
+    <div class="farmer-hero-inner">
+        <h1 class="farmer-hero-title">资料下载</h1>
+        <p class="farmer-hero-sub">种植技术资料、政策文件与常用表格，点击即可下载</p>
+    </div>
+</section>
+
+<section class="farmer-cards">
+    <t-card title="资料下载" :bordered="true" class="farmer-card">
+        <!-- 文件夹页签："全部" + 有可见文件的文件夹 -->
+        <t-tabs v-model="currentFolderId" @change="onFolderChange">
+            <t-tab-panel :value="0" label="全部"></t-tab-panel>
+            <t-tab-panel v-for="folder in folders" :key="folder.id" :value="folder.id"
+                :label="folder.name + ' (' + folder.file_count + ')'"></t-tab-panel>
+        </t-tabs>
+
+        <!-- TDesign 1.9.7 List 不支持 data 属性，需 v-for 渲染 t-list-item 子组件 -->
+        <t-skeleton :loading="loading" :row-col="[{ height: '64px' }, { height: '64px' }, { height: '64px' }]">
+            <t-list v-if="files.length > 0" :split="true" class="fd-file-list">
+                <t-list-item v-for="item in files" :key="item.id">
+                    <div class="fd-file-item">
+                        <div class="fd-file-info">
+                            <div class="fd-file-title">
+                                <strong>[[ item.name ]]</strong>
+                                <t-tag size="small" variant="light">[[ item.filetype ]]</t-tag>
+                            </div>
+                            <p class="fd-file-meta">
+                                [[ formatSize(item.filesize) ]] · 下载 [[ item.download_count ]] 次 · [[ item.create_time ]]
+                            </p>
+                            <p v-if="item.description" class="fd-file-desc">[[ item.description ]]</p>
+                        </div>
+                        <t-button theme="primary" size="small"
+                            :loading="downloadingId === item.id" @click="download(item)">
+                            <template #icon><t-icon name="download"></t-icon></template>
+                            下载
+                        </t-button>
+                    </div>
+                </t-list-item>
+            </t-list>
+            <t-empty v-if="!loading && files.length === 0" description="暂无可下载文件"></t-empty>
+        </t-skeleton>
+
+        <div v-if="total > limit" class="fd-pagination">
+            <t-pagination v-model="page" :total="total" :page-size="limit"
+                :show-page-size="false" @change="fetchFiles"></t-pagination>
+        </div>
+    </t-card>
+</section>
+
+<style>
+/* 文件条目样式 — 跟随农户端主题变量 */
+.fd-file-list { margin-top: 8px; }
+.fd-file-item { display: flex; align-items: center; gap: 12px; width: 100%; }
+.fd-file-info { flex: 1; min-width: 0; }
+.fd-file-title { display: flex; align-items: center; gap: 8px; }
+.fd-file-meta { margin: 4px 0 0; font-size: 12px; color: var(--app-text-secondary); }
+.fd-file-desc { margin: 4px 0 0; font-size: 13px; color: var(--app-text-secondary); }
+.fd-pagination { margin-top: 16px; display: flex; justify-content: flex-end; }
+</style>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+/*
+  农户端资料下载：
+  1. GET /api/v1/file_download/folders 拉取有可见文件的文件夹（页签）
+  2. GET /api/v1/file_download/files 分页拉取当前页签下可见文件
+  3. 下载走 blob：GET /files/{id}/download 携带 farmer_token，
+     成功后经 URL.createObjectURL 触发浏览器保存
+*/
+HuiYanFarmer.createPluginPage({ plugin: 'file_download', page: 'file_download_index',
+    setup() {
+        var ref = Vue.ref;
+        var onMounted = Vue.onMounted;
+        var MessagePlugin = TDesign.MessagePlugin;
+
+        var folders = ref([]);
+        var currentFolderId = ref(0);
+        var files = ref([]);
+        var loading = ref(false);
+        var page = ref(1);
+        var limit = 10;
+        var total = ref(0);
+        var downloadingId = ref(0);
+
+        // 文件大小人性化显示
+        var formatSize = function (bytes) {
+            if (!bytes) return '0 B';
+            var units = ['B', 'KB', 'MB', 'GB'];
+            var value = bytes, i = 0;
+            while (value >= 1024 && i < units.length - 1) { value /= 1024; i += 1; }
+            return value.toFixed(value >= 100 || i === 0 ? 0 : 1) + ' ' + units[i];
+        };
+
+        // 拉取有可见文件的文件夹（空夹后端已过滤）
+        var fetchFolders = function () {
+            HuiYanFarmer.request.get('/file_download/folders')
+                .then(function (res) {
+                    folders.value = (res.data && res.data.list) || [];
+                })
+                .catch(function () {});
+        };
+
+        // 拉取当前文件夹下可见文件
+        var fetchFiles = function () {
+            loading.value = true;
+            HuiYanFarmer.request.get('/file_download/files', {
+                params: { folder_id: currentFolderId.value, page: page.value, limit: limit }
+            }).then(function (res) {
+                var data = res.data || {};
+                files.value = data.list || [];
+                total.value = data.total || 0;
+            }).catch(function () {}).finally(function () { loading.value = false; });
+        };
+
+        var onFolderChange = function () {
+            page.value = 1;
+            fetchFiles();
+        };
+
+        // blob 下载：farmer_token 随请求头携带，文件名取 Content-Disposition
+        var download = function (item) {
+            downloadingId.value = item.id;
+            HuiYanFarmer.request.get('/file_download/files/' + item.id + '/download', {
+                responseType: 'blob'
+            }).then(function (res) {
+                var disposition = res.headers['content-disposition'] || '';
+                var filename = item.name;
+                var match = disposition.match(/filename\*=utf-8''([^;]+)/i);
+                if (match) { filename = decodeURIComponent(match[1]); }
+                var url = URL.createObjectURL(res.data);
+                var link = document.createElement('a');
+                link.href = url;
+                link.download = filename;
+                link.click();
+                URL.revokeObjectURL(url);
+                // 刷新列表同步下载计数
+                fetchFiles();
+            }).catch(function (error) {
+                var status = error.response && error.response.status;
+                if (status === 403) { MessagePlugin.error('无权下载该文件'); }
+                else if (status === 404) { MessagePlugin.error('文件已失效，请联系管理员'); }
+                else { MessagePlugin.error('下载失败，请稍后重试'); }
+            }).finally(function () { downloadingId.value = 0; });
+        };
+
+        onMounted(function () {
+            fetchFolders();
+            fetchFiles();
+        });
+
+        return {
+            folders: folders, currentFolderId: currentFolderId,
+            files: files, loading: loading,
+            page: page, limit: limit, total: total,
+            downloadingId: downloadingId,
+            formatSize: formatSize, fetchFiles: fetchFiles,
+            onFolderChange: onFolderChange, download: download
+        };
+    }
+});
+</script>
+{% endblock %}

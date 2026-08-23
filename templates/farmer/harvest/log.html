@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}系统日志 - 慧眼护农 农户端{% endblock %}
+{% block content %}
+<div id="page-app" v-cloak class="farmer-log-page">
+    <t-card title="系统日志">
+        <template #header>
+            <div class="farmer-toolbar">
+                <div class="farmer-toolbar-left">
+                    <h3 style="margin: 0; font-size: 16px; font-weight: 600;">系统日志</h3>
+                </div>
+                <div class="farmer-toolbar-right">
+                    <t-select v-model="logType" placeholder="日志类型" clearable
+                        style="width: 130px;" @change="fetchData">
+                        <t-option v-for="item in typeOptions" :key="item.value"
+                            :value="item.value" :label="item.label"/>
+                    </t-select>
+                    <t-input v-model="searchKeyword" placeholder="搜索描述..."
+                        clearable style="width: 200px;" @change="fetchData"/>
+                </div>
+            </div>
+        </template>
+        <t-skeleton v-if="loading" :row-col="[6]" animation="gradient"></t-skeleton>
+        <t-table v-else :data="tableData" :columns="columns"
+            :pagination="pagination" row-key="id" hover
+            @page-change="onPageChange">
+            <template #type="{ row }">
+                <t-tag variant="light" :theme="getTypeTheme(row.type)">
+                    [[ getTypeLabel(row.type) ]]
+                </t-tag>
+            </template>
+        </t-table>
+    </t-card>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+HuiYanFarmer.createApp({
+    setup() {
+        var ref = Vue.ref;
+        var reactive = Vue.reactive;
+        var onMounted = Vue.onMounted;
+
+        var tableData = ref([]);
+        var loading = ref(false);
+        var searchKeyword = ref('');
+        var logType = ref('');
+        var pagination = reactive({ current: 1, pageSize: 15, total: 0 });
+
+        var typeOptions = [
+            { label: '全部', value: '' },
+            { label: '登录', value: 'login' },
+            { label: '个人信息', value: 'farmer_profile' },
+            { label: '系统操作', value: 'system' }
+        ];
+        var columns = [
+            { colKey: 'id', title: 'ID', width: 80 },
+            { colKey: 'type', title: '类型', width: 120, cell: 'type' },
+            { colKey: 'description', title: '描述', ellipsis: true },
+            { colKey: 'ip', title: 'IP', width: 140 },
+            { colKey: 'create_time', title: '时间', width: 180 }
+        ];
+
+        /** 类型标签文本映射 */
+        var getTypeLabel = function (type) {
+            var map = { login: '登录', farmer_profile: '个人信息', system: '系统', admin: '管理', plugin: '插件' };
+            return map[type] || type || '-';
+        };
+
+        /** 类型标签主题映射 */
+        var getTypeTheme = function (type) {
+            var map = { login: 'primary', farmer_profile: 'success', system: 'warning' };
+            return map[type] || 'default';
+        };
+
+        var fetchData = function () {
+            loading.value = true;
+            HuiYanFarmer.request.get('/log/list', {
+                params: {
+                    page: pagination.current,
+                    limit: pagination.pageSize,
+                    keyword: searchKeyword.value,
+                    log_type: logType.value
+                }
+            }).then(function (res) {
+                var data = (res.data && res.data.data) ? res.data.data : res.data;
+                tableData.value = data.list || [];
+                pagination.total = data.total || 0;
+            }).catch(function () {}).finally(function () {
+                loading.value = false;
+            });
+        };
+
+        var onPageChange = function (pageInfo) {
+            pagination.current = pageInfo.current;
+            pagination.pageSize = pageInfo.pageSize;
+            fetchData();
+        };
+
+        onMounted(function () { fetchData(); });
+
+        return {
+            tableData: tableData, loading: loading,
+            searchKeyword: searchKeyword, logType: logType,
+            pagination: pagination, typeOptions: typeOptions,
+            columns: columns, fetchData: fetchData,
+            onPageChange: onPageChange,
+            getTypeLabel: getTypeLabel, getTypeTheme: getTypeTheme
+        };
+    }
+});
+</script>
+{% endblock %}

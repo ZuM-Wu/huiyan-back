@@ -1,0 +1,21 @@
+{
+  "key": "default",
+  "name": "默认主题",
+  "module": "admin",
+  "theme_id": "default",
+  "surface": "admin",
+  "compatible_app_versions": [">=4.0.0"],
+  "template_overrides": [],
+  "static_assets": [{"key": "preview.svg", "path": "assets/preview.svg", "type": "preview"}],
+  "component_tokens": {},
+  "dependencies": [],
+  "conflicts": [],
+  "fallback_theme": "default",
+  "owner": "theme:admin:default",
+  "enabled": true,
+  "version": "1.0.0",
+  "author": "HuiYan",
+  "preview": "preview.svg",
+  "min_app_version": "3.4.0",
+  "description": "后台管理端默认主题，深色侧边栏 + TDesign 内容区，PC 端布局"
+}

@@ -1,0 +1,276 @@
+{% extends "base.html" %}
+{% block title %}首页 · 慧眼护农 农户端{% endblock %}
+
+{% block head %}
+<style>
+.home-welcome {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: var(--app-spacing-xl) var(--app-spacing-lg);
+    background: var(--app-brand-color);
+    border-radius: var(--app-radius-lg); color: var(--app-text-anti); margin-bottom: var(--app-spacing-lg);
+}
+.home-welcome__left h1 { font-size: var(--app-font-size-xl); font-weight: 600; margin-bottom: var(--app-spacing-xs); }
+.home-welcome__left p { font-size: var(--app-font-size-md); opacity: 0.9; }
+.home-welcome__right { text-align: right; }
+.home-welcome__cert {
+    display: inline-flex; align-items: center; gap: var(--app-spacing-sm);
+    padding: var(--app-spacing-sm) var(--app-spacing-md); border-radius: var(--app-radius-lg);
+    background: var(--app-overlay-white-mid); font-size: var(--app-font-size-sm);
+}
+.home-cert-banner {
+    display: flex; align-items: center; gap: var(--app-spacing-md);
+    padding: var(--app-spacing-md); border-radius: var(--app-radius-md);
+    background: var(--app-warning-light-mid); margin-bottom: var(--app-spacing-lg);
+    border: 1px solid var(--app-warning-light-hover);
+}
+.home-cert-banner__icon { font-size: var(--app-font-size-xl); color: var(--app-warning); flex-shrink: 0; }
+.home-cert-banner__body { flex: 1; }
+.home-cert-banner__title { font-size: var(--app-font-size-md); font-weight: 500; color: var(--app-text-primary); }
+.home-cert-banner__desc { font-size: var(--app-font-size-sm); color: var(--app-text-secondary); margin-top: var(--app-spacing-xs); }
+.home-actions { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--app-spacing-md); margin-bottom: var(--app-spacing-lg); }
+.home-action-card {
+    display: flex; flex-direction: column; align-items: center; gap: var(--app-spacing-sm);
+    padding: var(--app-spacing-lg) var(--app-spacing-md);
+    background: var(--app-bg-card); border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-md); cursor: pointer;
+    transition: transform var(--app-duration-base) var(--app-ease-spring), box-shadow var(--app-duration-base) var(--app-ease-standard);
+}
+.home-action-card:hover { border-color: var(--app-brand-color); box-shadow: var(--app-shadow-2); transform: translateY(-2px); }
+.home-action-card__icon {
+    width: 48px; height: 48px; border-radius: var(--app-radius-md);
+    display: flex; align-items: center; justify-content: center; font-size: var(--app-font-size-xl);
+}
+.home-action-card__icon--brand { background: var(--app-brand-light); color: var(--app-brand-color); }
+.home-action-card__icon--success { background: var(--app-success-light); color: var(--app-success); }
+.home-action-card__icon--warning { background: var(--app-warning-light); color: var(--app-warning); }
+.home-action-card__icon--info { background: var(--app-neutral-light); color: var(--app-text-secondary); }
+.home-action-card__title { font-size: var(--app-font-size-md); font-weight: 500; color: var(--app-text-primary); }
+.home-action-card__desc { font-size: var(--app-font-size-sm); color: var(--app-text-secondary); text-align: center; }
+.home-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--app-spacing-md); }
+.home-stat {
+    display: flex; align-items: center; gap: var(--app-spacing-sm);
+    padding: var(--app-spacing-md); background: var(--app-bg-card);
+    border: 1px solid var(--app-border); border-radius: var(--app-radius-md);
+}
+.home-stat__icon {
+    width: 40px; height: 40px; border-radius: var(--app-radius-md); flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; font-size: var(--app-font-size-xl);
+}
+.home-stat__icon--success { background: var(--app-success-light); color: var(--app-success); }
+.home-stat__icon--brand { background: var(--app-brand-light); color: var(--app-brand-color); }
+.home-stat__icon--warning { background: var(--app-warning-light); color: var(--app-warning); }
+.home-stat__icon--info { background: var(--app-neutral-light); color: var(--app-text-secondary); }
+.home-stat__label { font-size: var(--app-font-size-sm); color: var(--app-text-secondary); }
+.home-stat__value { font-size: var(--app-font-size-lg); font-weight: 600; color: var(--app-text-primary); margin-top: var(--app-spacing-xs); }
+.home-stat__value--sm { font-size: var(--app-font-size-sm); font-weight: 500; }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- 欢迎区域 -->
+<section class="home-welcome">
+    <div class="home-welcome__left">
+        <h1>[[ greeting ]]，[[ displayName ]]</h1>
+        <p>慧眼护农 · 智慧农业服务平台</p>
+    </div>
+    <div class="home-welcome__right">
+        <div class="home-welcome__cert">
+            <t-icon :name="certIcon"></t-icon>
+            <span>[[ certLabel ]]</span>
+        </div>
+    </div>
+</section>
+
+<!-- 实名认证提醒（未认证时显示） -->
+<div v-if="certStatus === -1 || certStatus === 2" class="home-cert-banner">
+    <t-icon name="secured" class="home-cert-banner__icon"></t-icon>
+    <div class="home-cert-banner__body">
+        <div class="home-cert-banner__title">[[ certStatus === 2 ? '实名认证未通过' : '完成实名认证' ]]</div>
+        <div class="home-cert-banner__desc">[[ certStatus === 2 ? '请重新提交认证资料' : '实名认证后可享受更多服务权益' ]]</div>
+    </div>
+    <t-button theme="primary" size="small" @click="goPage('/farmer/certification')">
+        [[ certStatus === 2 ? '重新认证' : '去认证' ]]
+    </t-button>
+</div>
+
+<!-- 快捷入口 -->
+<h3 class="farmer-section-title">快捷入口</h3>
+<section class="home-actions">
+    <div class="home-action-card" @click="goPage('/farmer/profile')">
+        <div class="home-action-card__icon home-action-card__icon--brand">
+            <t-icon name="user-setting"></t-icon>
+        </div>
+        <div class="home-action-card__title">个人中心</div>
+        <div class="home-action-card__desc">管理账号信息</div>
+    </div>
+    <div class="home-action-card" @click="goPage('/farmer/certification')">
+        <div class="home-action-card__icon home-action-card__icon--success">
+            <t-icon name="secured"></t-icon>
+        </div>
+        <div class="home-action-card__title">实名认证</div>
+        <div class="home-action-card__desc">[[ certStatus === 1 ? '已认证' : '未认证' ]]</div>
+    </div>
+    <div class="home-action-card" @click="goPage('/farmer/security')">
+        <div class="home-action-card__icon home-action-card__icon--warning">
+            <t-icon name="lock-on"></t-icon>
+        </div>
+        <div class="home-action-card__title">安全中心</div>
+        <div class="home-action-card__desc">账号安全检测</div>
+    </div>
+    <div class="home-action-card" @click="goPage('/farmer/log')">
+        <div class="home-action-card__icon home-action-card__icon--info">
+            <t-icon name="file-paste"></t-icon>
+        </div>
+        <div class="home-action-card__title">操作日志</div>
+        <div class="home-action-card__desc">查看操作记录</div>
+    </div>
+</section>
+
+<!-- 账号概览 -->
+<h3 class="farmer-section-title">账号概览</h3>
+<section class="home-stats">
+    <div class="home-stat">
+        <div class="home-stat__icon home-stat__icon--success">
+            <t-icon name="user"></t-icon>
+        </div>
+        <div>
+            <div class="home-stat__label">账号状态</div>
+            <div class="home-stat__value">
+                <t-tag :theme="userStatus === 1 ? 'success' : 'danger'" size="small">
+                    [[ userStatus === 1 ? '正常' : '异常' ]]
+                </t-tag>
+            </div>
+        </div>
+    </div>
+    <div class="home-stat">
+        <div class="home-stat__icon" :class="certStatus === 1 ? 'home-stat__icon--success' : 'home-stat__icon--warning'">
+            <t-icon name="secured"></t-icon>
+        </div>
+        <div>
+            <div class="home-stat__label">认证状态</div>
+            <div class="home-stat__value">[[ certLabel ]]</div>
+        </div>
+    </div>
+    <div class="home-stat">
+        <div class="home-stat__icon home-stat__icon--brand">
+            <t-icon name="lock-on"></t-icon>
+        </div>
+        <div>
+            <div class="home-stat__label">安全等级</div>
+            <div class="home-stat__value">[[ securityLevel ]]</div>
+        </div>
+    </div>
+    <div class="home-stat">
+        <div class="home-stat__icon home-stat__icon--info">
+            <t-icon name="time"></t-icon>
+        </div>
+        <div>
+            <div class="home-stat__label">注册时间</div>
+            <div class="home-stat__value home-stat__value--sm">[[ registerDate ]]</div>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+HuiYanFarmer.createApp({
+    setup() {
+        var ref = Vue.ref;
+        var computed = Vue.computed;
+        var reactive = Vue.reactive;
+        var onMounted = Vue.onMounted;
+
+        var userInfo = reactive({
+            nickname: '', username: '', status: 1,
+            create_time: '', email: '', phone: ''
+        });
+        var certStatus = ref(-1);
+
+        var greeting = computed(function () {
+            var h = new Date().getHours();
+            if (h < 6) return '凌晨好';
+            if (h < 9) return '早上好';
+            if (h < 12) return '上午好';
+            if (h < 14) return '中午好';
+            if (h < 18) return '下午好';
+            return '晚上好';
+        });
+
+        var displayName = computed(function () {
+            return userInfo.nickname || userInfo.username || '用户';
+        });
+
+        var userStatus = computed(function () { return userInfo.status; });
+
+        var certLabel = computed(function () {
+            var s = certStatus.value;
+            if (s === 1) return '已认证';
+            if (s === 0) return '审核中';
+            if (s === 2) return '未通过';
+            return '未认证';
+        });
+
+        var certIcon = computed(function () {
+            var s = certStatus.value;
+            if (s === 1) return 'check-circle';
+            if (s === 0) return 'time';
+            if (s === 2) return 'close-circle';
+            return 'info-circle';
+        });
+
+        var securityLevel = computed(function () {
+            var score = 0;
+            if (userInfo.email) score++;
+            if (userInfo.phone) score++;
+            if (userInfo.nickname) score++;
+            if (certStatus.value === 1) score++;
+            var levels = ['低', '低', '中', '高', '高'];
+            return levels[score];
+        });
+
+        var registerDate = computed(function () {
+            if (!userInfo.create_time) return '暂无';
+            return userInfo.create_time.split(' ')[0] || userInfo.create_time;
+        });
+
+        onMounted(function () {
+            HuiYanFarmer.request.get('/me').then(function (res) {
+                var d = res.data || {};
+                userInfo.nickname = d.nickname || '';
+                userInfo.username = d.name || d.username || '';
+                userInfo.email = d.email || '';
+                userInfo.phone = d.phone || '';
+            }).catch(function () {});
+
+            HuiYanFarmer.request.get('/profile').then(function (res) {
+                var d = (res.data && res.data.data) ? res.data.data : res.data;
+                userInfo.status = d.status != null ? d.status : 1;
+                userInfo.create_time = d.create_time || '';
+            }).catch(function () {});
+
+            HuiYanFarmer.request.get('/certification/status').then(function (res) {
+                var d = (res.data && res.data.data) ? res.data.data : res.data;
+                certStatus.value = d.cert_status != null ? d.cert_status : -1;
+            }).catch(function () {});
+        });
+
+        var goPage = function (path) {
+            if (window.HuiYanFarmer && window.HuiYanFarmer.loadPage) {
+                window.HuiYanFarmer.loadPage(path);
+            } else {
+                location.href = path;
+            }
+        };
+
+        return {
+            greeting: greeting, displayName: displayName,
+            userStatus: userStatus, securityLevel: securityLevel,
+            registerDate: registerDate,
+            certStatus: certStatus, certLabel: certLabel, certIcon: certIcon,
+            goPage: goPage
+        };
+    }
+});
+</script>
+{% endblock %}

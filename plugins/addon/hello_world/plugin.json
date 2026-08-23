@@ -1,0 +1,30 @@
+{
+  "name": "hello_world",
+  "title": "Hello World 示例插件",
+  "version": "3.0.0",
+  "description": "全量演示插件：数据表、CRUD 路由、权限节点、菜单注册、钩子、配置、前端页面，供后续插件开发参考",
+  "author": "HuiYan Team",
+  "module": "addon",
+  "owner_id": "hello_world",
+  "surface": "admin",
+  "enabled": true,
+  "default_order": 100,
+  "compatible_app_versions": [">=4.0.0"],
+  "dependencies": [],
+  "conflicts": [],
+  "permissions": ["hello_world:list"],
+  "capabilities": ["demo.message"],
+  "pages": [
+    {"page_key": "plugin_hello_world", "surface": "admin", "route": "/plugin/hello_world/hello_world", "template": "hello_world.html", "permission": "hello_world:list"},
+    {"page_key": "plugin_hello_world_front", "surface": "farmer", "route": "/plugin/hello_world/index", "template": "index.html", "permission": ""}
+  ],
+  "resources": [],
+  "tasks": [],
+  "events": ["hello_world.message_created"],
+  "health": {"check": "plugin.hello_world"},
+  "config": {
+    "hello_world.welcome_text": "欢迎使用 Hello World 示例插件，这里演示了插件系统的全部能力",
+    "hello_world.page_size": "10",
+    "hello_world.enable_greeting_hook": "1"
+  }
+}

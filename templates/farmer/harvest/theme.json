@@ -1,0 +1,21 @@
+{
+  "key": "harvest",
+  "name": "丰收主题",
+  "module": "farmer",
+  "theme_id": "harvest",
+  "surface": "farmer",
+  "compatible_app_versions": [">=4.0.0"],
+  "template_overrides": [],
+  "static_assets": [{"key": "preview.svg", "path": "assets/preview.svg", "type": "preview"}],
+  "component_tokens": {},
+  "dependencies": [],
+  "conflicts": [],
+  "fallback_theme": "default",
+  "owner": "theme:farmer:harvest",
+  "enabled": true,
+  "version": "1.0.0",
+  "author": "HuiYan",
+  "preview": "preview.svg",
+  "min_app_version": "3.4.0",
+  "description": "农户端丰收主题，橙金色暖色调，顶部带丰收横幅标识，用于演示主题切换"
+}

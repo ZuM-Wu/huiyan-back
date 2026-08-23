@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+{% block title %}农户详情 - 慧眼护农{% endblock %}
+{% block content %}
+<div id="page-app" v-cloak class="farmer-detail-page">
+    <!-- 顶部返回导航（标准返回按钮，见 06B 组件视觉规范） -->
+    <div class="detail-top-bar">
+        <div class="detail-breadcrumb">
+            <t-button theme="default" @click="goBack">
+                <template #icon><t-icon name="chevron-left"></t-icon></template>
+                返回农户列表
+            </t-button>
+            <span>个人资料</span>
+        </div>
+    </div>
+
+    <!-- 标签页 + 用户切换 + 筛选条件 -->
+    <div class="detail-toolbar">
+        <div class="detail-toolbar-left">
+            <t-tabs v-model="activeTab">
+                <t-tab-panel value="profile" label="个人资料"></t-tab-panel>
+                <t-tab-panel value="login" label="登录信息"></t-tab-panel>
+            </t-tabs>
+        </div>
+        <div class="detail-toolbar-right">
+            <t-select v-model="searchField" style="width: 100px;">
+                <t-option value="all" label="全部"></t-option>
+                <t-option value="id" label="ID"></t-option>
+                <t-option value="username" label="姓名"></t-option>
+                <t-option value="phone" label="手机号"></t-option>
+                <t-option value="email" label="邮箱"></t-option>
+                <t-option value="company" label="公司"></t-option>
+            </t-select>
+            <t-select v-model="switcherId" placeholder="快捷切换用户" filterable @change="onSwitcherChange" class="detail-switcher-select">
+                <t-option v-for="item in farmerList" :key="item.id" :value="item.id"
+                    :label="'#' + item.id + ' ' + item.username">
+                    <div class="switcher-option">
+                        <span class="switcher-option-id">#[[ item.id ]] - [[ item.username ]]</span>
+                        <span class="switcher-option-info">[[ item.email || '--' ]]</span>
+                    </div>
+                </t-option>
+            </t-select>
+        </div>
+    </div>
+
+    <t-skeleton v-if="loading" :row-col="[6]" animation="gradient"></t-skeleton>
+    <template v-else>
+        <!-- ========== 个人资料 Tab ========== -->
+        <div v-if="detail && activeTab === 'profile'" class="detail-content">
+            <div class="detail-row">
+                <!-- 左侧：账户信息（只读） -->
+                <t-card class="detail-card" title="账户信息">
+                    <template #actions>
+                        <t-button v-if="detail" theme="primary" @click="doQuickLogin">
+                            快捷登录
+                        </t-button>
+                    </template>
+                    <div class="kv-grid kv-grid-2col">
+                        <div class="kv-item">
+                            <span class="kv-label">注册时间</span>
+                            <span class="kv-value">[[ detail.create_time || '--' ]]</span>
+                        </div>
+                        <div class="kv-item">
+                            <span class="kv-label">最后登录IP</span>
+                            <span class="kv-value">[[ detail.last_login_ip || '--' ]]</span>
+                        </div>
+                        <div class="kv-item">
+                            <span class="kv-label">最后操作时间</span>
+                            <span class="kv-value">[[ detail.last_action_time || '--' ]]</span>
+                        </div>
+                        <div class="kv-item">
+                            <span class="kv-label">实名状态</span>
+                            <t-tag v-if="certStatus === 1" theme="success" variant="light">已认证</t-tag>
+                            <t-tag v-else-if="certStatus === 0" theme="warning" variant="light">待审核</t-tag>
+                            <t-tag v-else-if="certStatus === 2" theme="danger" variant="light">未通过</t-tag>
+                            <t-tag v-else theme="default" variant="light">未认证</t-tag>
+                        </div>
+                        <div class="kv-item">
+                            <span class="kv-label">产区绑定位置</span>
+                            <span class="kv-value">[[ (detail.areas && detail.areas.length) ? detail.areas.join('、') : '--' ]]</span>
+                        </div>
+                    </div>
+                </t-card>
+
+                <!-- 右侧：登录信息（最近 5 次） -->
+                <t-card class="detail-card detail-table-card" title="登录信息">
+                    <t-table :data="(detail.operation_logs || []).slice(0, 5)" :columns="shortLogColumns" row-key="id" max-height="240" hover>
+                        <template #empty>
+                            <div class="empty-text">暂无操作日志</div>
+                        </template>
+                    </t-table>
+                </t-card>
+            </div>
+
+            <!-- 基础资料（可编辑） -->
+            <t-card class="detail-card" title="基础资料">
+                <!-- 头像展示与上传 -->
+                <div class="detail-avatar-row">
+                    <div class="detail-avatar-wrap">
+                        <img v-if="editForm.avatar" :src="editForm.avatar" class="detail-avatar-img" alt="头像" />
+                        <div v-else class="detail-avatar-placeholder">[[ (editForm.nickname || detail.username || '').charAt(0) ]]</div>
+                    </div>
+                    <image-upload v-model="editForm.avatar" hint="农户头像" :max-size="2"></image-upload>
+                </div>
+                <div class="form-grid form-grid-4col">
+                    <div class="form-item">
+                        <label class="form-label">用户名</label>
+                        <t-input :value="detail.username" disabled></t-input>
+                    </div>
+                    <div class="form-item">
+                        <label class="form-label">昵称</label>
+                        <t-input v-model="editForm.nickname" placeholder="昵称"></t-input>
+                    </div>
+                    <div class="form-item">
+                        <label class="form-label">手机号</label>
+                        <t-input v-model="editForm.phone" placeholder="手机号"></t-input>
+                    </div>
+                    <div class="form-item">
+                        <label class="form-label">密码</label>
+                        <t-input v-model="editForm.password" type="password" placeholder="留空不修改"></t-input>
+                    </div>
+                    <div class="form-item">
+                        <label class="form-label">邮箱</label>
+                        <t-input v-model="editForm.email" placeholder="邮箱"></t-input>
+                    </div>
+                    <div class="form-item">
+                        <label class="form-label">国家</label>
+                        <t-input v-model="editForm.country" placeholder="国家"></t-input>
+                    </div>
+                    <div class="form-item">
+                        <label class="form-label">公司/农场</label>
+                        <t-input v-model="editForm.company" placeholder="公司/农场"></t-input>
+                    </div>
+                    <div class="form-item">
+                        <label class="form-label">语言</label>
+                        <t-input v-model="editForm.language" placeholder="语言"></t-input>
+                    </div>
+                    <div class="form-item form-item-full">
+                        <label class="form-label">地址</label>
+                        <t-input v-model="editForm.address" placeholder="地址"></t-input>
+                    </div>
+                    <div class="form-item form-item-full">
+                        <label class="form-label">备注</label>
+                        <t-textarea v-model="editForm.remark" placeholder="备注" :autosize="{minRows: 3, maxRows: 6}"></t-textarea>
+                    </div>
+                </div>
+
+                <!-- 操作按钮组 -->
+                <div class="detail-actions">
+                    <t-button theme="primary" :loading="saving" @click="doSave">保存</t-button>
+                    <t-button theme="danger" @click="doDelete">删除</t-button>
+                    <t-button :theme="detail.status === 1 ? 'default' : 'primary'" variant="base" @click="doToggleStatus">
+                        [[ detail.status === 1 ? '停用' : '启用' ]]
+                    </t-button>
+                </div>
+            </t-card>
+        </div>
+
+        <!-- ========== 登录信息独立 Tab ========== -->
+        <div v-if="detail && activeTab === 'login'" class="detail-content">
+            <t-card class="detail-card detail-table-card" title="登录信息">
+                <!-- 筛选栏 -->
+                <div class="log-filter-bar">
+                    <t-date-range-picker v-model="logDateRange" allow-input clearable class="log-date-range"></t-date-range-picker>
+                    <t-input v-model="logOperator" placeholder="操作人搜索" clearable style="width: 140px;"></t-input>
+                    <t-input v-model="logKeyword" placeholder="详情 / IP 查询" clearable style="width: 200px;" @enter="fetchLogs"></t-input>
+                    <t-button theme="primary" @click="fetchLogs">查询</t-button>
+                </div>
+                <!-- 表格 -->
+                <t-skeleton v-if="logLoading" :row-col="[4]" animation="gradient"></t-skeleton>
+                <t-table v-else :data="logList" :columns="opLogColumns" row-key="id" hover>
+                    <template #empty>
+                        <div class="empty-text">暂无操作日志</div>
+                    </template>
+                </t-table>
+                <!-- 分页 -->
+                <div class="log-pagination" v-if="logTotal > logLimit">
+                    <t-pagination
+                        :total="logTotal"
+                        :page-size="logLimit"
+                        :current="logPage"
+                        @change="onLogPageChange">
+                    </t-pagination>
+                </div>
+            </t-card>
+        </div>
+    </template>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="/static/js/pages/farmer-detail.js?v={{ config.app_version }}"></script>
+{% endblock %}

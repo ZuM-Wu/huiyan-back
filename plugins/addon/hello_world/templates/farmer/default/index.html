@@ -1,0 +1,107 @@
+{% extends "plugin_page_shell.html" %}
+{% block title %}示例插件 · 慧眼护农 农户端{% endblock %}
+
+{% block content %}
+<section class="farmer-hero">
+    <div class="farmer-hero-inner">
+        <h1 class="farmer-hero-title">示例插件 · 农户端</h1>
+        <p class="farmer-hero-sub">这是 hello_world 插件提供的农户端页面，演示插件前台模板打通</p>
+    </div>
+</section>
+
+<section class="farmer-cards">
+    <t-card title="插件留言板（示例）" :bordered="true" class="farmer-card">
+        <p class="farmer-card-desc">当前主题：[[ themeName ]]，插件模板经农户端主题环境回退链渲染。</p>
+        <t-form ref="formRef" :data="form" :rules="rules" layout="inline" @submit="onSubmit">
+            <t-form-item name="title">
+                <t-input v-model="form.title" placeholder="请输入留言标题" />
+            </t-form-item>
+            <t-form-item name="content">
+                <t-input v-model="form.content" placeholder="请输入内容" />
+            </t-form-item>
+            <t-form-item>
+                <t-button theme="primary" :loading="submitting" type="submit">提交</t-button>
+            </t-form-item>
+        </t-form>
+    </t-card>
+
+    <t-card title="最近留言" :bordered="true" class="farmer-card" style="margin-top: 16px;">
+        <t-list :data="messages" :loading="loading" split>
+            <template #listItem="{ item }">
+                <div class="farmer-msg-item">
+                    <div class="farmer-msg-header">
+                        <strong>[[ item.title ]]</strong>
+                        <span class="farmer-msg-author" v-if="item.author"> — [[ item.author ]]</span>
+                    </div>
+                    <p class="farmer-msg-content">[[ item.content ]]</p>
+                </div>
+            </template>
+        </t-list>
+        <t-empty v-if="!loading && messages.length === 0" description="暂无留言" />
+    </t-card>
+</section>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+/*
+  农户端留言板 — 演示完整农户端 API 链路：
+  1. 页面加载时 GET /api/v1/hello_world/messages 拉取公开留言
+  2. 提交时 POST /api/v1/hello_world/messages 写入数据库
+  3. HuiYanFarmer.request 实例自动附带 farmer_token（localStorage）鉴权
+*/
+HuiYanFarmer.createPluginPage({ plugin: 'hello_world', page: 'index',
+    setup() {
+        const { ref, onMounted } = Vue;
+        const { MessagePlugin } = TDesign;
+
+        const themeName = ref('{{ theme }}');
+        const formRef = ref(null);
+        const form = reactive({ title: '', content: '' });
+        const rules = {
+            title: [{ required: true, message: '请输入标题', type: 'error' }],
+            content: [{ required: true, message: '请输入内容', type: 'error' }]
+        };
+        const submitting = ref(false);
+        const messages = ref([]);
+        const loading = ref(false);
+
+        // 拉取公开留言列表
+        const fetchMessages = () => {
+            loading.value = true;
+            HuiYanFarmer.request.get('/hello_world/messages', { params: { page: 1, limit: 20 } })
+                .then(function (res) {
+                    var data = res.data;
+                    messages.value = data.list || [];
+                })
+                .catch(function () {})
+                .finally(function () { loading.value = false; });
+        };
+
+        // 提交留言（TDesign Form @submit：校验未通过时错误已内联显示，直接中断）
+        var onSubmit = function (params) {
+            if (params && params.e) params.e.preventDefault();
+            if (params && params.validateResult !== true) return;
+            submitting.value = true;
+            HuiYanFarmer.request.post('/hello_world/messages', {
+                title: form.title,
+                content: form.content,
+                author: ''
+            }).then(function (res) {
+                MessagePlugin.success('提交成功');
+                form.title = '';
+                form.content = '';
+                fetchMessages();
+            }).catch(function () {
+                MessagePlugin.error('提交失败');
+            }).finally(function () { submitting.value = false; });
+        };
+
+        onMounted(function () { fetchMessages(); });
+
+        return { themeName, formRef, form, rules, submitting, messages, loading, onSubmit };
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ site_banner.title | default(config.site_name, true) }} - {{ site_banner.subtitle | default('官网', true) }}{% endblock %}
+
+{% block content %}
+{# ========== Banner 区 ========== #}
+<section class="site-banner"
+    {% if site_banner.background %}
+    style="background-image: url('{{ site_banner.background }}');"
+    {% endif %}>
+    <div class="site-banner-inner">
+        <h1 class="site-banner-title">{{ site_banner.title | default(config.site_name, true) }}</h1>
+        <p class="site-banner-subtitle">{{ site_banner.subtitle | default('智慧农业业务系统', true) }}</p>
+        <div class="site-banner-actions">
+            <a class="site-btn site-btn-primary site-btn-lg" href="/admin/login">登录使用</a>
+            <a class="site-btn site-btn-ghost site-btn-lg" href="#features">了解更多</a>
+        </div>
+    </div>
+</section>
+
+{# ========== 功能介绍区 ========== #}
+<section class="site-features" id="features">
+    <div class="site-features-inner">
+        <h2 class="site-features-heading">核心能力</h2>
+
+        {% if site_intro %}
+        <p class="site-features-intro">{{ site_intro }}</p>
+        {% endif %}
+
+        <!-- 默认四大能力卡片（主题内硬编码；如需动态化可改为配置项） -->
+        <div class="site-features-grid">
+            <div class="site-feature-card">
+                <div class="site-feature-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                </div>
+                <h3 class="site-feature-title">病虫害识别</h3>
+                <p class="site-feature-desc">基于 AI 图像识别，上传作物照片即可定位常见病虫害类型。</p>
+            </div>
+            <div class="site-feature-card">
+                <div class="site-feature-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"></path><path d="M10 22h4"></path><path d="M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"></path></svg>
+                </div>
+                <h3 class="site-feature-title">智能诊断</h3>
+                <p class="site-feature-desc">综合气象、土壤与作物长势数据，给出多维度诊断结论。</p>
+            </div>
+            <div class="site-feature-card">
+                <div class="site-feature-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="9" y1="13" x2="15" y2="13"></line><line x1="9" y1="17" x2="15" y2="17"></line></svg>
+                </div>
+                <h3 class="site-feature-title">农事建议</h3>
+                <p class="site-feature-desc">按物候期与地域特征，自动生成施肥、灌溉、防治作业建议。</p>
+            </div>
+            <div class="site-feature-card">
+                <div class="site-feature-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"></path><path d="M7 14l4-4 3 3 5-6"></path><circle cx="7" cy="14" r="1"></circle><circle cx="11" cy="10" r="1"></circle><circle cx="14" cy="13" r="1"></circle></svg>
+                </div>
+                <h3 class="site-feature-title">设备监控</h3>
+                <p class="site-feature-desc">接入农场传感器，实时查看温湿度、土壤、虫情等设备数据。</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+{# ========== 底部 CTA ========== #}
+<section class="site-cta">
+    <div class="site-cta-inner">
+        <h2 class="site-cta-title">立即体验智慧农业</h2>
+        <p class="site-cta-desc">登录后台即可使用全部能力，管理员可直接进入工作台。</p>
+        <a class="site-btn site-btn-primary site-btn-lg" href="/admin/login">进入登录</a>
+    </div>
+</section>
+{% endblock %}

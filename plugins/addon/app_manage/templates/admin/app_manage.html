@@ -1,0 +1,295 @@
+{% extends "plugin_page_shell.html" %}
+{% block title %}App管理 - 慧眼护农{% endblock %}
+{% block head %}
+{{ super() }}
+<style>
+/* 色值与间距全部使用 --app-* 令牌，深色模式自动适配，禁止硬编码 */
+.am-tab-body { padding-top: var(--app-spacing-md); }
+/* Tab 内工具栏与表格间补齐规范下边距（admin.css 全局规则不命中本页嵌套结构） */
+.am-tab-body > .card-header-toolbar { margin-bottom: var(--app-spacing-md); }
+.am-tip { font-size: var(--app-font-size-sm); color: var(--app-text-secondary); }
+.am-sub-text { font-size: var(--app-font-size-sm); color: var(--app-text-secondary); }
+.am-version-name { display: flex; flex-direction: column; }
+.am-ad-layout { display: flex; gap: var(--app-spacing-xl); align-items: flex-start; }
+.am-ad-preview { width: 300px; flex-shrink: 0; display: flex; flex-direction: column; gap: var(--app-spacing-md); }
+.am-ad-image-box {
+    width: 100%; min-height: 200px; border-radius: var(--app-radius-md); overflow: hidden;
+    border: 1px dashed var(--app-border);
+    display: flex; align-items: center; justify-content: center;
+    background: var(--app-bg-container);
+}
+.am-ad-image { width: 100%; display: block; }
+.am-ad-empty {
+    display: flex; flex-direction: column; align-items: center; gap: var(--app-spacing-sm);
+    padding: var(--app-spacing-xl) 0; color: var(--app-text-secondary);
+}
+.am-ad-upload-row { display: flex; gap: var(--app-spacing-sm); align-items: flex-start; }
+.am-ad-form { flex: 1; max-width: 560px; }
+@media (max-width: 900px) { .am-ad-layout { flex-direction: column; } .am-ad-preview { width: 100%; } }
+</style>
+{% endblock %}
+{#
+  App管理插件后台管理页
+
+  布局：t-tabs 三页签 — App版本 / 开屏广告 / App公告。
+  要点：
+  1. 继承核心 base.html；页面脚本内联在 block scripts（插件不挂 /static）
+  2. 根节点 #page-app + v-cloak；Vue 分隔符 [[ ]]；t-* 组件禁止自闭合
+  3. 按钮 v-permission 控显隐，权限码与 auth.py / router_admin 一一对应
+  4. APK/广告图均为 multipart FormData 直传插件自有接口（不走通用 upload，FormData 由 axios 自动携带 boundary）
+  5. 更新日志/公告内容为富文本（复用全局 com-tinymce 组件），TinyMCE vendor 懒加载（编辑器仅弹窗内使用）
+#}
+{% block content %}
+<div id="page-app" v-cloak class="app-manage-page">
+    <t-card title="App 管理">
+        <t-tabs v-model="activeTab">
+            <!-- ==================== Tab1 App版本 ==================== -->
+            <t-tab-panel value="version" label="App版本">
+                <div class="am-tab-body">
+                    <div class="card-header-toolbar">
+                        <div class="card-header-toolbar-left">
+                            <span class="am-tip">App端按版本号数值比较，发布状态中版本号最大者为最新版本</span>
+                        </div>
+                        <div class="card-header-toolbar-right">
+                            <t-button v-permission="'app_manage:version'" theme="primary" :disabled="!uploadPolicyReady"
+                                @click="openVersionUpload">
+                                <template #icon><t-icon name="upload"></t-icon></template>
+                                上传发版
+                            </t-button>
+                        </div>
+                    </div>
+                    <t-skeleton v-if="versionLoading" :row-col="[6]" animation="gradient"></t-skeleton>
+                    <t-table v-else :data="versionData" :columns="versionColumns" :loading="versionLoading"
+                        :pagination="versionPagination" row-key="id" hover @page-change="onVersionPageChange">
+                        <template #version="{ row }">
+                            <div class="am-version-name">
+                                <span>[[ row.version_name ]]</span>
+                                <span class="am-sub-text">code: [[ row.version_code ]]</span>
+                            </div>
+                        </template>
+                        <template #apk_size="{ row }">[[ formatSize(row.apk_size) ]]</template>
+                        <template #build_number="{ row }">
+                            <span class="am-sub-text">[[ row.build_number || '-' ]]</span>
+                        </template>
+                        <template #update_policy="{ row }">
+                            <t-tag :theme="['default', 'warning', 'danger'][row.update_policy] || 'default'" variant="light">
+                                [[ ['可忽略', '提示可稍后', '强制'][row.update_policy] || '未知' ]]
+                            </t-tag>
+                        </template>
+                        <template #status="{ row }">
+                            <t-tag :theme="row.status === 1 ? 'success' : 'warning'" variant="light">
+                                [[ row.status === 1 ? '发布' : '下架' ]]
+                            </t-tag>
+                        </template>
+                        <template #actions="{ row }">
+                            <t-button v-permission="'app_manage:version'" theme="primary" variant="text"
+                                size="small" @click="openVersionEdit(row)">编辑</t-button>
+                            <t-popconfirm content="确认删除该版本？物理APK文件将一并删除" @confirm="removeVersion(row)">
+                                <t-button v-permission="'app_manage:version'" theme="danger" variant="text"
+                                    size="small">删除</t-button>
+                            </t-popconfirm>
+                        </template>
+                    </t-table>
+                </div>
+            </t-tab-panel>
+
+            <!-- ==================== Tab2 开屏广告 ==================== -->
+            <t-tab-panel value="ad" label="开屏广告">
+                <div class="am-tab-body am-ad-layout">
+                    <!-- 左：素材预览与上传 -->
+                    <div class="am-ad-preview">
+                        <div class="am-ad-image-box">
+                            <img v-if="ad.image_url" :src="ad.image_url" alt="开屏广告图" class="am-ad-image">
+                            <div v-else class="am-ad-empty">
+                                <t-icon name="image" size="36px"></t-icon>
+                                <span>暂未上传广告图</span>
+                            </div>
+                        </div>
+                        <div class="am-ad-upload-row">
+                            <image-upload v-permission="'app_manage:ad'" v-model="ad.image_url"
+                                upload-url="/app_manage/ad/image" field-name="image" response-field="image_url"
+                                :upload-policy="adImagePolicy" :upload-strategy="uploadAdImage"
+                                hint="开屏广告图"></image-upload>
+                        </div>
+                        <div v-if="ad.cache_key" class="am-sub-text">素材缓存标识：[[ ad.cache_key ]]</div>
+                    </div>
+                    <!-- 右：投放配置 -->
+                    <div class="am-ad-form">
+                        <t-form :data="adForm" label-width="100px">
+                            <t-form-item label="是否启用">
+                                <t-radio-group v-model="adForm.enabled">
+                                    <t-radio :value="1">启用</t-radio>
+                                    <t-radio :value="0">停用</t-radio>
+                                </t-radio-group>
+                            </t-form-item>
+                            <t-form-item label="跳转链接">
+                                <t-input v-model="adForm.link_url" placeholder="点击广告跳转的URL，留空则不跳转" :maxlength="500"/>
+                            </t-form-item>
+                            <t-form-item label="投放时段">
+                                <t-date-range-picker v-model="adRange" enable-time-picker clearable
+                                    format="YYYY-MM-DD HH:mm:ss" style="width: 100%;"
+                                    :placeholder="['开始时间，留空=立即投放', '结束时间，留空=不限']"/>
+                            </t-form-item>
+                            <t-form-item label="展示秒数">
+                                <t-input-number v-model="adForm.duration" :min="1" :max="60" theme="normal"/>
+                            </t-form-item>
+                            <t-form-item>
+                                <t-button v-permission="'app_manage:ad'" theme="primary" :loading="adSaving"
+                                    @click="submitAd">保存配置</t-button>
+                            </t-form-item>
+                        </t-form>
+                    </div>
+                </div>
+            </t-tab-panel>
+
+            <!-- ==================== Tab3 App公告 ==================== -->
+            <t-tab-panel value="notice" label="App公告">
+                <div class="am-tab-body">
+                    <div class="card-header-toolbar">
+                        <div class="card-header-toolbar-left">
+                            <span class="am-tip">仅启用且在生效时间窗内的公告会下发给App端（最多20条）</span>
+                        </div>
+                        <div class="card-header-toolbar-right">
+                            <t-button v-permission="'app_manage:notice'" theme="primary" @click="openNoticeCreate">
+                                <template #icon><t-icon name="add"></t-icon></template>
+                                新建公告
+                            </t-button>
+                        </div>
+                    </div>
+                    <t-skeleton v-if="noticeLoading" :row-col="[6]" animation="gradient"></t-skeleton>
+                    <t-table v-else :data="noticeData" :columns="noticeColumns" :loading="noticeLoading"
+                        :pagination="noticePagination" row-key="id" hover @page-change="onNoticePageChange">
+                        <template #is_popup="{ row }">
+                            <t-tag :theme="row.is_popup === 1 ? 'primary' : 'default'" variant="light">
+                                [[ row.is_popup === 1 ? '弹窗' : '列表' ]]
+                            </t-tag>
+                        </template>
+                        <template #window="{ row }">
+                            <span class="am-sub-text">[[ (row.start_time || '立即') + ' ~ ' + (row.end_time || '永久') ]]</span>
+                        </template>
+                        <template #enabled="{ row }">
+                            <t-tag :theme="row.enabled === 1 ? 'success' : 'warning'" variant="light">
+                                [[ row.enabled === 1 ? '启用' : '禁用' ]]
+                            </t-tag>
+                        </template>
+                        <template #actions="{ row }">
+                            <t-button v-permission="'app_manage:notice'" theme="primary" variant="text"
+                                size="small" @click="openNoticeEdit(row)">编辑</t-button>
+                            <t-popconfirm content="确认删除该公告？" @confirm="removeNotice(row)">
+                                <t-button v-permission="'app_manage:notice'" theme="danger" variant="text"
+                                    size="small">删除</t-button>
+                            </t-popconfirm>
+                        </template>
+                    </t-table>
+                </div>
+            </t-tab-panel>
+        </t-tabs>
+    </t-card>
+
+    <!-- 上传发版弹窗 -->
+    <t-dialog v-model:visible="versionUploadVisible" header="上传发版" :on-confirm="submitVersionUpload"
+        :confirm-loading="versionSubmitting" width="720px" placement="center" destroy-on-close>
+        <t-form ref="versionUploadFormRef" :data="versionForm" :rules="versionUploadRules" label-width="100px">
+            <t-form-item label="APK文件" name="apk">
+                <t-upload v-model="apkFiles" :auto-upload="false" :max="1" theme="file"
+                    :accept="apkAccept" :placeholder="apkHint"></t-upload>
+            </t-form-item>
+            <t-form-item label="版本名" name="version_name">
+                <t-input v-model="versionForm.version_name" placeholder="如 1.2.0" :maxlength="32"/>
+            </t-form-item>
+            <t-form-item label="版本号" name="version_code">
+                <t-input-number v-model="versionForm.version_code" :min="1" theme="normal"
+                    placeholder="整数，App端数值比较用"/>
+            </t-form-item>
+            <t-form-item label="内部构建号">
+                <t-input v-model="versionForm.build_number" placeholder="选填，内部构建标识，不参与更新比较" :maxlength="32"/>
+            </t-form-item>
+            <t-form-item label="更新日志">
+                <com-tinymce ref="clUploadEditor" id="am-cl-upload"
+                    :default-value="versionForm.changelog" :height="360"></com-tinymce>
+            </t-form-item>
+            <t-form-item label="更新策略">
+                <t-radio-group v-model="versionForm.update_policy">
+                    <t-radio :value="0">可忽略</t-radio>
+                    <t-radio :value="1">提示可稍后</t-radio>
+                    <t-radio :value="2">强制更新</t-radio>
+                </t-radio-group>
+            </t-form-item>
+            <t-form-item label="立即发布">
+                <t-radio-group v-model="versionForm.status">
+                    <t-radio :value="1">发布</t-radio>
+                    <t-radio :value="0">不发布</t-radio>
+                </t-radio-group>
+            </t-form-item>
+        </t-form>
+    </t-dialog>
+
+    <!-- 编辑版本弹窗（不更换物理APK） -->
+    <t-dialog v-model:visible="versionEditVisible" header="编辑版本" :on-confirm="submitVersionEdit"
+        width="720px" placement="center" destroy-on-close>
+        <t-form :data="versionEditForm" label-width="100px">
+            <t-form-item label="内部构建号">
+                <t-input v-model="versionEditForm.build_number" placeholder="选填，内部构建标识，不参与更新比较" :maxlength="32"/>
+            </t-form-item>
+            <t-form-item label="更新日志">
+                <com-tinymce ref="clEditEditor" id="am-cl-edit"
+                    :default-value="versionEditForm.changelog" :height="360"></com-tinymce>
+            </t-form-item>
+            <t-form-item label="更新策略">
+                <t-radio-group v-model="versionEditForm.update_policy">
+                    <t-radio :value="0">可忽略</t-radio>
+                    <t-radio :value="1">提示可稍后</t-radio>
+                    <t-radio :value="2">强制更新</t-radio>
+                </t-radio-group>
+            </t-form-item>
+            <t-form-item label="发布状态">
+                <t-radio-group v-model="versionEditForm.status">
+                    <t-radio :value="1">发布</t-radio>
+                    <t-radio :value="0">下架</t-radio>
+                </t-radio-group>
+            </t-form-item>
+        </t-form>
+    </t-dialog>
+
+    <!-- 新建/编辑公告弹窗 -->
+    <t-dialog v-model:visible="noticeFormVisible" :header="noticeFormTitle" :on-confirm="submitNotice"
+        width="720px" placement="center" destroy-on-close>
+        <t-form ref="noticeFormRef" :data="noticeForm" :rules="noticeRules" label-width="100px">
+            <t-form-item label="标题" name="title">
+                <t-input v-model="noticeForm.title" placeholder="请输入公告标题" :maxlength="200"/>
+            </t-form-item>
+            <t-form-item label="内容">
+                <com-tinymce ref="noticeEditor" id="am-notice"
+                    :default-value="noticeForm.content" :height="400"></com-tinymce>
+            </t-form-item>
+            <t-form-item label="生效时间窗">
+                <t-date-range-picker v-model="noticeRange" enable-time-picker clearable
+                    format="YYYY-MM-DD HH:mm:ss" style="width: 100%;"
+                    :placeholder="['开始时间，留空=立即生效', '结束时间，留空=永久有效']"/>
+            </t-form-item>
+            <t-form-item label="弹窗提示">
+                <t-radio-group v-model="noticeForm.is_popup">
+                    <t-radio :value="1">弹窗</t-radio>
+                    <t-radio :value="0">列表</t-radio>
+                </t-radio-group>
+            </t-form-item>
+            <t-form-item label="是否启用">
+                <t-radio-group v-model="noticeForm.enabled">
+                    <t-radio :value="1">启用</t-radio>
+                    <t-radio :value="0">停用</t-radio>
+                </t-radio-group>
+            </t-form-item>
+            <t-form-item label="排序值">
+                <t-input-number v-model="noticeForm.sort_order" :min="0" theme="normal"/>
+            </t-form-item>
+        </t-form>
+    </t-dialog>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>window.__PAGE_DATA__ = { appVersion: '{{ config.app_version }}' };</script>
+<!-- 页面脚本外提至共享 js/pages（与 admin_notifier 同范式），降低模板行数 -->
+<script src="/static/js/pages/app_manage.js?v={{ config.app_version }}"></script>
+{% endblock %}

@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+{% block title %}站内信 - 慧眼护农 农户端{% endblock %}
+{% block head %}
+<style>
+.farmer-inbox-page .inbox-card { width: 100%; }
+.farmer-inbox-page .inbox-toolbar-summary { display: inline-flex; gap: var(--app-spacing-xs); color: var(--app-text-secondary); font-size: var(--app-font-size-sm); }
+.farmer-inbox-page .inbox-toolbar-summary strong { color: var(--app-brand-color); font-variant-numeric: tabular-nums; }
+.farmer-inbox-page .inbox-title-cell { display: flex; align-items: center; gap: var(--app-spacing-sm); min-width: 0; }
+.farmer-inbox-page .inbox-title-cell.is-unread { color: var(--app-text-primary); font-weight: 600; }
+.farmer-inbox-page .inbox-title-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.farmer-inbox-page .inbox-empty { padding: calc(var(--app-spacing-xl) * 2) 0; }
+</style>
+{% endblock %}
+{% block content %}
+<div id="page-app" v-cloak class="farmer-inbox-page">
+    <t-card title="站内信" class="inbox-card">
+        <template #header>
+            <div class="farmer-toolbar">
+                <div class="farmer-toolbar-left">
+                    <h3 class="farmer-card-header-title">站内信</h3>
+                    <span class="inbox-toolbar-summary"><strong>[[ unreadTotal ]]</strong> 条未读</span>
+                </div>
+                <div class="farmer-toolbar-right">
+                    <t-select v-model="readFilter" placeholder="全部" clearable
+                        class="search-input search-input--sm" @change="fetchData">
+                        <t-option label="全部" :value="-1"/>
+                        <t-option label="未读" :value="0"/>
+                        <t-option label="已读" :value="1"/>
+                    </t-select>
+                    <t-button theme="primary" @click="markAllRead" :loading="marking">
+                        全部已读
+                    </t-button>
+                </div>
+            </div>
+        </template>
+        <t-skeleton v-if="loading" :row-col="[6]" animation="gradient"></t-skeleton>
+        <t-table v-else-if="tableData.length" :data="tableData" :columns="columns"
+            :pagination="pagination" row-key="id" hover table-layout="fixed"
+            @page-change="onPageChange" @row-click="onRowClick">
+            <template #title="{ row }">
+                <div class="inbox-title-cell" :class="{ 'is-unread': row.is_read === 0 }">
+                    <t-tag v-if="row.priority === 1" theme="danger" variant="light" size="small">重要</t-tag>
+                    <span class="inbox-title-text">[[ row.title ]]</span>
+                </div>
+            </template>
+            <template #is_read="{ row }">
+                <t-tag :theme="row.is_read === 1 ? 'default' : 'primary'" variant="light" size="small">
+                    [[ row.is_read === 1 ? '已读' : '未读' ]]
+                </t-tag>
+            </template>
+            <template #operation="{ row }">
+                <t-button size="small" variant="text" theme="primary" @click.stop="viewDetail(row)">
+                    查看
+                </t-button>
+                <t-popconfirm content="确认删除该消息？" @confirm="deleteMsg(row)">
+                    <t-button size="small" variant="text" theme="danger">删除</t-button>
+                </t-popconfirm>
+            </template>
+        </t-table>
+        <div v-else class="inbox-empty"><t-empty description="暂无站内信"></t-empty></div>
+    </t-card>
+
+    <!-- 点击行跳转独立详情页 /farmer/inbox/{id}，无需弹窗 -->
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+HuiYanFarmer.createApp({
+    setup: function () {
+        var ref = Vue.ref;
+        var reactive = Vue.reactive;
+        var onMounted = Vue.onMounted;
+
+        var tableData = ref([]);
+        var loading = ref(false);
+        var marking = ref(false);
+        var readFilter = ref(-1);
+        var pagination = reactive({ current: 1, pageSize: 15, total: 0 });
+
+        var unreadTotal = ref(0);
+        var columns = [
+            { colKey: 'title', title: '消息', ellipsis: true, minWidth: 250, cell: 'title' },
+            { colKey: 'is_read', title: '状态', width: 90, cell: 'is_read' },
+            { colKey: 'create_time', title: '时间', width: 170 },
+            { colKey: 'operation', title: '操作', width: 120, cell: 'operation', fixed: 'right' }
+        ];
+
+        var fetchData = function () {
+            loading.value = true;
+            var params = {
+                page: pagination.current,
+                limit: pagination.pageSize
+            };
+            if (readFilter.value >= 0) {
+                params.is_read = readFilter.value;
+            }
+            HuiYanFarmer.request.get('/inbox/list', { params: params })
+                .then(function (res) {
+                    var data = (res.data && res.data.data) ? res.data.data : res.data;
+                    tableData.value = data.list || [];
+                    pagination.total = data.total || 0;
+                    unreadTotal.value = data.unread_total || 0;
+                }).catch(function () {
+                    HuiYanFarmer.message.error('站内信加载失败，请稍后重试');
+                })
+                .finally(function () { loading.value = false; });
+        };
+
+        var onPageChange = function (pageInfo) {
+            pagination.current = pageInfo.current;
+            pagination.pageSize = pageInfo.pageSize;
+            fetchData();
+        };
+
+        var viewDetail = function (row) {
+            // 跳转独立详情页，详情页加载时自动标记已读
+            window.location.href = '/farmer/inbox/' + row.id;
+        };
+
+        var onRowClick = function (ctx) {
+            var row = ctx && ctx.row ? ctx.row : ctx;
+            if (row) { viewDetail(row); }
+        };
+
+        var markAllRead = function () {
+            marking.value = true;
+            HuiYanFarmer.request.put('/inbox/read-all')
+                .then(function () {
+                    unreadTotal.value = 0;
+                    HuiYanFarmer.message.success('全部站内信已标记为已读');
+                    fetchData();
+                }).catch(function () {
+                    HuiYanFarmer.message.error('标记已读失败，请稍后重试');
+                })
+                .finally(function () { marking.value = false; });
+        };
+
+        var deleteMsg = function (row) {
+            HuiYanFarmer.request.delete('/inbox/' + row.id)
+                .then(function () {
+                    HuiYanFarmer.message.success('已删除');
+                    fetchData();
+                }).catch(function () {
+                    HuiYanFarmer.message.error('删除失败，请稍后重试');
+                });
+        };
+
+        onMounted(function () { fetchData(); });
+
+        return {
+            tableData: tableData, loading: loading, marking: marking,
+            unreadTotal: unreadTotal,
+            readFilter: readFilter, pagination: pagination,
+            columns: columns, fetchData: fetchData, onPageChange: onPageChange,
+            viewDetail: viewDetail, onRowClick: onRowClick,
+            markAllRead: markAllRead, deleteMsg: deleteMsg
+        };
+    }
+});
+</script>
+{% endblock %}

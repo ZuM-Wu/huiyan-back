@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}种植批次 - 慧眼护农{% endblock %}
+{% block content %}
+<div id="page-app" v-cloak class="admin-list-page planting-batch-page">
+    <t-card title="种植批次">
+        <div class="card-header-toolbar">
+            <div class="card-header-toolbar-left">
+                <t-select v-model="filterAreaId" placeholder="按产区筛选" clearable filterable style="width: 180px;" @change="onAreaFilterChange">
+                    <t-option v-for="a in areaOptions" :key="a.id" :value="a.id" :label="a.name"></t-option>
+                </t-select>
+                <t-select v-model="filterPlotId" placeholder="按地块筛选" clearable filterable style="width: 180px;" @change="fetchBatches">
+                    <t-option v-for="p in plotOptions" :key="p.id" :value="p.id" :label="p.name"></t-option>
+                </t-select>
+                <t-input v-model="searchKeyword" placeholder="批次号、作物" clearable style="width: 180px;" @enter="fetchBatches"></t-input>
+                <t-button theme="primary" @click="fetchBatches">查询</t-button>
+                <t-button theme="primary" variant="outline" v-permission="'batch:create'" @click="openCreate">新增批次</t-button>
+            </div>
+        </div>
+        <t-skeleton v-if="batchLoading" :row-col="[6]" animation="gradient"></t-skeleton>
+        <t-table v-else :data="batchList" :columns="batchColumns"
+            :pagination="batchPagination" row-key="id" hover @page-change="onBatchPageChange">
+            <template #status="{ row }">
+                <t-tag :theme="statusTheme(row.status)" variant="light">[[ statusLabel(row.status) ]]</t-tag>
+            </template>
+            <template #operation="{ row }">
+                <t-button theme="primary" variant="text" size="small" v-permission="'batch:update'" @click="openEdit(row)">编辑</t-button>
+                <t-dropdown :options="statusOptions" @click="(d) => changeStatus(row, d.value)" v-permission="'batch:status'">
+                    <t-button theme="default" variant="text" size="small">状态</t-button>
+                </t-dropdown>
+                <t-button theme="danger" variant="text" size="small" v-permission="'batch:delete'" @click="removeBatch(row)">删除</t-button>
+            </template>
+        </t-table>
+    </t-card>
+
+    <!-- 批次编辑弹窗（纯表单，无地图） -->
+    <t-dialog v-model:visible="dialogVisible" :header="dialogTitle" width="640px"
+        :confirm-btn="{content:'保存',theme:'primary',loading:saving}"
+        :cancel-btn="{content:'取消'}" @confirm="doSave">
+        <!-- 视觉规范 9.9：必填校验用 Form rules 内联提示（显示在输入框下方），禁止 MessagePlugin 弹出 -->
+        <t-form ref="formRef" :data="form" :rules="rules" label-width="110px">
+            <t-form-item label="所属产区" v-if="!form.id">
+                <t-select v-model="dialogAreaId" placeholder="请先选择产区" filterable clearable style="width:100%" @change="onDialogAreaChange">
+                    <t-option v-for="a in areaOptions" :key="a.id" :value="a.id" :label="a.name"></t-option>
+                </t-select>
+            </t-form-item>
+            <t-form-item label="所属地块" name="plot_id" v-if="!form.id">
+                <t-select v-model="form.plot_id" placeholder="请选择所属地块" filterable style="width:100%" :disabled="!dialogAreaId">
+                    <t-option v-for="p in dialogPlotOptions" :key="p.id" :value="p.id" :label="p.name"></t-option>
+                </t-select>
+            </t-form-item>
+            <t-form-item label="批次编号">
+                <t-input v-model="form.batch_no" placeholder="选填"></t-input>
+            </t-form-item>
+            <t-form-item label="作物名称" name="crop_name">
+                <t-input v-model="form.crop_name" placeholder="请输入作物名称"></t-input>
+            </t-form-item>
+            <t-form-item label="作物品种">
+                <t-input v-model="form.crop_variety" placeholder="选填"></t-input>
+            </t-form-item>
+            <t-form-item label="茬口/季别">
+                <t-input v-model="form.season" placeholder="选填，如 春茬"></t-input>
+            </t-form-item>
+            <t-form-item label="种植日期">
+                <t-date-picker v-model="form.plant_date" value-type="YYYY-MM-DD" style="width:100%"></t-date-picker>
+            </t-form-item>
+            <t-form-item label="预计采收">
+                <t-date-picker v-model="form.expected_harvest_date" value-type="YYYY-MM-DD" style="width:100%"></t-date-picker>
+            </t-form-item>
+            <t-form-item label="实际采收">
+                <t-date-picker v-model="form.actual_harvest_date" value-type="YYYY-MM-DD" style="width:100%"></t-date-picker>
+            </t-form-item>
+            <t-form-item label="种植株数">
+                <t-input-number v-model="form.plant_count" :min="0" theme="normal"></t-input-number>
+            </t-form-item>
+            <t-form-item label="备注">
+                <t-textarea v-model="form.description" placeholder="选填" :autosize="{minRows:2,maxRows:4}"></t-textarea>
+            </t-form-item>
+        </t-form>
+    </t-dialog>
+
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="/static/js/pages/planting-batch.js?v={{ config.app_version }}"></script>
+{% endblock %}

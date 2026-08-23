@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Environment
+.env
+venv/
+.venv/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test artifacts
+test_m*.py
+_reg.py
+_seed_plugin.py
+runtime/
+
+# Delivery repository boundary
+# 测试、检查脚本和开发依赖留在本地开发目录，不进入交付后端仓库。
+/tests/
+/scripts/
+/pyproject.toml
+/requirements-dev.txt
+
+# 外部平台插件不属于慧眼后端交付物。
+/plugins/sms/sms_idcsmart/
+
+# 运行时上传内容不属于后端源码。
+/upload/common/*
+!/upload/common/.gitkeep
+
+# Database
+*.db
+*.sqlite3

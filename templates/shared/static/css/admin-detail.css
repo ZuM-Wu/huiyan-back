@@ -1,0 +1,207 @@
+/* 慧眼护农 V4 管理后台样式（拆分 4/4）：农户详情页 + 插件 hook 排序对话框 */
+/* 由 admin.css 等价拆分而来，模板按原顺序 <link> 顺次引入，整体等价单文件 */
+
+/* ========== 农户详情页样式 ========== */
+/* 顶部栏（面包屑） */
+.detail-top-bar {
+    margin-bottom: var(--app-spacing-sm);
+}
+.detail-breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: var(--app-spacing-sm);
+    font-size: var(--app-font-size-sm);
+    color: var(--app-text-secondary);
+}
+/* 工具栏（Tabs + 筛选 + 切换器同行，白色容器背景） */
+.detail-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--app-card-gap);
+    background: var(--app-bg-card);
+    border-radius: var(--app-radius-lg);
+    padding: 0 var(--app-spacing-lg);
+}
+.detail-toolbar-left {
+    flex: 1;
+    min-width: 0;
+}
+/* Tabs 背景透明，融入工具栏白色容器 */
+.detail-toolbar-left .t-tabs {
+    margin-bottom: 0;
+    background: transparent;
+}
+.detail-toolbar-left .t-tabs__header {
+    margin-bottom: 0;
+    background: transparent;
+    border-bottom: none;
+}
+.detail-toolbar-right {
+    display: flex;
+    align-items: center;
+    gap: var(--app-spacing-sm);
+    flex-shrink: 0;
+    margin-left: var(--app-spacing-md);
+}
+.detail-switcher-select {
+    width: 240px;
+}
+/* 用户切换下拉选项（双行展示：ID - 用户名 + 邮箱） */
+/* TDesign 弹窗渲染在 body 层级，无法用兄弟选择器，直接覆盖全局 option 高度 */
+.t-select-option:has(.switcher-option) {
+    height: auto !important;
+    /* 32px 对齐 TDesign 中尺寸选项高度（原 --td-comp-size-m） */
+    min-height: 32px;
+    padding: var(--app-spacing-xs) var(--app-spacing-sm) !important;
+}
+.switcher-option {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 2px;
+    line-height: 1.5;
+    white-space: normal !important;
+    overflow: visible !important;
+}
+.switcher-option-id {
+    font-size: var(--app-font-size-md);
+    font-weight: 500;
+    color: var(--app-text-primary);
+}
+.switcher-option-info {
+    font-size: var(--app-font-size-sm);
+    color: var(--app-text-secondary);
+}
+/* 内容区 */
+.detail-content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--app-card-gap);
+}
+/* 双卡片并排行（左侧账户信息略宽） */
+.detail-row {
+    display: grid;
+    grid-template-columns: 3fr 2fr;
+    gap: var(--app-card-gap);
+}
+/* 卡片统一样式 */
+.detail-card {
+    min-height: 0;
+}
+/* 详情页内表格卡片：保留左右内边距（已由全局规则覆盖，此条保留作为显式声明） */
+.detail-table-card .t-card__body {
+    padding: 0 24px;
+}
+/* KV 网格布局（只读） */
+.kv-grid {
+    display: grid;
+    gap: 0;
+}
+.kv-grid-2col {
+    grid-template-columns: 1fr 1fr;
+}
+.kv-item {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--app-spacing-xs);
+    padding: var(--app-spacing-sm) 0;
+    border-bottom: 1px solid var(--app-border);
+}
+.kv-label {
+    font-size: var(--app-font-size-sm);
+    color: var(--app-text-secondary);
+}
+.kv-value {
+    font-size: var(--app-font-size-md);
+    color: var(--app-text-primary);
+    font-weight: 500;
+}
+/* 表单网格布局（可编辑） */
+.farmer-detail-page .form-grid {
+    display: grid;
+    gap: var(--app-form-gap) var(--app-spacing-xl);
+}
+.form-grid-4col {
+    grid-template-columns: repeat(4, 1fr);
+}
+.form-item {
+    display: flex;
+    flex-direction: column;
+    gap: var(--app-spacing-xs);
+}
+.form-item-full {
+    grid-column: 1 / -1;
+}
+.form-label {
+    font-size: var(--app-font-size-sm);
+    color: var(--app-text-secondary);
+    line-height: 1.4;
+}
+/* 头像展示与上传行 */
+.detail-avatar-row {
+    display: flex;
+    align-items: center;
+    gap: var(--app-spacing-md);
+    margin-bottom: var(--app-spacing-lg);
+}
+.detail-avatar-wrap {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    overflow: hidden;
+    flex-shrink: 0;
+    border: 1px solid var(--app-border);
+    background: var(--app-bg-container);
+}
+.detail-avatar-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+.detail-avatar-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: var(--app-font-size-xl);
+    font-weight: 600;
+    color: var(--app-text-secondary);
+}
+/* 操作按钮组 */
+.detail-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--app-spacing-sm);
+    margin-top: var(--app-spacing-lg);
+    padding-top: var(--app-spacing-md);
+    border-top: 1px solid var(--app-border);
+}
+/* 空状态 */
+.empty-text {
+    text-align: center;
+    color: var(--app-text-placeholder);
+    padding: 40px 0;
+}
+/* 操作日志筛选栏 */
+.log-filter-bar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--app-spacing-sm);
+    padding: var(--app-spacing-md) var(--app-spacing-lg);
+    border-bottom: 1px solid var(--app-border);
+    flex-wrap: wrap;
+}
+.log-date-range {
+    width: 260px;
+}
+/* 操作日志分页 */
+.log-pagination {
+    display: flex;
+    justify-content: flex-end;
+    padding: var(--app-spacing-sm) var(--app-spacing-lg);
+    border-top: 1px solid var(--app-border);
+}

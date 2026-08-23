@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录 · 慧眼护农 农户端</title>
+    <link rel="icon" href="/static/img/favicon.png" type="image/png">
+    <!-- 主题防闪烁：页面加载前从 localStorage 读取主题偏好 -->
+    <script>(function(){try{var t=localStorage.getItem('farmer_theme');if(t==='dark'){document.documentElement.setAttribute('data-theme','dark');}}catch(e){}})();</script>
+    <style>[v-cloak]{display:none!important;}</style>
+    <link rel="stylesheet" href="/static/vendor/tdesign/tdesign.min.css">
+    <link rel="stylesheet" href="/static/css/theme.css?v={{ config.app_version }}">
+    <link rel="stylesheet" href="{{ theme_static }}/css/app.css?v={{ config.app_version }}">
+    <!-- 页面级样式（含登录页样式），须在 app.css 之后加载 -->
+    <link rel="stylesheet" href="{{ theme_static }}/css/app-pages.css?v={{ config.app_version }}">
+</head>
+<body class="farmer-login-body">
+<div id="farmer-login" v-cloak class="farmer-login-page">
+    <!-- 蓝色品牌卡片 -->
+    <div class="farmer-login-brand">
+        <div class="farmer-login-brand__stripes"></div>
+        <div class="farmer-login-brand__content">
+            <h1 class="farmer-login-brand__welcome">WELCOME</h1>
+            <p class="farmer-login-brand__title">[[ siteName ]] · 农户服务平台</p>
+            <p class="farmer-login-brand__desc">智慧农业管理，从这里开始</p>
+        </div>
+    </div>
+
+    <!-- 登录/密码重置 表单卡片 -->
+    <div class="farmer-login-form-card">
+
+        <!-- ==================== 登录模式 ==================== -->
+        <template v-if="mode === 'login'">
+            <h2 class="farmer-login-form__title">登录</h2>
+            <p class="farmer-login-form__subtitle">请使用您的账号登录农户服务平台</p>
+
+            <!-- ===== 密码登录模式 ===== -->
+            <template v-if="isPassOrCode">
+                <!-- 顶部 Tab 切换凭证类型（配置驱动显隐） -->
+                <div v-if="showPhoneTab && showEmailTab" class="farmer-login-tabs">
+                    <span :class="['farmer-login-tabs__item', loginTab==='phone' && 'active']"
+                          @click="loginTab='phone'">手机</span>
+                    <span :class="['farmer-login-tabs__item', loginTab==='email' && 'active']"
+                          @click="loginTab='email'">邮箱</span>
+                </div>
+
+                <t-form :data="loginForm" :rules="loginRules" @submit="onLoginSubmit" label-width="0" class="farmer-login-form">
+                    <!-- 手机 Tab -->
+                    <template v-if="loginTab === 'phone'">
+                        <t-form-item name="phone" :label-width="0">
+                            <t-input v-model="loginForm.phone" placeholder="请输入手机号" clearable>
+                                <template #prefix-icon><t-icon name="call"></t-icon></template>
+                            </t-input>
+                        </t-form-item>
+                    </template>
+                    <!-- 邮箱 Tab -->
+                    <template v-else>
+                        <t-form-item name="email" :label-width="0">
+                            <t-input v-model="loginForm.email" placeholder="用户名或邮箱" clearable>
+                                <template #prefix-icon><t-icon name="mail"></t-icon></template>
+                            </t-input>
+                        </t-form-item>
+                    </template>
+
+                    <t-form-item name="password" :label-width="0">
+                        <t-input v-model="loginForm.password" type="password" placeholder="请输入密码" clearable>
+                            <template #prefix-icon><t-icon name="lock-on"></t-icon></template>
+                        </t-input>
+                    </t-form-item>
+
+                    <!-- 忘记密码 -->
+                    <div class="farmer-login-form__forgot">
+                        <a href="javascript:void(0)" @click="mode='reset'">忘记密码？</a>
+                    </div>
+
+                    <t-button theme="primary" block type="submit" :loading="loading"
+                              :disabled="loading"
+                              class="farmer-login-btn">登录</t-button>
+                </t-form>
+            </template>
+
+            <!-- ===== 验证码登录模式 ===== -->
+            <template v-else>
+                <!-- 验证码模式下的 Tab 切换（手机/邮箱，仅两者都开启时显示） -->
+                <div v-if="showSmsLogin && showEmailCodeLogin" class="farmer-login-tabs">
+                    <span :class="['farmer-login-tabs__item', codeTab==='phone' && 'active']"
+                          @click="codeTab='phone'">手机</span>
+                    <span :class="['farmer-login-tabs__item', codeTab==='email' && 'active']"
+                          @click="codeTab='email'">邮箱</span>
+                </div>
+
+                <t-form :data="loginForm" :rules="codeRules" @submit="onLoginSubmit" label-width="0" class="farmer-login-form">
+                    <!-- 手机验证码 -->
+                    <template v-if="codeTab === 'phone'">
+                        <t-form-item name="phone" :label-width="0">
+                            <t-input v-model="loginForm.phone" placeholder="请输入手机号" clearable>
+                                <template #prefix-icon><t-icon name="call"></t-icon></template>
+                            </t-input>
+                        </t-form-item>
+                    </template>
+                    <!-- 邮箱验证码 -->
+                    <template v-else>
+                        <t-form-item name="email" :label-width="0">
+                            <t-input v-model="loginForm.email" placeholder="请输入邮箱" clearable>
+                                <template #prefix-icon><t-icon name="mail"></t-icon></template>
+                            </t-input>
+                        </t-form-item>
+                    </template>
+
+                    <t-form-item name="code" :label-width="0">
+                        <div class="farmer-code-input">
+                            <t-input v-model="loginForm.code" placeholder="请输入验证码" clearable>
+                                <template #prefix-icon><t-icon name="secured"></t-icon></template>
+                            </t-input>
+                            <t-button variant="outline"
+                                      :disabled="codeCooldown > 0 || (codeTab==='phone' ? !loginForm.phone : !loginForm.email)"
+                                      @click="sendLoginCode" class="farmer-code-btn">
+                                [[ codeCooldown > 0 ? codeCooldown + 's' : '获取验证码' ]]
+                            </t-button>
+                        </div>
+                    </t-form-item>
+
+                    <t-button theme="primary" block type="submit" :loading="loading"
+                              :disabled="loading"
+                              class="farmer-login-btn">登录</t-button>
+                </t-form>
+            </template>
+
+            <!-- 底部切换按钮（密码<->验证码） -->
+            <div class="farmer-login-mode-switch">
+                <a v-if="isPassOrCode && (showSmsLogin || showEmailCodeLogin)" href="javascript:void(0)"
+                   @click="isPassOrCode=false">验证码登录</a>
+                <a v-if="!isPassOrCode" href="javascript:void(0)"
+                   @click="isPassOrCode=true">密码登录</a>
+            </div>
+
+            <p v-if="showRegisterSwitch" class="farmer-login-form__switch">
+                还没有账号？<a href="/farmer/register">立即注册</a>
+            </p>
+        </template>
+
+        <!-- ==================== 密码找回模式 ==================== -->
+        <template v-if="mode === 'reset'">
+            <h2 class="farmer-login-form__title">找回密码</h2>
+            <p class="farmer-login-form__subtitle">通过手机号或邮箱重置密码</p>
+
+            <!-- Step 1: 输入目标 + 获取验证码 -->
+            <template v-if="resetStep === 1">
+                <t-form :data="resetForm" :rules="resetStep1Rules" label-width="0" class="farmer-login-form"
+                        @submit="onResetStep1Submit">
+                    <t-form-item name="target" :label-width="0">
+                        <t-input v-model="resetForm.target" placeholder="请输入手机号或邮箱" clearable>
+                            <template #prefix-icon><t-icon name="call"></t-icon></template>
+                        </t-input>
+                    </t-form-item>
+                    <t-form-item name="code" :label-width="0">
+                        <div class="farmer-code-input">
+                            <t-input v-model="resetForm.code" placeholder="请输入验证码" clearable>
+                                <template #prefix-icon><t-icon name="secured"></t-icon></template>
+                            </t-input>
+                            <t-button variant="outline" :disabled="resetCooldown > 0 || !resetForm.target"
+                                      @click="sendResetCode" class="farmer-code-btn">
+                                [[ resetCooldown > 0 ? resetCooldown + 's' : '获取验证码' ]]
+                            </t-button>
+                        </div>
+                    </t-form-item>
+                    <t-button theme="primary" block type="submit"
+                              :disabled="!resetForm.target || !resetForm.code"
+                              class="farmer-login-btn">下一步</t-button>
+                </t-form>
+            </template>
+
+            <!-- Step 2: 设置新密码 -->
+            <template v-else>
+                <t-form :data="resetForm" :rules="resetStep2Rules" label-width="0" class="farmer-login-form"
+                        @submit="onResetSubmit">
+                    <t-form-item name="new_password" :label-width="0">
+                        <t-input v-model="resetForm.new_password" type="password" placeholder="请输入新密码" clearable>
+                            <template #prefix-icon><t-icon name="lock-on"></t-icon></template>
+                        </t-input>
+                    </t-form-item>
+                    <t-form-item name="confirm_password" :label-width="0">
+                        <t-input v-model="resetForm.confirm_password" type="password" placeholder="请确认新密码" clearable>
+                            <template #prefix-icon><t-icon name="lock-on"></t-icon></template>
+                        </t-input>
+                    </t-form-item>
+                    <t-button theme="primary" block type="submit" :loading="loading"
+                              class="farmer-login-btn">重置密码</t-button>
+                </t-form>
+            </template>
+
+            <p class="farmer-login-form__switch">
+                <a href="javascript:void(0)" @click="mode='login'; resetStep=1">返回登录</a>
+            </p>
+        </template>
+    </div>
+</div>
+
+<script src="/static/vendor/vue/vue.global.prod.min.js"></script>
+<script src="/static/vendor/tdesign/tdesign.min.js"></script>
+<script src="/static/vendor/tdesign-icons/index.min.js"></script>
+<script src="/static/vendor/axios/axios.min.js"></script>
+<script src="{{ theme_static }}/js/farmer-app.js?v={{ config.app_version }}"></script>
+<script>
+HuiYanFarmer.createApp({
+    setup() {
+        var ref = Vue.ref;
+        var reactive = Vue.reactive;
+        var onMounted = Vue.onMounted;
+
+        /* ===== 视图模式：login / reset ===== */
+        var mode = ref('login');
+        var loading = ref(false);
+        var siteName = ref('慧眼护农');
+
+        /* ===== 双轴切换状态（对标 ZJMF） ===== */
+        var isPassOrCode = ref(true);   // true=密码模式, false=验证码模式
+        var loginTab = ref('phone');     // 密码模式下的凭证 Tab: phone / email
+        var codeTab = ref('phone');      // 验证码模式下的凭证 Tab: phone / email
+
+        /* ===== 配置驱动的 UI 显隐 ===== */
+        var showPhoneTab = ref(true);    // farmer_phone_password_login
+        var showEmailTab = ref(true);    // farmer_email_password_login
+        var showSmsLogin = ref(true);    // farmer_phone_sms_login
+        var showEmailCodeLogin = ref(true); // farmer_email_code_login
+        var showRegisterSwitch = ref(true); // farmer_show_register_switch && allow_farmer_register
+
+        /* ===== 表单数据 ===== */
+        var loginForm = reactive({ phone: '', email: '', password: '', code: '' });
+        var resetForm = reactive({ target: '', code: '', new_password: '', confirm_password: '' });
+        var resetStep = ref(1);
+
+        /* ===== 表单校验规则（TDesign Form rules 内联校验） ===== */
+        var loginRules = {
+            phone: [
+                { required: true, message: '请输入手机号', type: 'error' },
+                { pattern: /^1[3-9]\d{9}$/, message: '手机号格式不正确', type: 'error' }
+            ],
+            email: [
+                { required: true, message: '请输入用户名或邮箱', type: 'error' }
+            ],
+            password: [
+                { required: true, message: '请输入密码', type: 'error' }
+            ]
+        };
+
+        var codeRules = {
+            phone: [
+                { required: true, message: '请输入手机号', type: 'error' },
+                { pattern: /^1[3-9]\d{9}$/, message: '手机号格式不正确', type: 'error' }
+            ],
+            email: [
+                { required: true, message: '请输入邮箱', type: 'error' },
+                { email: true, message: '邮箱格式不正确', type: 'error' }
+            ],
+            code: [
+                { required: true, message: '请输入验证码', type: 'error' }
+            ]
+        };
+
+        var resetStep1Rules = {
+            target: [
+                { required: true, message: '请输入手机号或邮箱', type: 'error' }
+            ],
+            code: [
+                { required: true, message: '请输入验证码', type: 'error' }
+            ]
+        };
+
+        var resetStep2Rules = {
+            new_password: [
+                { required: true, message: '请输入新密码', type: 'error' },
+                { min: 6, message: '密码至少6位', type: 'error' }
+            ],
+            confirm_password: [
+                { required: true, message: '请确认新密码', type: 'error' },
+                {
+                    validator: function(val) { return val === resetForm.new_password; },
+                    message: '两次密码输入不一致',
+                    type: 'error'
+                }
+            ]
+        };
+
+        /* ===== 验证码倒计时 ===== */
+        var codeCooldown = ref(0);
+        var resetCooldown = ref(0);
+
+        function startCountdown(refVal, seconds) {
+            refVal.value = seconds;
+            var timer = setInterval(function() {
+                refVal.value--;
+                if (refVal.value <= 0) clearInterval(timer);
+            }, 1000);
+        }
+
+        /* ===== 加载公开站点配置 ===== */
+        function loadSiteConfig() {
+            axios.get('/api/admin/v1/config/site').then(function (res) {
+                var list = (res.data && res.data.list) || [];
+                var map = {};
+                list.forEach(function (item) { map[item.key] = item.value; });
+                if (map.site_name) siteName.value = map.site_name;
+
+                /* 解析注册开关（控制"立即注册"链接显隐） */
+                var allowReg = parseInt(map.allow_farmer_register) === 1;
+                var regSwitch = parseInt(map.farmer_show_register_switch) !== 0;
+                showRegisterSwitch.value = allowReg && regSwitch;
+
+                /* 解析登录方式配置 */
+                showPhoneTab.value = parseInt(map.farmer_phone_password_login) !== 0;
+                showEmailTab.value = parseInt(map.farmer_email_password_login) !== 0;
+                showSmsLogin.value = parseInt(map.farmer_phone_sms_login) !== 0;
+                showEmailCodeLogin.value = parseInt(map.farmer_email_code_login) !== 0;
+
+                /* 默认模式 */
+                var defaultMethod = map.farmer_default_login_method || 'password';
+                isPassOrCode.value = defaultMethod !== 'code';
+                var defaultType = map.farmer_default_password_type || 'phone';
+                loginTab.value = defaultType === 'email' ? 'email' : 'phone';
+
+                /* 若仅有一种密码凭证，强制设定 Tab */
+                if (showPhoneTab.value && !showEmailTab.value) loginTab.value = 'phone';
+                if (!showPhoneTab.value && showEmailTab.value) loginTab.value = 'email';
+
+                /* 验证码模式 Tab 默认值：若仅开启一种则强制设定 */
+                if (showSmsLogin.value && !showEmailCodeLogin.value) codeTab.value = 'phone';
+                if (!showSmsLogin.value && showEmailCodeLogin.value) codeTab.value = 'email';
+            }).catch(function () { /* 使用默认值 */ });
+        }
+
+        /* ===== 发送验证码（登录用） ===== */
+        function sendLoginCode() {
+            var isPhone = codeTab.value === 'phone';
+            var target = isPhone ? loginForm.phone : loginForm.email;
+            if (codeCooldown.value > 0 || !target) return;
+            axios.post('/api/v1/send-code', {
+                target: target, purpose: 'login', channel: isPhone ? 'sms' : 'email'
+            }).then(function(res) {
+                var d = res.data || {};
+                TDesign.MessagePlugin.success(d.message || '验证码已发送');
+                startCountdown(codeCooldown, d.interval || 60);
+            }).catch(function(err) {
+                var msg = (err.response && err.response.data && err.response.data.detail) || '发送失败';
+                TDesign.MessagePlugin.error(msg);
+            });
+        }
+
+        /* ===== 发送验证码（密码重置用） ===== */
+        function sendResetCode() {
+            if (resetCooldown.value > 0 || !resetForm.target) return;
+            axios.post('/api/v1/password-reset/send', {
+                target: resetForm.target
+            }).then(function(res) {
+                var d = res.data || {};
+                TDesign.MessagePlugin.success(d.message || '验证码已发送');
+                startCountdown(resetCooldown, d.interval || 60);
+            }).catch(function(err) {
+                var msg = (err.response && err.response.data && err.response.data.detail) || '发送失败';
+                TDesign.MessagePlugin.error(msg);
+            });
+        }
+
+        /* ===== 登录提交 ===== */
+        function onLoginSubmit(params) {
+            if (params && params.e) params.e.preventDefault();
+            /* 校验未通过时错误已内联显示，直接中断 */
+            if (params && params.validateResult !== true && params.validateResult !== undefined) return;
+            if (loading.value) return;
+            loading.value = true;
+
+            var payload = {};
+            if (isPassOrCode.value) {
+                payload.type = 'password';
+                payload.account = loginTab.value === 'email' ? loginForm.email : loginForm.phone;
+                payload.password = loginForm.password;
+            } else {
+                payload.type = 'code';
+                payload.account = codeTab.value === 'email' ? loginForm.email : loginForm.phone;
+                payload.code = loginForm.code;
+            }
+
+            HuiYanFarmer.request.post('/login', payload)
+                .then(function (res) {
+                    var d = res.data && res.data.data ? res.data.data : res.data;
+                    if (d && d.token) {
+                        localStorage.setItem('farmer_token', d.token);
+                        location.href = '/farmer/home';
+                    } else {
+                        TDesign.MessagePlugin.error((res.data && res.data.msg) || '登录失败');
+                    }
+                })
+                .catch(function (err) {
+                    var msg = (err.response && err.response.data && err.response.data.detail) || '登录失败，请检查账号密码';
+                    TDesign.MessagePlugin.error(msg);
+                })
+                .finally(function () { loading.value = false; });
+        }
+
+        /* ===== 密码重置 Step1 提交 ===== */
+        function onResetStep1Submit(params) {
+            if (params && params.e) params.e.preventDefault();
+            if (params && params.validateResult !== true && params.validateResult !== undefined) return;
+            resetStep.value = 2;
+        }
+
+        /* ===== 密码重置 Step2 提交 ===== */
+        function onResetSubmit(params) {
+            if (params && params.e) params.e.preventDefault();
+            /* 校验未通过时错误已内联显示，直接中断 */
+            if (params && params.validateResult !== true && params.validateResult !== undefined) return;
+            if (loading.value) return;
+            loading.value = true;
+            axios.post('/api/v1/password-reset/verify', {
+                target: resetForm.target,
+                code: resetForm.code,
+                new_password: resetForm.new_password
+            })
+                .then(function(res) {
+                    var d = res.data || {};
+                    TDesign.MessagePlugin.success(d.message || '密码重置成功');
+                    mode.value = 'login';
+                    resetStep.value = 1;
+                    resetForm.target = '';
+                    resetForm.code = '';
+                    resetForm.new_password = '';
+                    resetForm.confirm_password = '';
+                })
+                .catch(function(err) {
+                    var msg = (err.response && err.response.data && err.response.data.detail) || '重置失败';
+                    TDesign.MessagePlugin.error(msg);
+                })
+                .finally(function() { loading.value = false; });
+        }
+
+        /* ===== 初始化 ===== */
+        onMounted(function () {
+            loadSiteConfig();
+        });
+
+        return {
+            mode: mode, loading: loading, siteName: siteName,
+            isPassOrCode: isPassOrCode, loginTab: loginTab, codeTab: codeTab,
+            showPhoneTab: showPhoneTab, showEmailTab: showEmailTab,
+            showSmsLogin: showSmsLogin, showEmailCodeLogin: showEmailCodeLogin,
+            showRegisterSwitch: showRegisterSwitch,
+            loginForm: loginForm, resetForm: resetForm, resetStep: resetStep,
+            loginRules: loginRules, codeRules: codeRules,
+            resetStep1Rules: resetStep1Rules, resetStep2Rules: resetStep2Rules,
+            codeCooldown: codeCooldown, resetCooldown: resetCooldown,
+            sendLoginCode: sendLoginCode, sendResetCode: sendResetCode,
+            onLoginSubmit: onLoginSubmit, onResetStep1Submit: onResetStep1Submit, onResetSubmit: onResetSubmit
+        };
+    }
+}, '#farmer-login');
+</script>
+</body>
+</html>

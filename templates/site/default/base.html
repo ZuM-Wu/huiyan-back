@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{{ site_banner.title | default(config.site_name, true) }} - 官网{% endblock %}</title>
+    <meta name="keywords" content="{{ config.site_keywords }}">
+    <meta name="description" content="{{ site_banner.subtitle | default(config.site_description, true) }}">
+    <link rel="icon" href="{{ config.site_favicon or '/static/img/favicon.png' }}" type="image/png">
+    <!-- 主题防闪烁：页面加载前从 localStorage 读取主题偏好，写入 <html data-theme> 属性 -->
+    <script>(function(){try{var t=localStorage.getItem('site_theme');if(t==='dark'){document.documentElement.setAttribute('data-theme','dark');}}catch(e){}})();</script>
+    <!-- Design Token（统一令牌，与后台 / 农户端共享色彩 / 字号 / 间距） -->
+    <link rel="stylesheet" href="/static/css/theme.css?v={{ config.app_version }}">
+    <!-- 官网主题专属样式（独立于 admin.css，避免相互污染） -->
+    <link rel="stylesheet" href="{{ theme_static }}/site.css?v={{ config.app_version }}">
+    {% block head %}{% endblock %}
+</head>
+<body class="site-body">
+
+    {# ========== 顶部导航栏 ========== #}
+    <nav class="site-nav">
+        <div class="site-nav-inner">
+            <!-- Logo + 项目名 -->
+            <a class="site-brand" href="/">
+                <img class="site-brand-logo" src="{{ config.site_logo or '/static/img/logo.png' }}" alt="{{ config.site_name }}">
+                <span class="site-brand-name">{{ config.site_name }}</span>
+            </a>
+
+            <!-- 中部导航菜单（来自 site_nav 配置） -->
+            <ul class="site-menu">
+                {% for item in site_nav %}
+                <li class="site-menu-item">
+                    <a href="{{ item.href }}" target="{{ item.target | default('_self', true) }}">
+                        {{ item.label }}
+                    </a>
+                </li>
+                {% endfor %}
+            </ul>
+
+            <!-- 右侧登录入口（仅展示「登录」，不出现「管理」「后台」字样） -->
+            <div class="site-actions">
+                <button class="site-theme-toggle" id="site-theme-toggle" type="button" aria-label="切换深色/明亮模式">
+                    <svg class="theme-icon-sun" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+                    <svg class="theme-icon-moon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+                </button>
+                <a class="site-btn site-btn-primary" id="site-login-btn" href="/admin/login">登录</a>
+            </div>
+
+            <!-- 移动端汉堡菜单 -->
+            <button class="site-menu-toggle" id="site-menu-toggle" aria-label="展开导航">
+                <span></span><span></span><span></span>
+            </button>
+        </div>
+    </nav>
+
+    {# ========== 页面正文（由子模板填充） ========== #}
+    <main class="site-main">
+        {% block content %}{% endblock %}
+    </main>
+
+    {# ========== 页脚 ========== #}
+    <footer class="site-footer">
+        <div class="site-footer-inner">
+            <!-- 品牌 slogan -->
+            <div class="site-footer-slogan">慧眼护农 · 让农业更智慧</div>
+            <!-- 分组链接（来自 site_footer 配置） -->
+            {% if site_footer %}
+            <div class="site-footer-groups">
+                {% for group in site_footer %}
+                <div class="site-footer-group">
+                    <h4 class="site-footer-title">{{ group.title }}</h4>
+                    <ul class="site-footer-links">
+                        {% for link in group.links %}
+                        <li><a href="{{ link.href }}">{{ link.label }}</a></li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <!-- 版权 + 备案 -->
+            <div class="site-footer-bottom">
+                <div class="site-footer-copyright">{{ config.copyright }}</div>
+                {% if config.record_number %}
+                <div class="site-footer-record">备案号：{{ config.record_number }}</div>
+                {% endif %}
+            </div>
+        </div>
+    </footer>
+
+    <!-- 官网主题脚本（纯展示交互：移动端菜单、平滑滚动、登录态检测） -->
+    <script src="{{ theme_static }}/site.js?v={{ config.app_version }}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

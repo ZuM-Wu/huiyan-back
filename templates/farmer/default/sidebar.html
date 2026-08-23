@@ -1,0 +1,51 @@
+<!-- 侧边栏 — 明亮/深色双模式；菜单动态渲染 + 底部用户卡片 -->
+<aside id="sidebar-app" v-cloak class="sidebar">
+    <div class="sidebar-logo">
+        <a class="sidebar-logo__link" href="/farmer/home" aria-label="返回农户首页">
+            <img :src="siteLogo" alt="Logo" class="sidebar-logo__img sidebar-logo--full">
+            <img src="/static/img/favicon.png" alt="Logo" class="sidebar-logo__img sidebar-logo--mini">
+            <span class="farmer-sidebar-brand">慧眼护农</span>
+        </a>
+    </div>
+
+    <!-- 菜单区：按 sort_order 顺序渲染，父级/叶子混合不拆分 -->
+    <div class="sidebar-menu">
+        <t-menu :theme="sidebarTheme" :value="activeMenu" :expanded="expandedMenus"
+                :collapsed="isCollapsed"
+                @change="onMenuChange" @expand="onExpand">
+            <template v-for="item in orderedMenus" :key="item.id">
+                <!-- 含子菜单的分组 -->
+                <t-submenu v-if="item.children && item.children.length"
+                           :value="item.name" :title="item.title">
+                    <template #icon><t-icon :name="item.icon || 'folder'"></t-icon></template>
+                    <t-menu-item v-for="child in item.children" :key="child.id" :value="child.name">
+                        [[ child.title ]]
+                    </t-menu-item>
+                </t-submenu>
+                <!-- 顶级叶子菜单 -->
+                <t-menu-item v-else :value="item.name">
+                    <template #icon><t-icon :name="item.icon || 'file'"></t-icon></template>
+                    [[ item.title ]]
+                </t-menu-item>
+            </template>
+        </t-menu>
+    </div>
+
+    <!-- Discord 风格用户卡片 -->
+    <div class="sidebar-user">
+        <div class="sidebar-user__avatar">
+            <img v-if="userAvatar" :src="userAvatar" class="sidebar-user__avatar-img" alt="头像">
+            <span v-else class="sidebar-user__avatar-text">[[ avatarText ]]</span>
+            <span class="sidebar-user__status" title="在线"></span>
+        </div>
+        <div class="sidebar-user__meta">
+            <div class="sidebar-user__name">[[ displayName ]]</div>
+            <div class="sidebar-user__role">农户</div>
+        </div>
+        <t-dropdown :options="userActions" placement="top-right" trigger="hover" @click="onUserAction">
+            <button type="button" class="sidebar-user__gear" title="设置">
+                <t-icon name="setting"></t-icon>
+            </button>
+        </t-dropdown>
+    </div>
+</aside>

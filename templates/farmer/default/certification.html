@@ -1,0 +1,370 @@
+{% extends "base.html" %}
+{% block title %}实名认证 - 慧眼护农 农户端{% endblock %}
+{% block head %}
+<style>
+/* 认证页面布局 */
+.cert-page { max-width: 900px; margin: 0 auto; }
+.cert-page-grid { display: grid; grid-template-columns: 1fr 320px; gap: var(--app-spacing-lg); }
+@media (max-width: 768px) { .cert-page-grid { grid-template-columns: 1fr; } }
+
+/* 状态横幅 */
+.cert-status-banner {
+    display: flex; align-items: center; gap: var(--app-spacing-md);
+    padding: var(--app-spacing-md); border-radius: var(--app-radius-md);
+    margin-bottom: var(--app-spacing-lg);
+}
+.cert-status-banner--pending { background: var(--app-warning-light); }
+.cert-status-banner--success { background: var(--app-success-light); }
+.cert-status-banner--danger { background: var(--app-error-light); }
+.cert-status-banner--info { background: var(--app-bg-container); }
+.cert-status-icon { font-size: 24px; flex-shrink: 0; }
+.cert-status-title { font-size: 14px; font-weight: 500; color: var(--app-text-primary); }
+.cert-status-desc { font-size: 12px; color: var(--app-text-secondary); margin-top: 2px; }
+
+/* 渠道卡片选择 */
+.cert-channel-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: var(--app-spacing-sm);
+    margin-bottom: var(--app-spacing-lg);
+}
+.cert-channel-card {
+    border: 2px solid var(--app-border); border-radius: var(--app-radius-md);
+    padding: var(--app-spacing-md); cursor: pointer; transition: all var(--app-duration-fast) var(--app-ease-standard);
+    background: var(--app-bg-card); position: relative;
+}
+.cert-channel-card:hover { border-color: var(--app-brand-color); }
+.cert-channel-card--active {
+    border-color: var(--app-brand-color); background: var(--app-brand-light);
+}
+.cert-channel-card--active::after {
+    content: ''; position: absolute; top: var(--app-spacing-xs); right: var(--app-spacing-xs);
+    width: var(--app-spacing-xs); height: var(--app-spacing-xs); border-radius: 50%; background: var(--app-brand-color);
+}
+.cert-channel-name { font-size: var(--app-font-size-sm); font-weight: 500; color: var(--app-text-primary); margin-bottom: var(--app-spacing-xs); }
+.cert-channel-desc { font-size: var(--app-font-size-sm); color: var(--app-text-secondary); line-height: 1.5; }
+.cert-dialog-actions { display: flex; gap: var(--app-spacing-sm); margin-top: var(--app-spacing-sm); }
+
+/* 侧边引导卡片 */
+.cert-guide-card {
+    background: var(--app-bg-card); border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-lg); padding: var(--app-spacing-lg);
+}
+.cert-guide-title { font-size: 14px; font-weight: 600; color: var(--app-text-primary); margin-bottom: var(--app-spacing-md); }
+.cert-guide-steps { list-style: none; padding: 0; margin: 0; }
+.cert-guide-steps li {
+    display: flex; gap: var(--app-spacing-sm); padding: var(--app-spacing-xs) 0;
+    font-size: 13px; color: var(--app-text-secondary); line-height: 1.6;
+}
+.cert-guide-step-num {
+    flex-shrink: 0; width: 20px; height: 20px; border-radius: 50%;
+    background: var(--app-brand-color); color: var(--app-text-anti); font-size: 11px;
+    display: flex; align-items: center; justify-content: center; font-weight: 600;
+}
+.cert-guide-tip {
+    margin-top: var(--app-spacing-md); padding: var(--app-spacing-sm);
+    background: var(--app-warning-light-weak); border-radius: var(--app-radius-sm);
+    font-size: 12px; color: var(--app-warning); line-height: 1.5;
+}
+
+/* 认证弹窗二维码区域 */
+.cert-dialog-qr { display: flex; flex-direction: column; align-items: center; gap: var(--app-spacing-md); }
+.cert-dialog-qr img { width: 220px; height: 220px; border: 1px solid var(--app-border); border-radius: var(--app-radius-md); }
+.cert-dialog-qr-hint { font-size: 13px; color: var(--app-text-secondary); text-align: center; line-height: 1.6; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="cert-page">
+<div class="cert-page-grid">
+<!-- 左列：状态 + 表单 -->
+<div>
+    <!-- 认证状态卡片 -->
+    <div class="farmer-profile-card" style="padding: var(--app-spacing-lg); margin-bottom: var(--app-spacing-lg);">
+        <h3 class="farmer-profile-card-title">实名认证</h3>
+        <div v-if="certStatus === -1" class="cert-status-banner cert-status-banner--info">
+            <t-icon name="info-circle" class="cert-status-icon" style="color: var(--app-text-secondary);"></t-icon>
+            <div style="flex:1;">
+                <div class="cert-status-title">未认证</div>
+                <div class="cert-status-desc">请选择认证方式并填写信息完成实名认证</div>
+            </div>
+        </div>
+        <div v-else-if="certStatus === 0" class="cert-status-banner cert-status-banner--pending">
+            <t-icon name="time" class="cert-status-icon" style="color: var(--app-warning);"></t-icon>
+            <div style="flex:1;">
+                <div class="cert-status-title">审核中</div>
+                <div class="cert-status-desc">[[ statusMessage || '您的认证资料正在审核中，请耐心等待' ]]</div>
+            </div>
+            <t-button v-if="certifyUrl" theme="primary" size="small" @click="openCertDialog">扫码认证</t-button>
+            <t-button v-if="showQueryBtn" theme="default" size="small" :loading="querying" @click="onQuery" style="margin-left: 8px;">刷新结果</t-button>
+        </div>
+        <div v-else-if="certStatus === 1" class="cert-status-banner cert-status-banner--success">
+            <t-icon name="check-circle" class="cert-status-icon" style="color: var(--app-success);"></t-icon>
+            <div style="flex:1;">
+                <div class="cert-status-title">已认证</div>
+                <div class="cert-status-desc">实名名称：[[ certInfo.real_name || '--' ]]</div>
+            </div>
+        </div>
+        <div v-else-if="certStatus === 2" class="cert-status-banner cert-status-banner--danger">
+            <t-icon name="close-circle" class="cert-status-icon" style="color: var(--app-error);"></t-icon>
+            <div style="flex:1;">
+                <div class="cert-status-title">认证未通过</div>
+                <div class="cert-status-desc">[[ statusMessage || '请重新提交认证资料' ]]</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 提交认证表单 -->
+    <div v-if="certStatus === -1 || certStatus === 2" class="farmer-profile-card" style="padding: var(--app-spacing-lg);">
+        <h3 class="farmer-profile-card-title">提交认证资料</h3>
+        <!-- 无第三方认证渠道提示 -->
+        <t-alert v-if="channels.length === 0" theme="info" message="当前未配置第三方认证服务，提交后将由管理员人工审核" style="margin-bottom: var(--app-spacing-md);" />
+        <!-- 渠道卡片选择（2个及以上渠道时显示） -->
+        <div v-if="channels.length > 1" class="cert-channel-grid">
+            <div v-for="ch in channels" :key="ch.plugin_name"
+                :class="['cert-channel-card', certForm.channel === ch.plugin_name ? 'cert-channel-card--active' : '']"
+                @click="certForm.channel = ch.plugin_name">
+                <div class="cert-channel-name">[[ ch.channel_name ]]</div>
+                <div class="cert-channel-desc">[[ ch.description || ' ' ]]</div>
+            </div>
+        </div>
+        <t-form ref="certFormRef" :data="certForm" :rules="certRules" label-width="100px" @submit.prevent>
+            <t-form-item label="真实姓名" name="real_name">
+                <t-input v-model="certForm.real_name" placeholder="请输入真实姓名" size="large"></t-input>
+            </t-form-item>
+            <t-form-item label="身份证号" name="id_card">
+                <t-input v-model="certForm.id_card" placeholder="请输入18位身份证号码" size="large"></t-input>
+            </t-form-item>
+            <t-form-item label="手机号" name="phone">
+                <t-input v-model="certForm.phone" placeholder="请输入手机号" size="large"></t-input>
+            </t-form-item>
+            <div class="farmer-form-actions">
+                <t-button theme="primary" :loading="submitting" @click="onSubmit">提交认证</t-button>
+            </div>
+        </t-form>
+    </div>
+
+    <!-- 认证信息展示 -->
+    <div v-if="certStatus === 0 || certStatus === 1" class="farmer-profile-card" style="padding: var(--app-spacing-lg);">
+        <h3 class="farmer-profile-card-title">认证信息</h3>
+        <div class="farmer-info-grid">
+            <div class="farmer-info-item">
+                <span class="farmer-info-label">真实姓名</span>
+                <span class="farmer-info-value">[[ certInfo.real_name || '--' ]]</span>
+            </div>
+            <div class="farmer-info-item">
+                <span class="farmer-info-label">认证渠道</span>
+                <span class="farmer-info-value">[[ channelLabel(certInfo.channel) ]]</span>
+            </div>
+            <div class="farmer-info-item">
+                <span class="farmer-info-label">提交时间</span>
+                <span class="farmer-info-value">[[ certInfo.submit_time || '--' ]]</span>
+            </div>
+            <div class="farmer-info-item" v-if="certInfo.review_time">
+                <span class="farmer-info-label">审核时间</span>
+                <span class="farmer-info-value">[[ certInfo.review_time ]]</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 右列：引导卡片 -->
+<div>
+    <div class="cert-guide-card">
+        <div class="cert-guide-title">认证流程</div>
+        <ol class="cert-guide-steps">
+            <li><span class="cert-guide-step-num">1</span><span>选择认证方式并填写基本信息</span></li>
+            <li><span class="cert-guide-step-num">2</span><span>提交后根据认证方式完成验证</span></li>
+            <li><span class="cert-guide-step-num">3</span><span>认证通过后即可使用全部功能</span></li>
+        </ol>
+        <div class="cert-guide-tip">
+            <t-icon name="info-circle" style="vertical-align: -2px;"></t-icon>
+            支付宝认证需使用支付宝APP扫码完成人脸识别，请确保手机已安装支付宝。
+        </div>
+    </div>
+</div>
+</div>
+
+<!-- 认证扫码弹窗 -->
+<t-dialog v-model:visible="certDialogVisible" header="扫码完成认证" :footer="false" width="400px" :close-on-overlay-click="false">
+    <div class="cert-dialog-qr">
+        <img v-if="certifyUrl" :src="qrcodeSrc" alt="认证二维码" />
+        <div class="cert-dialog-qr-hint">
+            请使用<strong>支付宝APP</strong>扫描上方二维码<br>完成人脸识别认证
+        </div>
+        <div class="cert-dialog-actions">
+            <t-button theme="default" @click="openCertUrl">在浏览器打开</t-button>
+            <t-button theme="primary" :loading="querying" @click="onQuery">已完成，刷新结果</t-button>
+        </div>
+    </div>
+</t-dialog>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+HuiYanFarmer.createApp({
+    setup() {
+        var ref = Vue.ref;
+        var reactive = Vue.reactive;
+        var computed = Vue.computed;
+        var onMounted = Vue.onMounted;
+
+        /* 认证渠道英文标识 -> 中文名称映射 */
+        var channelLabel = function (channel) {
+            var map = { zhima_credit: '芝麻信用实名认证', manual: '人工审核' };
+            return map[channel] || channel || '--';
+        };
+
+        var certStatus = ref(-1);
+        var statusMessage = ref('');
+        var certInfo = reactive({ real_name: '', channel: '', submit_time: '', review_time: '' });
+        var certifyUrl = ref('');
+        var showQueryBtn = ref(false);
+        var querying = ref(false);
+        var submitting = ref(false);
+        var certFormRef = ref(null);
+        var channels = ref([]);
+        var certDialogVisible = ref(false);
+        var certForm = reactive({ real_name: '', id_card: '', phone: '', channel: '' });
+        var certRules = {
+            real_name: [{ required: true, message: '请输入真实姓名' }],
+            id_card: [
+                { required: true, message: '请输入身份证号' },
+                { pattern: /^[1-9]\d{5}(18|19|20)\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])\d{3}[\dXx]$/, message: '身份证号格式不正确' }
+            ],
+            phone: [{ pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号' }]
+        };
+
+        /* 二维码图片地址（由后端生成） */
+        var qrcodeSrc = computed(function () {
+            if (!certifyUrl.value) { return ''; }
+            return '/api/v1/certification/qrcode?text=' + encodeURIComponent(certifyUrl.value);
+        });
+
+        /* 加载可用认证渠道 */
+        var fetchChannels = function () {
+            HuiYanFarmer.request.get('/certification/channels').then(function (res) {
+                var d = (res.data && res.data.data) ? res.data.data : res.data;
+                channels.value = d.channels || [];
+                if (channels.value.length > 0 && !certForm.channel) {
+                    certForm.channel = channels.value[0].plugin_name;
+                }
+            }).catch(function () { });
+        };
+
+        /* 加载认证状态 */
+        var fetchStatus = function () {
+            HuiYanFarmer.request.get('/certification/status').then(function (res) {
+                var d = (res.data && res.data.data) ? res.data.data : res.data;
+                certStatus.value = d.cert_status;
+                statusMessage.value = d.message || d.review_remark || '';
+                if (d.real_name) { certInfo.real_name = d.real_name; }
+                if (d.channel) { certInfo.channel = d.channel; }
+                if (d.submit_time) { certInfo.submit_time = d.submit_time; }
+                if (d.review_time) { certInfo.review_time = d.review_time; }
+                /* 待审核期间后端回放认证链接，刷新页面后仍可重新扫码认证 */
+                if (d.certify_url) { certifyUrl.value = d.certify_url; }
+                if (d.cert_status === 0 && d.channel && d.channel !== 'manual') {
+                    showQueryBtn.value = true;
+                }
+            }).catch(function () {
+                TDesign.MessagePlugin.error('获取认证状态失败');
+            });
+        };
+
+        /* 提交认证 */
+        var onSubmit = function () {
+            if (certFormRef.value && certFormRef.value.validate) {
+                certFormRef.value.validate().then(function (result) {
+                    if (result !== true) return;
+                    doSubmit();
+                });
+            } else {
+                doSubmit();
+            }
+        };
+        var doSubmit = function () {
+            submitting.value = true;
+            HuiYanFarmer.request.post('/certification/submit', {
+                real_name: certForm.real_name,
+                id_card: certForm.id_card,
+                phone: certForm.phone,
+                channel: certForm.channel
+            }).then(function (res) {
+                var d = (res.data && res.data.data) ? res.data.data : {};
+                /* 插件调用失败回退人工审核时用 warning 提示 */
+                if (d.fallback) {
+                    TDesign.MessagePlugin.warning(res.data.msg || '第三方认证不可用，已转为人工审核');
+                } else {
+                    TDesign.MessagePlugin.success(res.data.msg || '认证资料已提交');
+                }
+                certStatus.value = 0;
+                statusMessage.value = res.data.msg || '认证资料已提交，等待审核';
+                if (d.certify_url) {
+                    certifyUrl.value = d.certify_url;
+                    /* 第三方认证：自动弹出二维码弹窗 */
+                    certDialogVisible.value = true;
+                }
+                if (certForm.real_name) { certInfo.real_name = certForm.real_name; }
+                var chName = certForm.channel;
+                for (var i = 0; i < channels.value.length; i++) {
+                    if (channels.value[i].plugin_name === chName) {
+                        certInfo.channel = channels.value[i].channel_name;
+                        break;
+                    }
+                }
+                certInfo.channel = certInfo.channel || chName || '人工审核';
+                setTimeout(fetchStatus, 500);
+            }).catch(function (err) {
+                var msg = (err.response && err.response.data && err.response.data.detail) || '提交失败';
+                TDesign.MessagePlugin.error(msg);
+            }).finally(function () { submitting.value = false; });
+        };
+
+        /* 查询认证结果 */
+        var onQuery = function () {
+            querying.value = true;
+            HuiYanFarmer.request.post('/certification/query').then(function (res) {
+                var d = (res.data && res.data.data) ? res.data.data : {};
+                if (d.cert_status === 1) {
+                    TDesign.MessagePlugin.success('认证已通过');
+                    certStatus.value = 1;
+                    certDialogVisible.value = false;
+                } else if (d.cert_status === 2) {
+                    TDesign.MessagePlugin.error(d.message || '认证未通过');
+                    certStatus.value = 2;
+                    statusMessage.value = d.message || '认证未通过';
+                    certDialogVisible.value = false;
+                } else {
+                    TDesign.MessagePlugin.info(d.message || '仍在审核中');
+                }
+                if (d.cert_status === 1 || d.cert_status === 2) {
+                    showQueryBtn.value = false;
+                    fetchStatus();
+                }
+            }).catch(function () {
+                TDesign.MessagePlugin.error('查询失败');
+            }).finally(function () { querying.value = false; });
+        };
+
+        /* 打开认证弹窗 */
+        var openCertDialog = function () {
+            certDialogVisible.value = true;
+        };
+        /* 在浏览器打开认证链接 */
+        var openCertUrl = function () {
+            if (certifyUrl.value) { window.open(certifyUrl.value, '_blank'); }
+        };
+
+        onMounted(function () {
+            fetchStatus();
+            fetchChannels();
+        });
+
+        return {
+            certStatus, statusMessage, certInfo, certifyUrl, showQueryBtn,
+            querying, submitting, certFormRef, certForm, certRules,
+            channels, certDialogVisible, qrcodeSrc, channelLabel,
+            onSubmit, onQuery, openCertDialog, openCertUrl
+        };
+    }
+});
+</script>
+{% endblock %}

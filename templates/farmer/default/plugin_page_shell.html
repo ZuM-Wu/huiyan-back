@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block head %}
+{{ super() }}
+{% for href in plugin_page.styles %}<link rel="stylesheet" href="/plugin-assets/{{ plugin_name }}/{{ href }}" data-plugin-asset="{{ plugin_name }}">{% endfor %}
+<script id="plugin-page-context" type="application/json">{{ {"plugin": plugin_name, "page": page, "apiBase": plugin_page.api_base, "permission": plugin_page.permission}|tojson }}</script>
+{% endblock %}
+{% block scripts %}
+{% for src in plugin_page.scripts %}<script src="/plugin-assets/{{ plugin_name }}/{{ src }}" data-plugin-asset="{{ plugin_name }}"></script>{% endfor %}
+{% endblock %}

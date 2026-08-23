@@ -1,0 +1,264 @@
+{% extends "plugin_page_shell.html" %}
+{% block title %}农业知识库 · 慧眼护农 农户端{% endblock %}
+{#
+  农业知识库插件农户端页面
+
+  模板名唯一化为 knowledge_index.html：农户端插件模板经 ChoiceLoader
+  扁平收集（不带插件命名空间），同名 index.html 会与其他插件互相劫持。
+  仅展示已发布条目与启用分类；详情浏览计数后端原子自增；勘误提交受插件
+  配置 knowledge.allow_correction 控制（关闭时后端 403，前端提示）。
+#}
+{% block content %}
+<section class="farmer-hero">
+    <div class="farmer-hero-inner">
+        <h1 class="farmer-hero-title">农业知识库</h1>
+        <p class="farmer-hero-sub">病虫草害与营养障碍防治知识，含发生原因、解决方案与典型图片</p>
+    </div>
+</section>
+
+<section class="farmer-cards">
+    <t-card title="农业知识库" :bordered="true" class="farmer-card">
+        <div class="kb-toolbar">
+            <t-select v-model="categoryId" :options="categoryOptions" class="kb-cat-select"
+                @change="onFilterChange"></t-select>
+            <t-input v-model="keyword" placeholder="搜索标题/摘要..." clearable
+                class="kb-search" @change="onFilterChange"></t-input>
+        </div>
+
+        <t-skeleton :loading="loading" :row-col="[{ height: '64px' }, { height: '64px' }, { height: '64px' }]">
+            <t-list v-if="entries.length > 0" :split="true" class="kb-entry-list">
+                <t-list-item v-for="item in entries" :key="item.id">
+                    <div class="kb-entry-item" @click="openDetail(item)">
+                        <div class="kb-entry-info">
+                            <div class="kb-entry-title">
+                                <strong>[[ item.title ]]</strong>
+                                <t-tag v-if="item.crop" size="small" variant="light">[[ item.crop ]]</t-tag>
+                            </div>
+                            <p v-if="item.summary" class="kb-entry-summary">[[ item.summary ]]</p>
+                            <p class="kb-entry-meta">浏览 [[ item.view_count ]] 次 · [[ item.create_time ]]</p>
+                        </div>
+                        <t-icon name="chevron-right" class="kb-entry-arrow"></t-icon>
+                    </div>
+                </t-list-item>
+            </t-list>
+            <t-empty v-if="!loading && entries.length === 0" description="暂无相关知识条目"></t-empty>
+        </t-skeleton>
+
+        <div v-if="total > limit" class="kb-pagination">
+            <t-pagination v-model="page" :total="total" :page-size="limit"
+                :show-page-size="false" @change="fetchEntries"></t-pagination>
+        </div>
+    </t-card>
+</section>
+
+<!-- 条目详情弹窗 -->
+<t-dialog v-model:visible="detailVisible" :header="detail.title" :footer="false"
+    width="720px" placement="center" class="kb-detail-dialog">
+    <div class="kb-detail-body">
+        <div class="kb-detail-tags">
+            <t-tag v-if="detail.category_name" theme="primary" variant="light">[[ detail.category_name ]]</t-tag>
+            <t-tag v-if="detail.crop" variant="light">适用作物：[[ detail.crop ]]</t-tag>
+        </div>
+        <p v-if="detail.summary" class="kb-detail-summary">[[ detail.summary ]]</p>
+
+        <div v-if="detail.images && detail.images.length" class="kb-detail-images">
+            <t-image-viewer v-for="(img, idx) in detail.images" :key="idx"
+                :images="detail.images" :default-index="idx">
+                <template #trigger="{ open }">
+                    <img :src="img" alt="典型图片" class="kb-detail-img" @click="open()" />
+                </template>
+            </t-image-viewer>
+        </div>
+
+        <div v-if="detail.cause" class="kb-detail-section">
+            <h4 class="kb-detail-h">发生原因</h4>
+            <p class="kb-detail-text">[[ detail.cause ]]</p>
+        </div>
+        <div v-if="detail.solution" class="kb-detail-section">
+            <h4 class="kb-detail-h">解决方案</h4>
+            <p class="kb-detail-text">[[ detail.solution ]]</p>
+        </div>
+
+        <div class="kb-detail-foot">
+            <t-button theme="primary" size="small" @click="openCorrection">
+                <template #icon><t-icon name="edit"></t-icon></template>
+                提交勘误
+            </t-button>
+        </div>
+    </div>
+</t-dialog>
+
+<!-- 勘误提交弹窗 -->
+<t-dialog v-model:visible="corrVisible" header="提交勘误建议" :on-confirm="submitCorrection"
+    :confirm-loading="corrSubmitting" width="480px" placement="center">
+    <p class="kb-corr-tip">针对《[[ detail.title ]]》，欢迎反馈内容错误或补充建议</p>
+    <t-form ref="corrFormRef" :data="corrForm" :rules="corrRules" label-width="0">
+        <t-form-item name="content">
+            <t-textarea v-model="corrForm.content" placeholder="请填写您的修正建议（不超过1000字）"
+                :maxlength="1000" :autosize="{ minRows: 3 }"></t-textarea>
+        </t-form-item>
+    </t-form>
+</t-dialog>
+
+<style>
+/* 农户端知识库 — 色值跟随农户端主题变量 */
+.kb-toolbar { display: flex; gap: var(--app-spacing-sm); margin-bottom: var(--app-spacing-sm); flex-wrap: wrap; }
+.kb-cat-select { width: 200px; }
+.kb-search { flex: 1; min-width: 180px; }
+.kb-entry-list { margin-top: var(--app-spacing-xs); }
+.kb-entry-item { display: flex; align-items: center; gap: var(--app-spacing-sm); width: 100%; cursor: pointer; }
+.kb-entry-info { flex: 1; min-width: 0; }
+.kb-entry-title { display: flex; align-items: center; gap: var(--app-spacing-sm); }
+.kb-entry-summary { margin: var(--app-spacing-xs) 0 0; font-size: 13px; color: var(--app-text-secondary); }
+.kb-entry-meta { margin: var(--app-spacing-xs) 0 0; font-size: var(--app-font-size-sm); color: var(--app-text-secondary); }
+.kb-entry-arrow { flex-shrink: 0; color: var(--app-text-secondary); }
+.kb-pagination { margin-top: var(--app-spacing-md); display: flex; justify-content: flex-end; }
+.kb-detail-tags { display: flex; gap: var(--app-spacing-sm); flex-wrap: wrap; margin-bottom: 10px; }
+.kb-detail-summary { color: var(--app-text-primary); line-height: 1.6; margin: 0 0 var(--app-spacing-sm); }
+.kb-detail-images { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: var(--app-spacing-sm); }
+.kb-detail-img { width: 140px; height: 140px; object-fit: cover; border-radius: var(--app-radius-md); cursor: pointer; }
+.kb-detail-section { margin-bottom: var(--app-spacing-sm); }
+.kb-detail-h { margin: 0 0 6px; font-size: 15px; color: var(--app-brand-color); }
+.kb-detail-text { margin: 0; line-height: 1.7; color: var(--app-text-primary); white-space: pre-wrap; }
+.kb-detail-foot { margin-top: var(--app-spacing-sm); }
+.kb-corr-tip { color: var(--app-text-secondary); font-size: 13px; margin: 0 0 10px; }
+</style>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+/*
+  农户端农业知识库：
+  1. GET /api/v1/knowledge/categories 拉取启用分类树，组装筛选下拉
+  2. GET /api/v1/knowledge/entries 分页拉取已发布条目（关键词/分类过滤）
+  3. GET /api/v1/knowledge/entries/{id} 拉取详情（含图片/原因/方案），浏览计数后端自增
+  4. POST /api/v1/knowledge/entries/{id}/correction 提交勘误（配置关闭时后端 403）
+*/
+HuiYanFarmer.createPluginPage({ plugin: 'knowledge', page: 'knowledge_index',
+    setup() {
+        var ref = Vue.ref;
+        var reactive = Vue.reactive;
+        var onMounted = Vue.onMounted;
+        var MessagePlugin = TDesign.MessagePlugin;
+
+        var categoryOptions = ref([{ label: '全部分类', value: 0 }]);
+        var categoryId = ref(0);
+        var keyword = ref('');
+        var entries = ref([]);
+        var loading = ref(false);
+        var page = ref(1);
+        var limit = ref(0);
+        var total = ref(0);
+
+        // 拉取启用分类树，扁平化为下拉选项（大类 + 缩进子类）
+        var fetchCategories = function () {
+            HuiYanFarmer.request.get('/knowledge/categories').then(function (res) {
+                var list = (res.data && res.data.list) || [];
+                var opts = [{ label: '全部分类', value: 0 }];
+                list.forEach(function (root) {
+                    opts.push({ label: root.name, value: root.id });
+                    (root.children || []).forEach(function (ch) {
+                        opts.push({ label: '　└ ' + ch.name, value: ch.id });
+                    });
+                });
+                categoryOptions.value = opts;
+            }).catch(function () {});
+        };
+
+        // 拉取已发布条目
+        var fetchEntries = function () {
+            loading.value = true;
+            HuiYanFarmer.request.get('/knowledge/entries', {
+                params: {
+                    keyword: keyword.value, category_id: categoryId.value,
+                    page: page.value, limit: limit.value
+                }
+            }).then(function (res) {
+                var data = res.data || {};
+                entries.value = data.list || [];
+                total.value = data.total || 0;
+                // 首次拉取后用后端返回的 limit（由插件配置 list_page_size 驱动）回填
+                if (!limit.value) { limit.value = data.limit || 10; }
+            }).catch(function () {}).finally(function () { loading.value = false; });
+        };
+
+        var onFilterChange = function () {
+            page.value = 1;
+            fetchEntries();
+        };
+
+        // ---------------- 详情 ----------------
+        var detailVisible = ref(false);
+        var detail = reactive({
+            id: 0, title: '', category_name: '', crop: '', summary: '',
+            cause: '', solution: '', images: [], view_count: 0
+        });
+
+        var openDetail = function (item) {
+            HuiYanFarmer.request.get('/knowledge/entries/' + item.id).then(function (res) {
+                var d = res.data || {};
+                detail.id = d.id;
+                detail.title = d.title || '';
+                detail.category_name = d.category_name || '';
+                detail.crop = d.crop || '';
+                detail.summary = d.summary || '';
+                detail.cause = d.cause || '';
+                detail.solution = d.solution || '';
+                detail.images = d.images || [];
+                detail.view_count = d.view_count || 0;
+                detailVisible.value = true;
+            }).catch(function () { MessagePlugin.error('条目已失效'); });
+        };
+
+        // ---------------- 勘误提交 ----------------
+        var corrVisible = ref(false);
+        var corrForm = reactive({ content: '' });
+        var corrFormRef = ref(null);
+        var corrRules = {
+            content: [{ required: true, message: '请填写修正建议', type: 'error' }]
+        };
+        var corrSubmitting = ref(false);
+
+        var openCorrection = function () {
+            corrForm.content = '';
+            corrVisible.value = true;
+        };
+
+        var submitCorrection = function () {
+            if (!corrFormRef.value) return;
+            corrFormRef.value.validate().then(function (valid) {
+                if (valid !== true) return;
+                corrSubmitting.value = true;
+                HuiYanFarmer.request.post('/knowledge/entries/' + detail.id + '/correction', {
+                    content: corrForm.content.trim()
+                }).then(function () {
+                    MessagePlugin.success('提交成功，感谢您的反馈');
+                    corrVisible.value = false;
+                }).catch(function (error) {
+                    var status = error.response && error.response.status;
+                    if (status === 403) { MessagePlugin.error('勘误提交功能已关闭'); }
+                    else { MessagePlugin.error('提交失败，请稍后重试'); }
+                }).finally(function () { corrSubmitting.value = false; });
+            });
+        };
+
+        onMounted(function () {
+            fetchCategories();
+            fetchEntries();
+        });
+
+        return {
+            categoryOptions: categoryOptions, categoryId: categoryId,
+            keyword: keyword, entries: entries, loading: loading,
+            page: page, limit: limit, total: total,
+            fetchEntries: fetchEntries, onFilterChange: onFilterChange,
+            detailVisible: detailVisible, detail: detail, openDetail: openDetail,
+            corrVisible: corrVisible, corrForm: corrForm, corrFormRef: corrFormRef, corrRules: corrRules,
+            corrSubmitting: corrSubmitting,
+            openCorrection: openCorrection, submitCorrection: submitCorrection
+        };
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,237 @@
+{% extends "plugin_page_shell.html" %}
+{% block title %}Hello World 示例插件 - 慧眼护农{% endblock %}
+{#
+  Hello World 插件前端页面 — 插件页面开发参考模板
+
+  要点说明：
+  1. 继承核心 base.html，自动获得侧边栏、顶栏、Vue/TDesign/request 等全局依赖
+  2. 插件静态资源不挂载到 /static，页面专属脚本必须内联在 block scripts 中
+     （SPA 导航器会提取非全局的 body>script 并执行，直连/局部加载均可运行）
+  3. 内容根节点固定为 #page-app + v-cloak；Vue 分隔符统一为 [[ ]]（避免与 Jinja2 冲突）
+  4. 按钮用 v-permission 指令控制显隐，权限码与 auth.py 权限树 / router 的 require_permission 对应
+#}
+{% block content %}
+<div id="page-app" v-cloak class="hello-world-page">
+    <!-- 顶部欢迎条：读取插件配置 welcome_text 演示配置能力 -->
+    <!-- 注意：base.html 使用 DOM 内模板编译，自定义组件（t-*）不是 HTML void 元素，
+         禁止用自闭合写法 <t-alert .../>，否则解析器会忽略斜杠并把后续兄弟节点
+         （如下方 t-card）错误吞入其内部，导致提示框与列表重叠。必须使用显式闭合标签。 -->
+    <t-alert v-if="config.welcome_text" theme="info" :message="config.welcome_text" class="mb16"></t-alert>
+
+    <t-card title="Hello World 示例">
+        <template #header>
+            <div class="card-header-toolbar">
+                <div class="card-header-toolbar-left">
+                    <t-input v-model="searchKeyword" placeholder="搜索标题/内容..." clearable
+                        class="search-input" @change="fetchData"/>
+                </div>
+                <div class="card-header-toolbar-right">
+                    <t-button v-permission="'hello_world:create'" theme="primary" @click="openCreate">
+                        <template #icon><t-icon name="add"/></template>
+                        新增留言
+                    </t-button>
+                    <t-button v-permission="'hello_world:config'" theme="default" @click="openConfig">
+                        <template #icon><t-icon name="setting"/></template>
+                        插件配置
+                    </t-button>
+                </div>
+            </div>
+        </template>
+
+        <t-table :data="tableData" :columns="columns" :loading="loading" :pagination="pagination"
+            row-key="id" hover @page-change="onPageChange">
+            <template #status="{ row }">
+                <t-tag :theme="row.status === 1 ? 'success' : 'default'" variant="light">
+                    [[ row.status === 1 ? '显示' : '隐藏' ]]
+                </t-tag>
+            </template>
+            <template #actions="{ row }">
+                <t-button v-permission="'hello_world:update'" theme="primary" variant="text"
+                    size="small" @click="openEdit(row)">编辑</t-button>
+                <t-button v-permission="'hello_world:status'" :theme="row.status === 1 ? 'warning' : 'success'"
+                    variant="text" size="small" @click="toggleStatus(row)">
+                    [[ row.status === 1 ? '隐藏' : '显示' ]]
+                </t-button>
+                <t-popconfirm content="确认删除该留言？" @confirm="removeRow(row)">
+                    <t-button v-permission="'hello_world:delete'" theme="danger" variant="text"
+                        size="small">删除</t-button>
+                </t-popconfirm>
+            </template>
+        </t-table>
+    </t-card>
+
+    <!-- 新增/编辑弹窗 -->
+    <t-dialog v-model:visible="formVisible" :header="formTitle" :on-confirm="submitForm"
+        width="520px" placement="center">
+        <t-form ref="formRef" :data="form" :rules="rules" label-width="80px">
+            <t-form-item label="标题" name="title">
+                <t-input v-model="form.title" placeholder="请输入标题"/>
+            </t-form-item>
+            <t-form-item label="内容" name="content">
+                <t-textarea v-model="form.content" placeholder="请输入内容" :autosize="{ minRows: 3 }"/>
+            </t-form-item>
+            <t-form-item label="留言人">
+                <t-input v-model="form.author" placeholder="选填"/>
+            </t-form-item>
+        </t-form>
+    </t-dialog>
+
+    <!-- 插件配置弹窗 -->
+    <t-dialog v-model:visible="configVisible" header="插件配置" :on-confirm="submitConfig"
+        width="520px" placement="center">
+        <t-form :data="config" label-width="90px">
+            <t-form-item label="欢迎语">
+                <t-textarea v-model="config.welcome_text" :autosize="{ minRows: 2 }"/>
+            </t-form-item>
+            <t-form-item label="每页条数">
+                <t-input-number v-model="config.page_size" :min="1" :max="100"/>
+            </t-form-item>
+        </t-form>
+    </t-dialog>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+(function () {
+    const { ref, reactive, onMounted } = Vue;
+    const { MessagePlugin } = TDesign;
+
+    HuiYan.createPluginPage({ plugin: 'hello_world', page: 'hello_world',
+        setup() {
+            const tableData = ref([]);
+            const loading = ref(false);
+            const searchKeyword = ref('');
+            const pagination = reactive({ current: 1, pageSize: 10, total: 0 });
+            const columns = [
+                { colKey: 'id', title: 'ID', width: 70 },
+                { colKey: 'title', title: '标题', width: 160, ellipsis: true },
+                { colKey: 'content', title: '内容', ellipsis: true },
+                { colKey: 'author', title: '留言人', width: 120 },
+                { colKey: 'status', title: '状态', width: 90, cell: 'status' },
+                { colKey: 'create_time', title: '创建时间', width: 180 },
+                { colKey: 'actions', title: '操作', width: 200, cell: 'actions' }
+            ];
+
+            // 插件配置（欢迎语 + 每页条数）
+            const config = reactive({ welcome_text: '', page_size: 10 });
+
+            // 列表查询
+            const fetchData = () => {
+                loading.value = true;
+                request.get('/hello_world/messages', {
+                    params: { page: pagination.current, limit: pagination.pageSize, keyword: searchKeyword.value }
+                }).then((res) => {
+                    const data = res.data;
+                    tableData.value = data.list || [];
+                    pagination.total = data.total || 0;
+                }).catch(() => {}).finally(() => { loading.value = false; });
+            };
+
+            const onPageChange = (pageInfo) => {
+                pagination.current = pageInfo.current;
+                pagination.pageSize = pageInfo.pageSize;
+                fetchData();
+            };
+
+            // 新增/编辑表单
+            const formVisible = ref(false);
+            const formTitle = ref('新增留言');
+            const editingId = ref(0);
+            const form = reactive({ title: '', content: '', author: '' });
+            const formRef = ref(null);
+            // 校验规则：未填写时内联显示在输入框下方（见视觉规范 9.9）
+            const rules = {
+                title: [{ required: true, message: '请输入标题', type: 'error' }],
+                content: [{ required: true, message: '请输入内容', type: 'error' }]
+            };
+
+            const resetForm = () => { form.title = ''; form.content = ''; form.author = ''; };
+
+            const openCreate = () => {
+                editingId.value = 0;
+                formTitle.value = '新增留言';
+                resetForm();
+                formVisible.value = true;
+            };
+
+            const openEdit = (row) => {
+                editingId.value = row.id;
+                formTitle.value = '编辑留言';
+                form.title = row.title;
+                form.content = row.content;
+                form.author = row.author || '';
+                formVisible.value = true;
+            };
+
+            const submitForm = () => {
+                if (!formRef.value) return;
+                // TDesign 表单校验：未通过时错误已内联显示，直接中断
+                formRef.value.validate().then((valid) => {
+                    if (valid !== true) return;
+                    const payload = { title: form.title, content: form.content, author: form.author };
+                    const req = editingId.value
+                        ? request.put('/hello_world/messages/' + editingId.value, payload)
+                        : request.post('/hello_world/messages', payload);
+                    req.then(() => {
+                        MessagePlugin.success(editingId.value ? '更新成功' : '创建成功');
+                        formVisible.value = false;
+                        fetchData();
+                    }).catch(() => {});
+                });
+            };
+
+            const removeRow = (row) => {
+                request.delete('/hello_world/messages/' + row.id).then(() => {
+                    MessagePlugin.success('删除成功');
+                    fetchData();
+                }).catch(() => {});
+            };
+
+            // 状态切换（PUT /{id}/status）— 演示 RESTful 状态切换模式
+            const toggleStatus = (row) => {
+                const newStatus = row.status === 1 ? 0 : 1;
+                request.put('/hello_world/messages/' + row.id + '/status', {
+                    status: newStatus
+                }).then(() => {
+                    MessagePlugin.success(newStatus === 1 ? '已显示' : '已隐藏');
+                    fetchData();
+                }).catch(() => {});
+            };
+
+            // 配置读写
+            const configVisible = ref(false);
+
+            const loadConfig = () => {
+                request.get('/hello_world/config').then((res) => {
+                    const data = res.data || {};
+                    config.welcome_text = data.welcome_text || '';
+                    config.page_size = data.page_size || 10;
+                }).catch(() => {});
+            };
+
+            const openConfig = () => { configVisible.value = true; };
+
+            const submitConfig = () => {
+                request.put('/hello_world/config', {
+                    welcome_text: config.welcome_text,
+                    page_size: config.page_size
+                }).then(() => {
+                    MessagePlugin.success('配置已保存');
+                    configVisible.value = false;
+                }).catch(() => {});
+            };
+
+            onMounted(() => { loadConfig(); fetchData(); });
+            return {
+                tableData, loading, searchKeyword, pagination, columns, config,
+                fetchData, onPageChange,
+                formVisible, formTitle, form, formRef, rules, openCreate, openEdit, submitForm, removeRow, toggleStatus,
+                configVisible, openConfig, submitConfig
+            };
+        }
+    });
+})();
+</script>
+{% endblock %}

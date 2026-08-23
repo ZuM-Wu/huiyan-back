@@ -1,0 +1,381 @@
+/* ============================================================
+   农户端 default 主题 —— 页面级样式（2/2）
+   登录/注册/响应式/工具栏/日志/数据管理/系统信息；须在 app.css 之后加载
+   ============================================================ */
+/* ========== 登录页 — 居中蓝色卡片 + 悬浮表单叠加 ========== */
+.farmer-login-body { margin: 0; overflow: hidden; }
+.farmer-login-page {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--app-bg-page);
+    position: relative;
+}
+
+/* 蓝色品牌卡片（居中，非全高） */
+.farmer-login-brand {
+    width: 960px;
+    height: 560px;
+    background: var(--app-brand-color);
+    border-radius: 18px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-start;
+    position: relative;
+    overflow: hidden;
+    padding: 80px 64px;
+    box-shadow: var(--app-shadow-3);
+}
+/* 斜向装饰条纹 */
+.farmer-login-brand__stripes {
+    position: absolute;
+    inset: 0;
+    background: none;
+    pointer-events: none;
+}
+.farmer-login-brand__content {
+    position: relative;
+    z-index: 1;
+    color: var(--app-text-anti);
+    max-width: 380px;
+    align-self: center;
+}
+.farmer-login-brand__welcome {
+    font-size: 44px;
+    font-weight: 800;
+    letter-spacing: 6px;
+    margin: 0 0 20px;
+    line-height: 1.2;
+    text-shadow: var(--app-shadow-text);
+}
+.farmer-login-brand__title {
+    font-size: 17px;
+    font-weight: 500;
+    margin: 0 0 12px;
+    opacity: 0.95;
+    line-height: 1.5;
+}
+.farmer-login-brand__desc {
+    font-size: 13px;
+    margin: 0;
+    opacity: 0.6;
+    line-height: 1.6;
+}
+
+/* 登录表单卡片（固定高度，内容垂直居中，登录/注册切换不跳动） */
+.farmer-login-form-card {
+    position: absolute;
+    left: calc(50% - 60px);
+    top: 50%;
+    transform: translateY(-50%);
+    width: 480px;
+    height: 620px;
+    background: var(--app-bg-card);
+    border-radius: 16px;
+    box-shadow: var(--app-shadow-3);
+    padding: 40px;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+.farmer-login-form__title {
+    font-size: var(--app-font-size-xl);
+    font-weight: 700;
+    color: var(--app-text-primary);
+    margin: 0 0 6px;
+}
+.farmer-login-form__subtitle {
+    font-size: 13px;
+    color: var(--app-text-secondary);
+    margin: 0 0 32px;
+}
+/* 表单容器（t-form 包裹，消除默认 label 宽度） */
+.farmer-login-form .t-form__item {
+    margin-bottom: 24px !important;
+}
+.farmer-login-form .t-form__label {
+    display: none;
+}
+.farmer-login-form .t-form__controls {
+    margin-left: 0 !important;
+    width: 100%;
+}
+/* 输入框样式（遵循视觉设计规范 §4 圆角 + §9.2 输入类规范） */
+.farmer-login-form .t-input {
+    border-radius: var(--app-radius-md);
+    border-color: var(--app-border);
+    height: 40px;
+}
+.farmer-login-form .t-input:hover {
+    border-color: var(--app-border-hover);
+}
+.farmer-login-form .t-input--focused {
+    border-color: var(--app-brand-color);
+    box-shadow: 0 0 0 2px var(--app-brand-focus-ring);
+}
+/* 登录按钮 */
+.farmer-login-btn {
+    height: 48px;
+    font-size: 15px;
+    font-weight: 600;
+    border-radius: var(--app-radius-md);
+    letter-spacing: 2px;
+    margin-top: 12px;
+}
+/* 登录/注册切换链接 */
+.farmer-login-form__switch {
+    text-align: center;
+    color: var(--app-text-secondary);
+    font-size: 13px;
+    margin: 16px 0 0;
+}
+/* 协议同意复选框 */
+.farmer-login-agreement {
+    margin: 16px 0 0;
+}
+.farmer-login-agreement .t-checkbox {
+    font-size: var(--app-font-size-sm);
+    color: var(--app-text-secondary);
+    line-height: 1.6;
+}
+.farmer-login-agreement a {
+    color: var(--app-brand-color);
+    text-decoration: none;
+}
+.farmer-login-agreement a:hover {
+    text-decoration: underline;
+}
+.farmer-login-form__switch a {
+    color: var(--app-brand-color);
+    text-decoration: none;
+    font-weight: 500;
+}
+.farmer-login-form__switch a:hover {
+    text-decoration: underline;
+}
+
+/* ===== 双轴切换登录页新增样式 ===== */
+/* 凭证 Tab 切换 */
+.farmer-login-tabs {
+    display: flex;
+    gap: 24px;
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--app-border);
+    padding-bottom: 0;
+}
+.farmer-login-tabs__item {
+    font-size: 15px;
+    color: var(--app-text-secondary);
+    cursor: pointer;
+    padding-bottom: 10px;
+    border-bottom: 2px solid transparent;
+    transition: all .2s;
+}
+.farmer-login-tabs__item.active {
+    color: var(--app-brand-color);
+    border-bottom-color: var(--app-brand-color);
+    font-weight: 600;
+}
+.farmer-login-tabs__item:hover {
+    color: var(--app-brand-color);
+}
+/* 验证码输入行（输入框 + 获取按钮） */
+.farmer-code-input {
+    display: flex;
+    gap: 8px;
+    width: 100%;
+}
+.farmer-code-input .t-input {
+    flex: 1;
+}
+.farmer-code-btn {
+    white-space: nowrap;
+    min-width: 100px;
+    height: auto;
+}
+/* 底部模式切换（白色按钮样式） */
+.farmer-login-mode-switch {
+    text-align: center;
+    margin: 16px 0 0;
+}
+.farmer-login-mode-switch a {
+    display: inline-block;
+    width: 100%;
+    height: 40px;
+    line-height: 38px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--app-text-primary);
+    background: var(--app-bg-card);
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-md);
+    text-decoration: none;
+    transition: all .2s;
+}
+.farmer-login-mode-switch a:hover {
+    border-color: var(--app-brand-color);
+    color: var(--app-brand-color);
+}
+/* 忘记密码 */
+.farmer-login-form__forgot {
+    text-align: right;
+    margin: -4px 0 8px;
+}
+.farmer-login-form__forgot a {
+    color: var(--app-text-secondary);
+    font-size: 12px;
+    text-decoration: none;
+}
+.farmer-login-form__forgot a:hover {
+    color: var(--app-brand-color);
+}
+
+/* 登录页响应式：小屏隐藏蓝色卡片，表单居中 */
+@media (max-width: 768px) {
+    .farmer-login-brand { display: none; }
+    .farmer-login-form-card {
+        position: static;
+        transform: none;
+        width: 90%;
+        max-width: 380px;
+    }
+}
+
+/* ========== 响应式适配 ========== */
+@media (max-width: 768px) {
+    .farmer-profile-layout { grid-template-columns: 1fr; }
+    .farmer-info-grid { grid-template-columns: 1fr; }
+    .farmer-stats { grid-template-columns: 1fr; }
+    .farmer-welcome { flex-direction: column; align-items: flex-start; gap: var(--app-spacing-sm); }
+}
+
+/* ========== 通用工具栏 ========== */
+.farmer-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--app-spacing-sm);
+}
+.farmer-toolbar-left,
+.farmer-toolbar-right {
+    display: flex;
+    align-items: center;
+    gap: var(--app-spacing-sm);
+}
+
+/* ========== 日志页面 ========== */
+.farmer-log-page .t-card { border-radius: var(--app-radius-lg); }
+
+/* ========== 缓存管理页面 ========== */
+.farmer-cache-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--app-spacing-sm);
+}
+.farmer-cache-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--app-spacing-md) var(--app-spacing-lg);
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-md);
+    transition: background-color var(--app-duration-fast) var(--app-ease-standard), border-color var(--app-duration-fast) var(--app-ease-standard);
+}
+.farmer-cache-item:hover {
+    background-color: var(--app-row-hover);
+    border-color: var(--app-border-hover);
+}
+.farmer-cache-item-info {
+    flex: 1;
+    min-width: 0;
+}
+.farmer-cache-item-title {
+    font-size: var(--app-font-size-md);
+    font-weight: 600;
+    color: var(--app-text-primary);
+}
+.farmer-cache-item-desc {
+    font-size: var(--app-font-size-sm);
+    color: var(--app-text-secondary);
+    margin-top: var(--app-spacing-xs);
+}
+
+/* ========== 系统信息页面 ========== */
+.farmer-system-page .farmer-info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: var(--app-spacing-lg);
+}
+.farmer-info-section {
+    padding: var(--app-spacing-md);
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-md);
+    background: var(--app-bg-card);
+}
+.farmer-info-section-title {
+    font-size: var(--app-font-size-md);
+    font-weight: 600;
+    color: var(--app-text-primary);
+    margin: 0 0 var(--app-spacing-md);
+    padding-bottom: var(--app-spacing-sm);
+    border-bottom: 1px solid var(--app-border);
+}
+.farmer-info-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--app-spacing-xs) 0;
+}
+.farmer-info-row + .farmer-info-row {
+    border-top: 1px solid var(--app-border);
+}
+.farmer-info-label {
+    font-size: var(--app-font-size-sm);
+    color: var(--app-text-secondary);
+}
+.farmer-info-value {
+    font-size: var(--app-font-size-sm);
+    font-weight: 500;
+    color: var(--app-text-primary);
+}
+
+/* 默认主题重构：登录注册保留原流程，仅统一品牌蓝与表单密度 */
+.farmer-login-page { background: var(--app-bg-page); }
+.farmer-login-brand {
+    background: var(--app-brand-color) !important;
+    border: 1px solid var(--app-brand-active);
+    border-radius: var(--app-radius-md);
+    box-shadow: var(--app-shadow-2);
+}
+.farmer-login-brand__stripes { opacity: .12; }
+.farmer-login-form-card {
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-md);
+    box-shadow: var(--app-shadow-3);
+}
+.farmer-login-form__title { font-size: 22px; }
+.farmer-login-form__subtitle { margin-bottom: var(--app-spacing-xl); }
+.farmer-login-form .t-form__item { margin-bottom: var(--app-spacing-lg) !important; }
+.farmer-login-btn { background: var(--app-brand-color); }
+.farmer-login-mode-switch a { border-color: var(--app-border); background: var(--app-bg-container); }
+
+/* 消息列表与详情的共享页面基元 */
+.farmer-inbox-page .inbox-card,
+.farmer-inbox-detail-page .inbox-detail-card,
+.farmer-log-page > .t-card,
+.farmer-cache-page > .t-card,
+.farmer-system-page > .t-card { width: 100%; }
+.farmer-inbox-page .inbox-toolbar-summary { display: inline-flex; align-items: center; gap: var(--app-spacing-xs); }
+.farmer-inbox-page .inbox-empty { padding: calc(var(--app-spacing-xl) * 2) 0; }
+.farmer-inbox-detail-page .inbox-detail-card { max-width: 1120px; margin: 0 auto; }
+.farmer-inbox-detail-page .inbox-detail-meta-bar { color: var(--app-text-secondary); }
+.farmer-inbox-detail-page .inbox-rich-content { max-width: 860px; }
+
+/* 桌面工作区不因内容变化横向溢出 */
+.farmer-log-page .t-table,
+.farmer-inbox-page .t-table,
+.farmer-production-area-page .t-table { width: 100%; }
+.farmer-cache-page .farmer-cache-item { gap: var(--app-spacing-md); }

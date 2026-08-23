@@ -1,0 +1,21 @@
+{
+  "key": "default",
+  "name": "默认主题",
+  "module": "farmer",
+  "theme_id": "default",
+  "surface": "farmer",
+  "compatible_app_versions": [">=4.0.0"],
+  "template_overrides": [],
+  "static_assets": [{"key": "preview.svg", "path": "assets/preview.svg", "type": "preview"}],
+  "component_tokens": {},
+  "dependencies": [],
+  "conflicts": [],
+  "fallback_theme": "default",
+  "owner": "theme:farmer:default",
+  "enabled": true,
+  "version": "2.0.0",
+  "author": "HuiYan",
+  "preview": "preview.svg",
+  "min_app_version": "3.4.0",
+  "description": "农户端默认主题，统一慧眼蓝的 PC 工作台布局，支持明暗双模式"
+}

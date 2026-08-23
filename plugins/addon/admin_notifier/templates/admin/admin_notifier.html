@@ -1,0 +1,90 @@
+{% extends "plugin_page_shell.html" %}
+{% block title %}邮件通知管理员 - 慧眼护农{% endblock %}
+{% block head %}
+{{ super() }}
+<style>
+.admin-notifier-page .bottom-bar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--app-spacing-sm);
+    margin-top: var(--app-spacing-lg);
+    padding: var(--app-spacing-md) 0;
+    border-top: 1px solid var(--app-border);
+}
+</style>
+{% endblock %}
+{% block content %}
+<div id="page-app" v-cloak class="admin-notifier-page">
+    <t-card title="告警配置">
+        <template #header>
+            <div class="card-header-toolbar">
+                <div class="card-header-toolbar-left">
+                    <span style="font-size: var(--app-font-size-lg); font-weight: 600; color: var(--app-text-primary);">告警配置</span>
+                </div>
+                <div class="card-header-toolbar-right">
+                    <t-button v-permission="'admin_notifier:test:send'" theme="default"
+                        @click="openTestDialog">发送测试通知</t-button>
+                </div>
+            </div>
+        </template>
+
+        <t-table :data="configData" :columns="configColumns" :loading="configLoading"
+            row-key="task_name" hover size="medium">
+            <template #notify_enabled="{ row }">
+                <t-switch v-model="row.notify_enabled" :custom-value="[1, 0]" @change="markConfigChanged(row)"></t-switch>
+            </template>
+            <template #notify_interface="{ row }">
+                <t-select v-model="row.notify_interface" clearable placeholder="选择接口"
+                    style="width: 140px;" @change="markConfigChanged(row)">
+                    <t-option v-for="p in notifyPluginList" :key="p.name"
+                        :value="p.name" :label="p.title"
+                        v-show="p.module === 'mail'"></t-option>
+                </t-select>
+            </template>
+            <template #admin_ids="{ row }">
+                <t-select v-model="row._admin_id_arr" multiple clearable placeholder="选择管理员"
+                    style="width: 200px;" @change="onAdminIdsChange(row)">
+                    <t-option v-for="a in adminList" :key="a.id"
+                        :value="a.id" :label="a.nickname"></t-option>
+                </t-select>
+            </template>
+        </t-table>
+
+        <div class="bottom-bar">
+            <t-button theme="primary" :loading="configSaving" @click="saveAllConfigs">保存全部</t-button>
+        </div>
+    </t-card>
+
+    <!-- 测试通知弹窗 -->
+    <t-dialog v-model:visible="testDialogVisible" header="发送测试通知" width="480px"
+        :footer="false" destroy-on-close>
+        <!-- 视觉规范 9.9：必填校验用 Form rules 内联提示（显示在输入框下方），禁止 MessagePlugin 弹出 -->
+        <t-form ref="testFormRef" :data="testForm" :rules="testRules" label-width="100px">
+            <t-form-item label="通知接口" name="notify_interface">
+                <t-select v-model="testForm.notify_interface" clearable placeholder="请选择通知接口"
+                    style="width: 180px;">
+                    <t-option v-for="p in notifyPluginList" :key="p.name"
+                        :value="p.name" :label="p.title"
+                        v-show="p.module === 'mail'"></t-option>
+                </t-select>
+            </t-form-item>
+            <t-form-item label="接收管理员" name="_admin_id_arr">
+                <t-select v-model="testForm._admin_id_arr" multiple placeholder="请选择接收管理员"
+                    style="width: 240px;">
+                    <t-option v-for="a in adminList" :key="a.id"
+                        :value="a.id" :label="a.nickname"></t-option>
+                </t-select>
+            </t-form-item>
+        </t-form>
+        <div style="display:flex;gap:var(--app-spacing-sm);justify-content:flex-end;margin-top:var(--app-spacing-md);">
+            <t-button theme="primary" :loading="testSending" @click="sendTestNotify">发送</t-button>
+            <t-button theme="default" @click="testDialogVisible = false">取消</t-button>
+        </div>
+    </t-dialog>
+</div>
+{% endblock %}
+{% block scripts %}
+{{ super() }}
+<script src="/static/js/pages/admin_notifier.js?v={{ config.app_version }}"></script>
+{% endblock %}

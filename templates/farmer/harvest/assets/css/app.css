@@ -1,0 +1,454 @@
+/* ============================================================
+   农户端默认主题样式 — 侧边栏 + 内容区布局
+   统一引用 theme.css 中的 --app-* 令牌，禁止硬编码色值。
+   PC 端布局；移动端由独立 App 承载，不在此适配。
+   ============================================================ */
+
+/* ========== Reset & Base ========== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+    font-family: var(--app-font-family);
+    font-size: var(--app-font-size-md);
+    color: var(--app-text-primary);
+    background: var(--app-bg-page);
+}
+a { color: var(--app-brand-color); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* ========== Layout ========== */
+#farmer-layout { display: flex; min-height: 100vh; }
+
+/* 侧边栏 / 顶栏 / 布局样式由 admin.css 统一提供（.sidebar / .topbar / .page-content） */
+
+/* ========== 右侧主区域 ========== */
+.farmer-main-area { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+
+/* 卡片头标题（图标 + 文字）：全局缺失的规范类 */
+.card-header-title {
+    display: flex;
+    align-items: center;
+    gap: var(--app-spacing-sm);
+    font-weight: 500;
+}
+.card-header-title .t-icon {
+    font-size: 20px;
+    color: var(--app-brand-color);
+}
+
+/* 顶部栏 */
+.farmer-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 56px;
+    height: var(--app-header-height);
+    padding: 0 var(--app-page-padding);
+    background: var(--app-bg-card);
+    border-bottom: 1px solid var(--app-border);
+    flex-shrink: 0;
+}
+.farmer-topbar-right { display: flex; align-items: center; gap: var(--app-spacing-md); }
+
+/* 页面内容 */
+.farmer-page-content {
+    flex: 1;
+    padding: var(--app-page-padding);
+    overflow-y: auto;
+    transition: opacity var(--app-duration-fast) var(--app-ease-standard);
+}
+
+/* ========== 首页 Hero 区域 ========== */
+.farmer-hero {
+    background: linear-gradient(135deg, var(--app-success), var(--app-brand-color));
+    border-radius: var(--app-radius-lg);
+    color: var(--app-text-anti);
+    padding: var(--app-spacing-xl) var(--app-spacing-xl);
+    text-align: center;
+    margin-bottom: var(--app-spacing-xl);
+}
+.farmer-hero-title { font-size: var(--app-font-size-xl); font-weight: 700; margin: 0 0 var(--app-spacing-sm); }
+.farmer-hero-sub { font-size: var(--app-font-size-lg); opacity: 0.9; margin: 0 0 var(--app-spacing-lg); }
+.farmer-hero-actions { display: flex; gap: var(--app-spacing-md); justify-content: center; }
+
+/* ========== 统计卡片 ========== */
+.farmer-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: var(--app-spacing-md);
+    margin-bottom: var(--app-spacing-xl);
+}
+.farmer-stat-card {
+    background: var(--app-bg-card);
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-lg);
+    padding: var(--app-spacing-lg);
+    display: flex;
+    align-items: center;
+    gap: var(--app-spacing-md);
+    transition: box-shadow var(--app-duration-base) var(--app-ease-standard);
+}
+.farmer-stat-card:hover { box-shadow: var(--app-shadow-2); transform: translateY(-2px); }
+.farmer-stat-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: var(--app-radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    flex-shrink: 0;
+}
+.farmer-stat-icon--brand { background: var(--app-brand-light); color: var(--app-brand-color); }
+.farmer-stat-icon--success { background: var(--app-success-light); color: var(--app-success); }
+.farmer-stat-icon--warning { background: var(--app-warning-light); color: var(--app-warning); }
+.farmer-stat-card { transition: transform var(--app-duration-base) var(--app-ease-spring), box-shadow var(--app-duration-base) var(--app-ease-standard); }
+.farmer-stat-label { font-size: var(--app-font-size-sm); color: var(--app-text-secondary); }
+.farmer-stat-value { font-size: var(--app-font-size-xl); font-weight: 700; color: var(--app-text-primary); }
+.farmer-stat-value--sm { font-size: var(--app-font-size-md); font-weight: 500; }
+
+/* ========== 功能卡片网格 ========== */
+.farmer-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: var(--app-spacing-lg);
+}
+.farmer-card { cursor: pointer; transition: box-shadow var(--app-duration-fast) var(--app-ease-standard); }
+.farmer-card:hover { box-shadow: var(--app-shadow-2); }
+.farmer-card-desc { color: var(--app-text-secondary); margin: 0; line-height: 1.6; }
+
+/* ========== 分区标题 ========== */
+.farmer-section-title {
+    font-size: var(--app-font-size-lg);
+    font-weight: 600;
+    color: var(--app-text-primary);
+    margin: 0 0 var(--app-spacing-md);
+}
+
+/* ========== 欢迎区 ========== */
+.farmer-welcome {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--app-spacing-lg);
+}
+.farmer-welcome-text h2 {
+    font-size: var(--app-font-size-xl);
+    font-weight: 600;
+    color: var(--app-text-primary);
+    margin: 0 0 var(--app-spacing-xs);
+}
+.farmer-welcome-text p {
+    font-size: var(--app-font-size-md);
+    color: var(--app-text-secondary);
+    margin: 0;
+}
+
+/* ========== 个人中心页面 ========== */
+.farmer-card-header-title { margin: 0; font-size: var(--app-font-size-lg); font-weight: 600; }
+.farmer-card-desc { color: var(--app-text-secondary); margin-bottom: var(--app-spacing-md); font-size: var(--app-font-size-sm); }
+.farmer-profile-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--app-spacing-lg);
+}
+.farmer-profile-full { grid-column: 1 / -1; }
+.farmer-profile-card {
+    background: var(--app-bg-card);
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-lg);
+    padding: var(--app-spacing-lg);
+}
+.farmer-profile-card-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--app-text-primary);
+    margin: 0 0 var(--app-spacing-lg);
+    padding-bottom: var(--app-spacing-md);
+    border-bottom: 1px solid var(--app-border);
+}
+.farmer-info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--app-spacing-md) var(--app-spacing-xl);
+}
+.farmer-info-item { display: flex; flex-direction: column; gap: 4px; }
+.farmer-info-label { font-size: var(--app-font-size-sm); color: var(--app-text-secondary); }
+.farmer-info-value { font-size: var(--app-font-size-md); color: var(--app-text-primary); font-weight: 500; }
+.farmer-info-value--empty { color: var(--app-text-placeholder); font-style: italic; font-weight: 400; }
+
+/* 个人中心表单操作栏 */
+.farmer-form-actions {
+    display: flex;
+    gap: var(--app-spacing-sm);
+    margin-top: var(--app-spacing-lg);
+    padding-top: var(--app-spacing-md);
+    border-top: 1px solid var(--app-border);
+}
+/* 密码表单限宽 */
+.farmer-pwd-form { max-width: 480px; }
+
+/* ========== 登录页 — 居中蓝色卡片 + 悬浮表单叠加 ========== */
+.farmer-login-body { margin: 0; overflow: hidden; }
+.farmer-login-page {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--app-bg-page);
+    position: relative;
+}
+
+/* 蓝色品牌卡片（居中，非全高） */
+.farmer-login-brand {
+    width: 960px;
+    height: 560px;
+    background: linear-gradient(135deg, var(--app-brand-color) 0%, var(--app-brand-active) 100%);
+    border-radius: 18px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-start;
+    position: relative;
+    overflow: hidden;
+    padding: 80px 64px;
+    box-shadow: var(--app-shadow-3);
+}
+/* 斜向装饰条纹 */
+.farmer-login-brand__stripes {
+    position: absolute;
+    inset: 0;
+    background:
+        linear-gradient(135deg, transparent 28%, var(--app-stripe-1) 28%, var(--app-stripe-1) 38%, transparent 38%),
+        linear-gradient(135deg, transparent 52%, var(--app-stripe-2) 52%, var(--app-stripe-2) 62%, transparent 62%),
+        linear-gradient(135deg, transparent 72%, var(--app-stripe-3) 72%, var(--app-stripe-3) 82%, transparent 82%);
+    pointer-events: none;
+}
+.farmer-login-brand__content {
+    position: relative;
+    z-index: 1;
+    color: var(--app-text-anti);
+    max-width: 380px;
+    align-self: center;
+}
+.farmer-login-brand__welcome {
+    font-size: 44px;
+    font-weight: 800;
+    letter-spacing: 6px;
+    margin: 0 0 20px;
+    line-height: 1.2;
+    text-shadow: var(--app-shadow-text);
+}
+.farmer-login-brand__title {
+    font-size: 17px;
+    font-weight: 500;
+    margin: 0 0 12px;
+    opacity: 0.95;
+    line-height: 1.5;
+}
+.farmer-login-brand__desc {
+    font-size: 13px;
+    margin: 0;
+    opacity: 0.6;
+    line-height: 1.6;
+}
+
+/* 登录表单卡片（固定高度，内容垂直居中，登录/注册切换不跳动） */
+.farmer-login-form-card {
+    position: absolute;
+    left: calc(50% - 60px);
+    top: 50%;
+    transform: translateY(-50%);
+    width: 420px;
+    height: 620px;
+    background: var(--app-bg-card);
+    border-radius: 16px;
+    box-shadow: var(--app-shadow-3);
+    padding: 40px;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+.farmer-login-form__title {
+    font-size: var(--app-font-size-xl);
+    font-weight: 700;
+    color: var(--app-text-primary);
+    margin: 0 0 6px;
+}
+.farmer-login-form__subtitle {
+    font-size: 13px;
+    color: var(--app-text-secondary);
+    margin: 0 0 32px;
+}
+/* 表单容器（t-form 包裹，消除默认 label 宽度） */
+.farmer-login-form .t-form__item {
+    margin-bottom: 24px !important;
+}
+.farmer-login-form .t-form__label {
+    display: none;
+}
+.farmer-login-form .t-form__controls {
+    margin-left: 0 !important;
+    width: 100%;
+}
+/* 输入框样式（遵循视觉设计规范 §4 圆角 + §9.2 输入类规范） */
+.farmer-login-form .t-input {
+    border-radius: var(--app-radius-md);
+    border-color: var(--app-border);
+}
+.farmer-login-form .t-input:hover {
+    border-color: var(--app-border-hover);
+}
+.farmer-login-form .t-input--focused {
+    border-color: var(--app-brand-color);
+    box-shadow: 0 0 0 2px var(--app-brand-focus-ring);
+}
+/* 登录按钮 */
+.farmer-login-btn {
+    height: 48px;
+    font-size: 15px;
+    font-weight: 600;
+    border-radius: var(--app-radius-md);
+    letter-spacing: 2px;
+    margin-top: 12px;
+}
+/* 登录/注册切换链接 */
+.farmer-login-form__switch {
+    text-align: center;
+    color: var(--app-text-secondary);
+    font-size: 13px;
+    margin: 16px 0 0;
+}
+/* 协议同意复选框 */
+.farmer-login-agreement {
+    margin: 16px 0 0;
+}
+.farmer-login-agreement .t-checkbox {
+    font-size: var(--app-font-size-sm);
+    color: var(--app-text-secondary);
+    line-height: 1.6;
+}
+.farmer-login-agreement a {
+    color: var(--app-brand-color);
+    text-decoration: none;
+}
+.farmer-login-agreement a:hover {
+    text-decoration: underline;
+}
+.farmer-login-form__switch a {
+    color: var(--app-brand-color);
+    text-decoration: none;
+    font-weight: 500;
+}
+.farmer-login-form__switch a:hover {
+    text-decoration: underline;
+}
+
+/* 登录页响应式：小屏隐藏蓝色卡片，表单居中 */
+@media (max-width: 768px) {
+    .farmer-login-brand { display: none; }
+    .farmer-login-form-card {
+        position: static;
+        transform: none;
+        width: 90%;
+        max-width: 380px;
+    }
+}
+
+/* ========== 响应式适配 ========== */
+@media (max-width: 768px) {
+    .farmer-profile-layout { grid-template-columns: 1fr; }
+    .farmer-info-grid { grid-template-columns: 1fr; }
+    .farmer-stats { grid-template-columns: 1fr; }
+    .farmer-welcome { flex-direction: column; align-items: flex-start; gap: var(--app-spacing-sm); }
+}
+
+/* ========== 通用工具栏 ========== */
+.farmer-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--app-spacing-sm);
+}
+.farmer-toolbar-left,
+.farmer-toolbar-right {
+    display: flex;
+    align-items: center;
+    gap: var(--app-spacing-sm);
+}
+
+/* ========== 日志页面 ========== */
+.farmer-log-page .t-card { border-radius: var(--app-radius-lg); }
+
+/* ========== 缓存管理页面 ========== */
+.farmer-cache-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--app-spacing-sm);
+}
+.farmer-cache-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--app-spacing-md) var(--app-spacing-lg);
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-md);
+    transition: background-color var(--app-duration-fast) var(--app-ease-standard), border-color var(--app-duration-fast) var(--app-ease-standard);
+}
+.farmer-cache-item:hover {
+    background-color: var(--app-row-hover);
+    border-color: var(--app-border-hover);
+}
+.farmer-cache-item-info {
+    flex: 1;
+    min-width: 0;
+}
+.farmer-cache-item-title {
+    font-size: var(--app-font-size-md);
+    font-weight: 600;
+    color: var(--app-text-primary);
+}
+.farmer-cache-item-desc {
+    font-size: var(--app-font-size-sm);
+    color: var(--app-text-secondary);
+    margin-top: var(--app-spacing-xs);
+}
+
+/* ========== 系统信息页面 ========== */
+.farmer-system-page .farmer-info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: var(--app-spacing-lg);
+}
+.farmer-info-section {
+    padding: var(--app-spacing-md);
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-md);
+    background: var(--app-bg-card);
+}
+.farmer-info-section-title {
+    font-size: var(--app-font-size-md);
+    font-weight: 600;
+    color: var(--app-text-primary);
+    margin: 0 0 var(--app-spacing-md);
+    padding-bottom: var(--app-spacing-sm);
+    border-bottom: 1px solid var(--app-border);
+}
+.farmer-info-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--app-spacing-xs) 0;
+}
+.farmer-info-row + .farmer-info-row {
+    border-top: 1px solid var(--app-border);
+}
+.farmer-info-label {
+    font-size: var(--app-font-size-sm);
+    color: var(--app-text-secondary);
+}
+.farmer-info-value {
+    font-size: var(--app-font-size-sm);
+    font-weight: 500;
+    color: var(--app-text-primary);
+}

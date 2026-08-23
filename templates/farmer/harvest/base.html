@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}慧眼护农 · 农户端{% endblock %}</title>
+    <link rel="icon" href="/static/img/favicon.png" type="image/png">
+    <!-- 主题防闪烁：页面加载前从 localStorage 读取主题偏好，写入 <html data-theme> 属性 -->
+    <script>(function(){try{var t=localStorage.getItem('farmer_theme');if(t==='dark'){document.documentElement.setAttribute('data-theme','dark');}}catch(e){}})();</script>
+    <!-- 防未编译内容闪烁（FOUC）：Vue 挂载前隐藏带 v-cloak 的元素 -->
+    <style>[v-cloak]{display:none!important;}</style>
+    <!-- TDesign Vue Next CSS（本地 vendor，无外网依赖，全模块共享） -->
+    <link rel="stylesheet" href="/static/vendor/tdesign/tdesign.min.css">
+    <!-- Design Token（统一令牌，全模块共享） -->
+    <link rel="stylesheet" href="/static/css/theme.css?v={{ config.app_version }}">
+    <!-- 侧边栏 / 顶栏 / 布局样式（复用 admin.css 等价拆分的 4 个文件，按原顺序引入） -->
+    <link rel="stylesheet" href="/static/css/admin-base.css?v={{ config.app_version }}">
+    <link rel="stylesheet" href="/static/css/admin-nav.css?v={{ config.app_version }}">
+    <link rel="stylesheet" href="/static/css/admin-forms.css?v={{ config.app_version }}">
+    <link rel="stylesheet" href="/static/css/admin-detail.css?v={{ config.app_version }}">
+    <!-- 丰收主题专属样式 -->
+    <link rel="stylesheet" href="{{ theme_static }}/css/app.css?v={{ config.app_version }}">
+    {% block head %}{% endblock %}
+</head>
+<body>
+<div id="farmer-layout">
+    <!-- 侧边栏（回退默认主题的 sidebar.html） -->
+    {% include 'sidebar.html' %}
+
+    <!-- 右侧区域 -->
+    <div class="farmer-main-area">
+        <!-- 丰收主题标识横幅 -->
+        <div class="farmer-harvest-banner">丰收主题 · 橙金色暖色调</div>
+        <!-- 顶部栏（折叠按钮） -->
+        <header id="farmer-topbar" v-cloak class="farmer-topbar">
+            <div class="farmer-topbar-left">
+                <t-button theme="default" variant="text" @click="toggleSidebar">
+                    <t-icon name="view-list"></t-icon>
+                </t-button>
+            </div>
+            <div class="farmer-topbar-right"></div>
+        </header>
+
+        <!-- 页面内容 -->
+        <main class="farmer-page-content">
+            <div id="farmer-app" v-cloak>
+                {% block content %}{% endblock %}
+            </div>
+        </main>
+    </div>
+</div>
+
+<!-- ========== 前端依赖（全部本地 vendor，零构建，无海外 CDN） ========== -->
+<script src="/static/vendor/vue/vue.global.prod.min.js"></script>
+<script src="/static/vendor/tdesign/tdesign.min.js"></script>
+<script src="/static/vendor/tdesign-icons/index.min.js"></script>
+<script src="/static/vendor/axios/axios.min.js"></script>
+<!-- 农户端引导脚本（回退默认主题的 JS） -->
+<script src="{{ theme_static }}/js/farmer-app.js?v={{ config.app_version }}"></script>
+<!-- 农户端 SPA 局部加载器（回退默认主题） -->
+<script src="{{ theme_static }}/js/farmer-spa.js?v={{ config.app_version }}"></script>
+<!-- 页面专属脚本 -->
+{% block scripts %}{% endblock %}
+</body>
+</html>

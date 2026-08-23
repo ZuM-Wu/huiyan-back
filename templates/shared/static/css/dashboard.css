@@ -1,0 +1,378 @@
+/**
+ * 仪表盘挂件样式
+ * 网格布局 + 可拖拽卡片 + 挂件管理弹窗
+ */
+
+/* ========== 顶部工具栏 ========== */
+.dashboard-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--app-spacing-lg);
+}
+
+.dashboard-toolbar h2 {
+    font-size: var(--app-font-size-xl);
+    font-weight: 600;
+    color: var(--app-text-primary);
+}
+
+/* ========== 挂件管理弹窗 ========== */
+.widget-config-panel {
+    padding: 8px 4px;
+    min-width: 200px;
+}
+
+.widget-config-panel > p {
+    font-size: 14px;
+    color: var(--app-text-secondary);
+}
+
+.widget-config-panel .t-checkbox {
+    display: block;
+    margin-bottom: 8px;
+}
+
+/* ========== 挂件网格容器 ========== */
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--app-spacing-md);
+    min-height: 200px;
+}
+
+/* ========== 挂件卡片容器 ========== */
+.widget-item {
+    position: relative;
+    background: var(--app-bg-card);
+    border-radius: var(--app-radius-md);
+    padding: var(--app-spacing-md);
+    box-shadow: var(--app-shadow-1);
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+    cursor: default;
+}
+
+.widget-item:hover {
+    box-shadow: var(--app-shadow-2);
+}
+
+.widget-item.sortable-ghost {
+    opacity: 0.4;
+}
+
+.widget-item.sortable-chosen {
+    cursor: grabbing;
+}
+
+/* 拖拽手柄 */
+.widget-drag-handle {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--app-text-placeholder);
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.widget-item:hover .widget-drag-handle {
+    opacity: 1;
+}
+
+.widget-drag-handle:active {
+    cursor: grabbing;
+}
+
+/* ========== 占列数控制 ========== */
+.widget-item.col-1 { grid-column: span 1; }
+.widget-item.col-2 { grid-column: span 2; }
+.widget-item.col-3 { grid-column: span 3; }
+.widget-item.col-4 { grid-column: span 4; }
+
+/* ========== stat_card 类型样式（水平布局：图标左 + 内容右） ========== */
+.widget-stat-card {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.widget-stat-card .stat-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: var(--app-radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--app-brand-light);
+    color: var(--app-brand-color);
+    flex-shrink: 0;
+}
+
+.widget-stat-card .stat-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.widget-stat-card .stat-value {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--app-text-primary);
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.widget-stat-card .stat-title {
+    font-size: 13px;
+    color: var(--app-text-secondary);
+    margin-top: 2px;
+}
+
+.widget-stat-card .stat-sub {
+    font-size: 12px;
+    color: var(--app-text-placeholder);
+    margin-top: 2px;
+}
+
+/* ========== list 类型样式 ========== */
+.widget-list-card {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.widget-list-card .list-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--app-border);
+}
+
+.widget-list-card .list-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--app-text-primary);
+}
+
+.widget-list-card .list-body {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+}
+
+.widget-list-card .log-row {
+    display: flex;
+    align-items: center;
+    padding: 7px 0;
+    border-bottom: 1px solid var(--app-border);
+    font-size: 13px;
+    transition: background 0.15s;
+}
+
+.widget-list-card .log-row:hover {
+    background: var(--app-row-hover);
+}
+
+.widget-list-card .log-row:last-child {
+    border-bottom: none;
+}
+
+.widget-list-card .log-type {
+    width: 90px;
+    color: var(--app-text-secondary);
+    flex-shrink: 0;
+    font-size: 12px;
+}
+
+.widget-list-card .log-desc {
+    flex: 1;
+    color: var(--app-text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding: 0 8px;
+}
+
+.widget-list-card .log-user {
+    width: 70px;
+    color: var(--app-text-secondary);
+    flex-shrink: 0;
+    text-align: center;
+    font-size: 12px;
+}
+
+.widget-list-card .log-time {
+    width: 80px;
+    color: var(--app-text-placeholder);
+    flex-shrink: 0;
+    text-align: right;
+    font-size: 12px;
+}
+
+/* ========== chart 类型样式（ECharts 容器 + 条状轮播指示器） ========== */
+.widget-chart-card {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+/* 头部：粗体挂件标题 + 当前产区名（紧跟标题后，品牌色竖线分隔的醒目纯文本） */
+.widget-chart-card .chart-header {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
+.widget-chart-card .chart-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--app-text-primary);
+}
+
+.widget-chart-card .chart-area-label {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--app-text-primary);
+    padding-left: 12px;
+    border-left: 3px solid var(--app-brand-color);
+    line-height: 1.2;
+}
+
+.widget-chart-body {
+    height: 260px;
+}
+
+/* 条状翻页指示器（每个产区一条，当前高亮，可点击切换） */
+.chart-indicator {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    margin-top: 6px;
+}
+
+.chart-indicator:empty {
+    display: none;
+}
+
+.chart-indicator .indicator-bar {
+    width: 20px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--app-border);
+    cursor: pointer;
+    transition: background 0.2s ease, width 0.2s ease;
+}
+
+.chart-indicator .indicator-bar.active {
+    width: 28px;
+    background: var(--app-brand-color);
+}
+
+.chart-empty {
+    height: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--app-text-placeholder);
+    font-size: 13px;
+}
+
+/* ========== todo 类型样式（待办事项：粗体标题 + 三列窄磁贴网格，下方空位留白待扩展） ========== */
+.widget-todo-card .todo-header {
+    font-size: var(--app-font-size-lg);
+    font-weight: 600;
+    color: var(--app-text-primary);
+    margin-bottom: var(--app-spacing-md);
+}
+
+.widget-todo-card .todo-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--app-spacing-md);
+}
+
+/* 磁贴：浅底圆角，图标 + 标签左侧，计数靠右粗体；卡片变窄后压缩水平内边距，高度不变 */
+.widget-todo-card .todo-tile {
+    display: flex;
+    align-items: center;
+    gap: var(--app-spacing-sm);
+    padding: var(--app-spacing-md) var(--app-spacing-sm);
+    background: var(--app-bg-page);
+    border-radius: var(--app-radius-md);
+    cursor: pointer;
+    transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.widget-todo-card .todo-tile:hover {
+    background: var(--app-brand-light);
+    box-shadow: var(--app-shadow-1);
+}
+
+.widget-todo-card .todo-tile-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: var(--app-radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--app-bg-card);
+    color: var(--app-text-secondary);
+    flex-shrink: 0;
+}
+
+.widget-todo-card .todo-tile-label {
+    flex: 1;
+    min-width: 0;
+    font-size: 13px;
+    color: var(--app-text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.widget-todo-card .todo-tile-count {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--app-text-primary);
+    flex-shrink: 0;
+    /* 磁贴水平内边距较窄，计数额外留右边距避免贴近右侧边框 */
+    margin-right: var(--app-spacing-sm);
+}
+
+/* ========== 空状态 ========== */
+.dashboard-empty {
+    grid-column: span 4;
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--app-text-placeholder);
+    font-size: 14px;
+}
+
+/* ========== 响应式 ========== */
+@media (max-width: 1200px) {
+    .dashboard-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    .widget-item.col-3 { grid-column: span 2; }
+    .widget-item.col-4 { grid-column: span 2; }
+}
+
+@media (max-width: 768px) {
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+    }
+    .widget-item.col-1,
+    .widget-item.col-2,
+    .widget-item.col-3,
+    .widget-item.col-4 { grid-column: span 1; }
+    .widget-todo-card .todo-grid { grid-template-columns: 1fr; }
+}

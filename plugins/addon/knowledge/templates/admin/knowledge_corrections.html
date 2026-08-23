@@ -1,0 +1,66 @@
+{% extends "plugin_page_shell.html" %}
+{% block title %}知识库勘误 - 慧眼护农{% endblock %}
+{#
+  农业知识库插件 — 勘误审核独立后台页
+
+  从 knowledge.html 迁出的勘误审核区：状态 Tabs（待处理/已采纳/已驳回/全部）
+  + 勘误表格 + 采纳/驳回处理弹窗，收录全部分类下的勘误。
+  要点：
+  1. 继承核心 base.html；页面脚本外提至共享 js/pages（插件不挂 /static）
+  2. 根节点 #page-app + v-cloak；Vue 分隔符 [[ ]]；t-* 组件禁止自闭合
+  3. 接口复用 /api/admin/v1/knowledge/corrections，权限码 knowledge:correction
+#}
+{% block content %}
+<div id="page-app" v-cloak class="kb-corr-page">
+    <t-card v-permission="'knowledge:correction'" class="kb-corr-panel" title="勘误审核">
+        <t-tabs v-model="corrStatus" class="kb-corr-tabs" @change="onCorrTabChange">
+            <t-tab-panel :value="0" label="待处理"></t-tab-panel>
+            <t-tab-panel :value="1" label="已采纳"></t-tab-panel>
+            <t-tab-panel :value="2" label="已驳回"></t-tab-panel>
+            <t-tab-panel :value="-1" label="全部"></t-tab-panel>
+        </t-tabs>
+        <t-table :data="corrData" :columns="corrColumns" :loading="corrLoading"
+            :pagination="corrPagination" row-key="id" hover @page-change="onCorrPageChange">
+            <template #status="{ row }">
+                <t-tag :theme="corrTagTheme(row.status)" variant="light">[[ corrStatusText(row.status) ]]</t-tag>
+            </template>
+            <template #actions="{ row }">
+                <template v-if="row.status === 0">
+                    <t-button theme="primary" variant="text" size="small"
+                        @click="openHandle(row, 1)">采纳</t-button>
+                    <t-button theme="danger" variant="text" size="small"
+                        @click="openHandle(row, 2)">驳回</t-button>
+                </template>
+                <span v-else class="kb-corr-note">[[ row.admin_note || '—' ]]</span>
+            </template>
+        </t-table>
+    </t-card>
+
+    <!-- 勘误处理弹窗 -->
+    <t-dialog v-model:visible="handleVisible" :header="handleTitle" :on-confirm="submitHandle"
+        width="480px" placement="center">
+        <p class="kb-handle-tip">条目：[[ handleRow.knowledge_title ]]</p>
+        <p class="kb-handle-content">[[ handleRow.content ]]</p>
+        <t-form :data="handleForm" label-width="80px">
+            <t-form-item label="处理备注">
+                <t-textarea v-model="handleForm.admin_note" placeholder="选填，将记录于勘误" :maxlength="500"
+                    :autosize="{ minRows: 2 }"></t-textarea>
+            </t-form-item>
+        </t-form>
+    </t-dialog>
+</div>
+
+<style>
+/* 勘误页样式 — 色值统一引用 --app-* 变量，深浅色自适应 */
+.kb-corr-tabs { margin-bottom: 12px; }
+.kb-corr-note { color: var(--app-text-secondary); font-size: 12px; }
+.kb-handle-tip { color: var(--app-text-secondary); font-size: 13px; margin: 0 0 6px; }
+.kb-handle-content { color: var(--app-text-primary); margin: 0 0 12px; line-height: 1.6; }
+</style>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<!-- 页面脚本外提至共享 js/pages（与 knowledge.js 同范式） -->
+<script src="/static/js/pages/knowledge_corrections.js?v={{ config.app_version }}"></script>
+{% endblock %}

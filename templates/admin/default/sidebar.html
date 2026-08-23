@@ -1,0 +1,51 @@
+<!-- 侧边栏 — 明亮/深色双模式；菜单动态渲染 + 底部用户卡片 -->
+<aside id="sidebar-app" v-cloak class="sidebar">
+    <div class="sidebar-logo">
+        <!-- 配置了跳转地址时渲染为 <a>（按跳转方式 _self/_blank），否则降级为 <span> 不可点击 -->
+        <component :is="logoUrl ? 'a' : 'span'" class="sidebar-logo__link"
+                   :href="logoUrl || null" :target="logoUrl ? logoTarget : null">
+            <img :src="siteLogo" alt="Logo" class="sidebar-logo__img sidebar-logo--full">
+            <img :src="siteFavicon" alt="Logo" class="sidebar-logo__img sidebar-logo--mini">
+        </component>
+    </div>
+
+    <!-- 菜单区：按 sort_order 顺序渲染，父级/叶子混合不拆分 -->
+    <div class="sidebar-menu">
+        <t-menu :theme="sidebarTheme" :value="activeMenu" :expanded="expandedMenus"
+                :collapsed="isCollapsed"
+                @change="onMenuChange" @expand="onExpand">
+            <template v-for="item in orderedMenus" :key="item.id">
+                <!-- 含子菜单的分组 -->
+                <t-submenu v-if="item.children && item.children.length"
+                           :value="item.name" :title="item.title">
+                    <template #icon><t-icon :name="item.icon || 'folder'"/></template>
+                    <t-menu-item v-for="child in item.children" :key="child.id" :value="child.name">
+                        [[ child.title ]]
+                    </t-menu-item>
+                </t-submenu>
+                <!-- 顶级叶子菜单 -->
+                <t-menu-item v-else :value="item.name">
+                    <template #icon><t-icon :name="item.icon || 'file'"/></template>
+                    [[ item.title ]]
+                </t-menu-item>
+            </template>
+        </t-menu>
+    </div>
+
+    <!-- Discord 风格用户卡片 -->
+    <div class="sidebar-user">
+        <div class="sidebar-user__avatar">
+            <span class="sidebar-user__avatar-text">[[ avatarText ]]</span>
+            <span class="sidebar-user__status" title="在线"></span>
+        </div>
+        <div class="sidebar-user__meta">
+            <div class="sidebar-user__name">[[ adminUser.nickname || '管理员' ]]</div>
+            <div class="sidebar-user__role">[[ roleName ]]</div>
+        </div>
+        <t-dropdown :options="userActions" placement="top-right" trigger="hover" @click="onUserAction">
+            <button type="button" class="sidebar-user__gear" title="设置">
+                <t-icon name="setting"/>
+            </button>
+        </t-dropdown>
+    </div>
+</aside>

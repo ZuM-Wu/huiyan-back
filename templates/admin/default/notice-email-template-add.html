@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}{{ '编辑' if request.query_params.get('id') else '创建' }}邮件模板 - 慧眼护农{% endblock %}
+{% block head %}
+<style>
+.email-tpl-page .breadcrumb-bar {
+    margin-bottom: var(--app-spacing-md);
+    font-size: 13px;
+    color: var(--app-text-secondary);
+}
+.email-tpl-page .breadcrumb-bar a {
+    color: var(--app-brand-color);
+    text-decoration: none;
+    cursor: pointer;
+}
+.email-tpl-page .breadcrumb-bar a:hover { text-decoration: underline; }
+.email-tpl-page .editor-section { margin-top: var(--app-spacing-md); }
+.email-tpl-page .var-hint {
+    font-size: 12px;
+    color: var(--app-text-secondary);
+    margin-top: var(--app-spacing-xs);
+}
+.email-tpl-page .var-hint code {
+    background: var(--app-bg-container);
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: monospace;
+}
+.email-tpl-page .bottom-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--app-spacing-sm);
+    margin-top: var(--app-spacing-lg);
+    padding-top: var(--app-spacing-md);
+    border-top: 1px solid var(--app-border);
+}
+</style>
+{% endblock %}
+{% block content %}
+<div id="page-app" v-cloak class="email-tpl-page">
+    <t-card title="邮件模板编辑">
+        <!-- 面包屑导航 -->
+        <div class="breadcrumb-bar">
+            <a @click="goBack">邮件通知</a>
+            <span> / 模板管理 / </span>
+            <span>[[ isEdit ? '编辑模板' : '创建模板' ]]</span>
+        </div>
+
+        <!-- 表单 -->
+        <t-form ref="formRef" :data="form" :rules="rules" label-align="top" @submit="onSubmit">
+            <t-row :gutter="[24, 0]">
+                <t-col :xs="12" :xl="4">
+                    <t-form-item name="name" label="模板名称">
+                        <t-input v-model="form.name" placeholder="请输入模板名称" clearable></t-input>
+                    </t-form-item>
+                </t-col>
+                <t-col :xs="12" :xl="4">
+                    <t-form-item name="subject" label="邮件主题">
+                        <t-input v-model="form.subject" placeholder="请输入邮件主题" clearable></t-input>
+                    </t-form-item>
+                </t-col>
+                <t-col :xs="12" :xl="4">
+                    <t-form-item name="action_key" label="默认动作">
+                        <t-select v-model="form.action_key" placeholder="请选择关联动作（可选）" clearable>
+                            <t-option v-for="a in actionList" :key="a.action_key" :value="a.action_key" :label="a.action_name"></t-option>
+                        </t-select>
+                    </t-form-item>
+                </t-col>
+            </t-row>
+
+            <!-- 富文本编辑器 -->
+            <div class="editor-section">
+                <t-form-item label="邮件内容">
+                    <com-tinymce ref="emailEditor" id="email-tpl-editor" :default-value="form.content" :height="500"></com-tinymce>
+                </t-form-item>
+            </div>
+
+            <!-- 底部操作栏 -->
+            <div class="bottom-actions">
+                <t-button theme="primary" type="submit" :loading="saving">保存</t-button>
+                <t-button theme="default" @click="goBack">
+                    <template #icon><t-icon name="chevron-left"></t-icon></template>
+                    返回
+                </t-button>
+                <t-button theme="default" variant="text" @click="showVarHint = !showVarHint">
+                    <template #icon><t-icon name="info-circle"></t-icon></template>
+                    模板变量
+                </t-button>
+            </div>
+            <div v-if="showVarHint" class="var-hint">
+                <p style="margin-bottom: 8px;"><strong>邮件内容支持以下变量（使用 <code>{变量名}</code> 格式）：</strong></p>
+                <t-table :data="varHintList" :columns="varHintColumns" size="small" bordered row-key="var" hover></t-table>
+            </div>
+        </t-form>
+    </t-card>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="/static/vendor/tinymce/tinymce.min.js?v={{ config.app_version }}"></script>
+<script src="/static/js/pages/notice-email-template-add.js?v={{ config.app_version }}"></script>
+{% endblock %}

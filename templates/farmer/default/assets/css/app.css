@@ -1,0 +1,304 @@
+/* ============================================================
+   农户端默认主题样式 — 侧边栏 + 内容区布局
+   统一引用 theme.css 中的 --app-* 令牌，禁止硬编码色值。
+   PC 端布局；移动端由独立 App 承载，不在此适配。
+   ============================================================ */
+
+/* ========== Reset & Base ========== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+    font-family: var(--app-font-family);
+    font-size: var(--app-font-size-md);
+    color: var(--app-text-primary);
+    background: var(--app-bg-page);
+}
+a { color: var(--app-brand-color); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* ========== Layout ========== */
+#farmer-layout { display: flex; min-height: 100vh; }
+
+/* 侧边栏 / 顶栏 / 布局样式由 admin.css 统一提供（.sidebar / .topbar / .page-content） */
+
+/* ========== 右侧主区域 ========== */
+.farmer-main-area { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+
+/* 卡片头标题（图标 + 文字）：全局缺失的规范类 */
+.card-header-title {
+    display: flex;
+    align-items: center;
+    gap: var(--app-spacing-sm);
+    font-weight: 500;
+}
+.card-header-title .t-icon {
+    font-size: 20px;
+    color: var(--app-brand-color);
+}
+
+/* 顶部栏 */
+.farmer-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 56px;
+    height: var(--app-header-height);
+    padding: 0 var(--app-page-padding);
+    background: var(--app-bg-card);
+    border-bottom: 1px solid var(--app-border);
+    flex-shrink: 0;
+}
+.farmer-topbar-right { display: flex; align-items: center; gap: var(--app-spacing-md); }
+
+/* 页面内容 */
+.farmer-page-content {
+    flex: 1;
+    padding: var(--app-page-padding);
+    overflow-y: auto;
+    transition: opacity var(--app-duration-fast) var(--app-ease-standard);
+}
+
+/* ========== 首页 Hero 区域 ========== */
+.farmer-hero {
+    background: var(--app-brand-color);
+    border-radius: var(--app-radius-lg);
+    color: var(--app-text-anti);
+    padding: var(--app-spacing-xl) var(--app-spacing-xl);
+    text-align: center;
+    margin-bottom: var(--app-spacing-xl);
+}
+.farmer-hero-title { font-size: var(--app-font-size-xl); font-weight: 700; margin: 0 0 var(--app-spacing-sm); }
+.farmer-hero-sub { font-size: var(--app-font-size-lg); opacity: 0.9; margin: 0 0 var(--app-spacing-lg); }
+.farmer-hero-actions { display: flex; gap: var(--app-spacing-md); justify-content: center; }
+
+/* ========== 统计卡片 ========== */
+.farmer-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: var(--app-spacing-md);
+    margin-bottom: var(--app-spacing-xl);
+}
+.farmer-stat-card {
+    background: var(--app-bg-card);
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-lg);
+    padding: var(--app-spacing-lg);
+    display: flex;
+    align-items: center;
+    gap: var(--app-spacing-md);
+    transition: box-shadow var(--app-duration-base) var(--app-ease-standard);
+}
+.farmer-stat-card:hover { box-shadow: var(--app-shadow-2); transform: translateY(-2px); }
+.farmer-stat-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: var(--app-radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    flex-shrink: 0;
+}
+.farmer-stat-icon--brand { background: var(--app-brand-light); color: var(--app-brand-color); }
+.farmer-stat-icon--success { background: var(--app-success-light); color: var(--app-success); }
+.farmer-stat-icon--warning { background: var(--app-warning-light); color: var(--app-warning); }
+.farmer-stat-card { transition: transform var(--app-duration-base) var(--app-ease-spring), box-shadow var(--app-duration-base) var(--app-ease-standard); }
+.farmer-stat-label { font-size: var(--app-font-size-sm); color: var(--app-text-secondary); }
+.farmer-stat-value { font-size: var(--app-font-size-xl); font-weight: 700; color: var(--app-text-primary); }
+.farmer-stat-value--sm { font-size: var(--app-font-size-md); font-weight: 500; }
+
+/* ========== 功能卡片网格 ========== */
+.farmer-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: var(--app-spacing-lg);
+}
+.farmer-card { cursor: pointer; transition: box-shadow var(--app-duration-fast) var(--app-ease-standard); }
+.farmer-card:hover { box-shadow: var(--app-shadow-2); }
+.farmer-card-desc { color: var(--app-text-secondary); margin: 0; line-height: 1.6; }
+
+/* ========== 分区标题 ========== */
+.farmer-section-title {
+    font-size: var(--app-font-size-lg);
+    font-weight: 600;
+    color: var(--app-text-primary);
+    margin: 0 0 var(--app-spacing-md);
+}
+
+/* ========== 欢迎区 ========== */
+.farmer-welcome {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--app-spacing-lg);
+}
+.farmer-welcome-text h2 {
+    font-size: var(--app-font-size-xl);
+    font-weight: 600;
+    color: var(--app-text-primary);
+    margin: 0 0 var(--app-spacing-xs);
+}
+.farmer-welcome-text p {
+    font-size: var(--app-font-size-md);
+    color: var(--app-text-secondary);
+    margin: 0;
+}
+
+/* ========== 个人中心页面 ========== */
+.farmer-card-header-title { margin: 0; font-size: var(--app-font-size-lg); font-weight: 600; }
+.farmer-card-desc { color: var(--app-text-secondary); margin-bottom: var(--app-spacing-md); font-size: var(--app-font-size-sm); }
+.farmer-profile-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--app-spacing-lg);
+}
+.farmer-profile-full { grid-column: 1 / -1; }
+.farmer-profile-card {
+    background: var(--app-bg-card);
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-lg);
+    padding: var(--app-spacing-lg);
+}
+.farmer-profile-card-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--app-text-primary);
+    margin: 0 0 var(--app-spacing-lg);
+    padding-bottom: var(--app-spacing-md);
+    border-bottom: 1px solid var(--app-border);
+}
+.farmer-info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--app-spacing-md) var(--app-spacing-xl);
+}
+.farmer-info-item { display: flex; flex-direction: column; gap: 4px; }
+.farmer-info-label { font-size: var(--app-font-size-sm); color: var(--app-text-secondary); }
+.farmer-info-value { font-size: var(--app-font-size-md); color: var(--app-text-primary); font-weight: 500; }
+.farmer-info-value--empty { color: var(--app-text-placeholder); font-style: italic; font-weight: 400; }
+
+/* 个人中心表单操作栏 */
+.farmer-form-actions {
+    display: flex;
+    gap: var(--app-spacing-sm);
+    margin-top: var(--app-spacing-lg);
+    padding-top: var(--app-spacing-md);
+    border-top: 1px solid var(--app-border);
+}
+/* 密码表单限宽 */
+.farmer-pwd-form { max-width: 480px; }
+
+/* ============================================================
+   默认主题重构：统一慧眼蓝的页面基元
+   页面脚本和数据绑定保持原样，视觉层集中在主题 CSS 管理。
+   ============================================================ */
+
+/* 主题壳层 */
+#farmer-layout { background: var(--app-bg-page); }
+.sidebar { width: 240px; border-right-color: var(--app-border); box-shadow: var(--app-shadow-1); }
+.sidebar.collapsed { width: 68px; }
+.sidebar-logo { height: 64px; justify-content: flex-start; padding: 0 var(--app-spacing-lg); }
+.sidebar-logo__link { justify-content: flex-start; gap: var(--app-spacing-sm); }
+.sidebar-logo__img { max-width: 30px; max-height: 30px; }
+.sidebar-logo--full { width: 30px; }
+.farmer-sidebar-brand { color: var(--app-text-primary); font-size: var(--app-font-size-lg); font-weight: 700; white-space: nowrap; }
+.sidebar.collapsed .farmer-sidebar-brand { display: none; }
+.sidebar-menu { padding: var(--app-spacing-md) var(--app-spacing-sm); }
+.sidebar-user { margin: var(--app-spacing-sm); padding: var(--app-spacing-sm); border: 1px solid var(--app-border); }
+.farmer-main-area { background: var(--app-bg-page); }
+.farmer-topbar { height: 64px; padding: 0 var(--app-spacing-lg); background: var(--app-bg-card); border-bottom-color: var(--app-border); }
+.farmer-topbar-left, .farmer-topbar-right { display: flex; align-items: center; gap: var(--app-spacing-sm); }
+.farmer-topbar-context { display: flex; align-items: baseline; gap: var(--app-spacing-sm); color: var(--app-text-primary); }
+.farmer-topbar-context__eyebrow { color: var(--app-text-secondary); font-size: var(--app-font-size-sm); }
+.farmer-topbar-context strong { font-size: var(--app-font-size-md); font-weight: 600; }
+.farmer-page-content { padding: var(--app-spacing-xl); background: var(--app-bg-page); }
+.farmer-page-content > #farmer-app, .farmer-page-content > #page-app { width: 100%; max-width: 1440px; margin: 0 auto; }
+
+/* TDesign 容器统一收敛为轻边界面板 */
+.farmer-page-content .t-card,
+.farmer-page-content .farmer-profile-card,
+.farmer-page-content .farmer-ai-page {
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-md);
+    background: var(--app-bg-card);
+    box-shadow: var(--app-shadow-1);
+}
+.farmer-page-content .t-card { overflow: hidden; }
+.farmer-page-content .t-card__header { min-height: 52px; padding: var(--app-spacing-md) var(--app-spacing-lg); border-bottom-color: var(--app-border); }
+.farmer-page-content .t-card__body { padding: var(--app-spacing-lg); }
+.farmer-page-content .t-button { transition: transform var(--app-duration-base) var(--app-ease-spring), box-shadow var(--app-duration-fast) var(--app-ease-standard); }
+.farmer-page-content .t-button:active { transform: scale(.98); }
+.farmer-page-content .t-input, .farmer-page-content .t-select, .farmer-page-content .t-textarea { border-radius: var(--app-radius-md); }
+.farmer-page-content .t-table__content tr:hover td { background: var(--app-row-hover); }
+
+/* 页面上下文与工具栏 */
+.farmer-section-title, .farmer-card-header-title { color: var(--app-text-primary); letter-spacing: 0; }
+.farmer-section-title { margin: var(--app-spacing-xl) 0 var(--app-spacing-md); font-size: var(--app-font-size-lg); }
+.farmer-toolbar { min-height: 32px; display: flex; align-items: center; justify-content: space-between; gap: var(--app-spacing-md); flex-wrap: wrap; }
+.farmer-toolbar-left, .farmer-toolbar-right { display: flex; align-items: center; gap: var(--app-spacing-sm); flex-wrap: wrap; }
+.search-input { min-width: 220px; }
+.farmer-empty, .farmer-loading, .farmer-error { padding: var(--app-spacing-xl); color: var(--app-text-secondary); text-align: center; }
+
+/* 首页：平面蓝色摘要区 + 紧凑工作台 */
+.home-welcome { padding: var(--app-spacing-xl); border: 1px solid var(--app-brand-color); border-radius: var(--app-radius-md); background: var(--app-brand-color); color: var(--app-text-anti); box-shadow: var(--app-shadow-1); }
+.home-welcome__left h1 { font-size: 24px; font-weight: 600; }
+.home-welcome__left p { margin-top: var(--app-spacing-xs); opacity: .82; }
+.home-welcome__cert { border: 1px solid var(--app-overlay-white-strong); background: var(--app-overlay-white-mid); border-radius: var(--app-radius-md); }
+.home-cert-banner { border-radius: var(--app-radius-md); border-color: var(--app-warning); }
+.home-actions, .home-stats { gap: var(--app-spacing-md); }
+.home-action-card, .home-stat { border-radius: var(--app-radius-md); box-shadow: var(--app-shadow-1); }
+.home-action-card { align-items: flex-start; min-height: 128px; padding: var(--app-spacing-lg); }
+.home-action-card:hover { transform: translateY(-1px); box-shadow: var(--app-shadow-2); }
+.home-action-card__desc { text-align: left; }
+.home-stat { min-height: 80px; }
+
+/* 账户、认证与安全页面 */
+.farmer-profile-layout { align-items: start; gap: var(--app-spacing-md); }
+.farmer-profile-card { padding: var(--app-spacing-lg); }
+.farmer-profile-card-title { margin-bottom: var(--app-spacing-md); padding-bottom: var(--app-spacing-sm); font-size: var(--app-font-size-lg); }
+.farmer-info-grid { gap: var(--app-spacing-md) var(--app-spacing-xl); }
+.farmer-form-actions { margin-top: var(--app-spacing-md); }
+.security-item { border: 1px solid var(--app-border); border-radius: var(--app-radius-md); background: var(--app-bg-container); }
+.security-item:hover { border-color: var(--app-brand-color); box-shadow: var(--app-shadow-1); }
+.security-login-info { gap: var(--app-spacing-sm); }
+.security-login-item { padding: var(--app-spacing-md); border: 1px solid var(--app-border); border-radius: var(--app-radius-md); background: var(--app-bg-container); }
+
+/* 认证页面 */
+.cert-page { max-width: 1120px; margin: 0 auto; }
+.cert-page-grid { grid-template-columns: minmax(0, 1fr) 300px; gap: var(--app-spacing-md); }
+.cert-status-banner, .cert-channel-card, .cert-guide-card { border-radius: var(--app-radius-md); }
+.cert-status-banner { border: 1px solid var(--app-border); }
+.cert-channel-card { background: var(--app-bg-container); }
+.cert-channel-card--active { background: var(--app-brand-light); border-color: var(--app-brand-color); }
+.cert-guide-card { background: var(--app-bg-container); border: 1px solid var(--app-border); }
+
+/* 产区与天气 */
+.farmer-production-area-page > .t-card { box-shadow: var(--app-shadow-1); }
+.weather-card, .area-map-card { margin-bottom: var(--app-spacing-md); }
+.weather-now-temp { color: var(--app-brand-color); }
+.weather-hourly-item, .weather-forecast-item { border: 1px solid var(--app-border); background: var(--app-bg-container); }
+.area-map-card .amap-thumb__map { border: 1px solid var(--app-border); }
+
+/* 消息与详情 */
+.inbox-card, .inbox-detail-card { max-width: none !important; }
+.inbox-toolbar-summary { color: var(--app-text-secondary); }
+.inbox-title-cell.is-unread { color: var(--app-brand-color); }
+.inbox-detail-title { font-size: 24px; font-weight: 600; }
+.inbox-detail-content-wrap { border-top-color: var(--app-border); }
+.inbox-navigation { border-top-color: var(--app-border); }
+
+/* AI 对话工作区 */
+.farmer-ai-page { height: calc(100vh - 128px); min-height: 520px; padding: var(--app-spacing-md); }
+.farmer-ai-toolbar { padding: var(--app-spacing-sm) 0 var(--app-spacing-md); border-bottom-color: var(--app-border); }
+.farmer-ai-body { background: var(--app-bg-container); border-radius: var(--app-radius-md); padding: var(--app-spacing-md); }
+.ai-chat-welcome { margin: auto; color: var(--app-text-secondary); }
+
+/* 系统工具页 */
+.farmer-cache-item, .farmer-info-section { border-radius: var(--app-radius-md); background: var(--app-bg-card); }
+.farmer-cache-item:hover { border-color: var(--app-brand-color); }
+.farmer-info-row { min-height: 36px; }
+
+/* 统一焦点态与桌面端稳定边界 */
+.farmer-page-content :focus-visible { outline: 2px solid var(--app-brand-color); outline-offset: 2px; }
+.farmer-page-content img { max-width: 100%; }
+.farmer-page-content table { max-width: 100%; }
+

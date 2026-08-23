@@ -1,0 +1,357 @@
+{% extends "base.html" %}
+{% block title %}我的产区 - 慧眼护农 农户端{% endblock %}
+{% block head %}
+<style>
+/* 产区天气卡片（明暗双模式走 --app-* Token） */
+.weather-card { margin-bottom: var(--app-spacing-md); }
+.weather-now { display: flex; align-items: baseline; gap: var(--app-spacing-md); flex-wrap: wrap; }
+.weather-now-temp { font-size: 32px; font-weight: 600; color: var(--app-text-primary); }
+.weather-now-meta { font-size: 13px; color: var(--app-text-secondary); }
+.weather-hourly { display: flex; gap: var(--app-spacing-sm); overflow-x: auto; padding: var(--app-spacing-xs) 0; }
+.weather-hourly-item { min-width: 64px; text-align: center; font-size: 12px; color: var(--app-text-secondary);
+    background: var(--app-bg-container); border-radius: var(--app-radius-md, 6px); padding: 6px 4px; }
+.weather-hourly-item strong { display: block; font-size: 14px; color: var(--app-text-primary); }
+.weather-forecast { display: flex; gap: var(--app-spacing-sm); overflow-x: auto; padding: var(--app-spacing-xs) 0; }
+.weather-forecast-item { min-width: 96px; text-align: center; font-size: 12px; color: var(--app-text-secondary);
+    background: var(--app-bg-container); border-radius: var(--app-radius-md, 6px); padding: 8px 4px; }
+.weather-forecast-item strong { display: block; color: var(--app-text-primary); }
+.weather-hint { font-size: 12px; color: var(--app-text-secondary); margin-top: var(--app-spacing-xs); }
+/* 产区地图卡片（只读可缩放，标记产区边框 + 地块边框） */
+.area-map-card { margin-bottom: var(--app-spacing-md); }
+.area-map-card .amap-thumb__map { width: 100%; height: 320px; border-radius: var(--app-radius-md, 6px); }
+.area-map-card .amap-thumb__empty { display: flex; align-items: center; justify-content: center;
+    height: 120px; color: var(--app-text-secondary); font-size: 13px; }
+</style>
+{% endblock %}
+{% block content %}
+<div id="page-app" v-cloak class="farmer-production-area-page">
+    <t-card title="产区管理">
+        <template #header>
+            <div class="farmer-toolbar">
+                <div class="farmer-toolbar-left">
+                    <t-breadcrumb :max-item-width="'160'">
+                        <t-breadcrumb-item @click="backToAreas">我的产区</t-breadcrumb-item>
+                        <t-breadcrumb-item v-if="level >= 1">[[ currentAreaName ]]</t-breadcrumb-item>
+                        <t-breadcrumb-item v-if="level >= 2">[[ currentPlotName ]]</t-breadcrumb-item>
+                    </t-breadcrumb>
+                </div>
+                <div class="farmer-toolbar-right">
+                    <t-input v-if="level === 0" v-model="searchKeyword" placeholder="搜索产区名称..."
+                        clearable class="search-input" @change="fetchAreas"></t-input>
+                    <t-button v-if="level > 0" theme="default" variant="outline" @click="goBack">
+                        <t-icon name="rollback" slot="icon"></t-icon>返回上级
+                    </t-button>
+                </div>
+            </div>
+        </template>
+
+        <!-- 层级 0：产区列表 -->
+        <t-skeleton v-if="level === 0 && loading" :row-col="[6]" animation="gradient"></t-skeleton>
+        <t-table v-else-if="level === 0" :data="areaList" :columns="areaColumns"
+            :pagination="areaPagination" row-key="id" hover @page-change="onAreaPageChange">
+            <template #status="{ row }">
+                <t-tag variant="light" :theme="row.status === 1 ? 'success' : 'default'">
+                    [[ row.status === 1 ? '正常' : '停用' ]]
+                </t-tag>
+            </template>
+            <template #operation="{ row }">
+                <t-button theme="primary" variant="text" size="small" @click="openPlots(row)">查看地块</t-button>
+            </template>
+        </t-table>
+
+        <!-- 层级 1：产区天气卡片 + 地块列表 -->
+        <template v-else-if="level === 1">
+            <t-card class="weather-card" :bordered="true" header-bordered title="产区天气" v-if="weatherData || weatherLoading">
+                <template #header>产区天气</template>
+                <t-loading v-if="weatherLoading" size="small" text="加载天气中..."></t-loading>
+                <template v-else-if="weatherData && weatherData.realtime">
+                    <!-- 生效预警条 -->
+                    <t-alert v-for="a in (weatherData.alerts || [])" :key="a.alert_id" theme="warning"
+                        :title="a.title" style="margin-bottom: var(--app-spacing-sm);">[[ a.text ]]</t-alert>
+                    <!-- 实况 -->
+                    <div class="weather-now">
+                        <span class="weather-now-temp">[[ weatherData.realtime.temp ]]℃</span>
+                        <span class="weather-now-meta">[[ weatherData.realtime.text ]]</span>
+                        <span class="weather-now-meta">湿度 [[ weatherData.realtime.humidity ]]%</span>
+                        <span class="weather-now-meta">[[ weatherData.realtime.wind_dir ]] [[ weatherData.realtime.wind_scale ]]级</span>
+                    </div>
+                    <!-- 24h 逐时横滑（高德源无逐时数据时隐藏） -->
+                    <div v-if="(weatherData.hourly || []).length" class="weather-hourly">
+                        <div v-for="h in weatherData.hourly" :key="h.time" class="weather-hourly-item">
+                            <span>[[ formatHour(h.time) ]]</span>
+                            <strong>[[ h.temp ]]℃</strong>
+                            <span>[[ h.text ]]</span>
+                        </div>
+                    </div>
+                    <!-- 未来预报 -->
+                    <div v-if="(weatherData.forecast || []).length" class="weather-forecast">
+                        <div v-for="f in weatherData.forecast" :key="f.date" class="weather-forecast-item">
+                            <strong>[[ f.date ]]</strong>
+                            <span>[[ f.text_day ]]</span>
+                            <strong>[[ f.temp_min ]]~[[ f.temp_max ]]℃</strong>
+                        </div>
+                    </div>
+                    <div class="weather-hint">
+                        <template v-if="weatherData.granularity === 'district'">区县级数据 · </template>
+                        拉取时间: [[ weatherData.fetch_time || '未知' ]]
+                    </div>
+                </template>
+                <div v-else class="weather-hint">暂无天气数据</div>
+            </t-card>
+            <!-- 产区地图（只读可缩放：产区边框 + 地块边框，开关关闭或无 Key 时整卡隐藏） -->
+            <t-card class="area-map-card" :bordered="true" header-bordered title="产区地图" v-if="mapEnabled && mapKey">
+                <template #header>产区地图</template>
+                <amap-thumb :interactive="true" :api-key="mapKey" :security-code="mapSecurity"
+                    :area-boundary="currentAreaBoundary" :plots="plotList" :center="currentAreaCenter"></amap-thumb>
+            </t-card>
+            <t-skeleton v-if="loading" :row-col="[6]" animation="gradient"></t-skeleton>
+            <t-table v-else :data="plotList" :columns="plotColumns"
+                row-key="id" hover>
+                <template #status="{ row }">
+                    <t-tag variant="light" :theme="row.status === 1 ? 'success' : 'default'">
+                        [[ row.status === 1 ? '正常' : '停用' ]]
+                    </t-tag>
+                </template>
+                <template #operation="{ row }">
+                    <t-button theme="primary" variant="text" size="small" @click="openBatches(row)">查看批次</t-button>
+                </template>
+            </t-table>
+        </template>
+
+        <!-- 层级 2：批次列表 -->
+        <t-skeleton v-else-if="loading" :row-col="[6]" animation="gradient"></t-skeleton>
+        <t-table v-else :data="batchList" :columns="batchColumns"
+            row-key="id" hover>
+            <template #status="{ row }">
+                <t-tag variant="light" :theme="batchTheme(row.status)">[[ batchLabel(row.status) ]]</t-tag>
+            </template>
+            <template #operation="{ row }">
+                <t-button theme="primary" variant="text" size="small" @click="openGdd(row)">积温</t-button>
+            </template>
+        </t-table>
+    </t-card>
+
+    <!-- 批次积温弹窗 -->
+    <t-dialog v-model:visible="gddVisible" :header="'批次积温 - ' + gddBatchNo" :footer="false" width="480px">
+        <t-loading v-if="gddLoading" size="small" text="计算中..."></t-loading>
+        <template v-else-if="gddData">
+            <t-descriptions :column="1" bordered size="small">
+                <t-descriptions-item label="起算日期">[[ gddData.start_date || '未设置定植日' ]]</t-descriptions-item>
+                <t-descriptions-item label="基点温度">[[ gddData.base_temp ]]℃</t-descriptions-item>
+                <t-descriptions-item label="活动积温">[[ gddData.active_gdd ]]℃·d</t-descriptions-item>
+                <t-descriptions-item label="有效积温">[[ gddData.effective_gdd ]]℃·d</t-descriptions-item>
+                <t-descriptions-item label="统计天数">[[ gddData.counted_days ]] 天</t-descriptions-item>
+            </t-descriptions>
+            <div v-if="gddData.missing_days > 0" class="weather-hint">
+                有 [[ gddData.missing_days ]] 天缺失数据已跳过（天气数据自系统上线起积累）
+            </div>
+        </template>
+    </t-dialog>
+</div>
+{% endblock %}
+{% block scripts %}
+<!-- 地图共享调色板（canvas 绘制豁免），须先于 amap-thumb 加载 -->
+<script src="/static/js/components/amap-palette.js?v={{ config.app_version }}"></script>
+<script src="/static/js/components/amap-thumb.js?v={{ config.app_version }}"></script>
+<script>
+HuiYanFarmer.createApp({
+    components: window.HuiYanComponents ? { 'amap-thumb': window.HuiYanComponents['amap-thumb'] } : {},
+    setup() {
+        var ref = Vue.ref;
+        var reactive = Vue.reactive;
+        var onMounted = Vue.onMounted;
+        var MessagePlugin = TDesign.MessagePlugin;
+
+        // 批次状态映射（与后台一致）
+        var BATCH_MAP = { 0: '未开始', 1: '种植中', 2: '已采收', 3: '异常' };
+        var BATCH_THEME = { 0: 'default', 1: 'success', 2: 'primary', 3: 'danger' };
+        var batchLabel = function (s) { return BATCH_MAP[s] || '未知'; };
+        var batchTheme = function (s) { return BATCH_THEME[s] || 'default'; };
+
+        var level = ref(0); // 0=产区 1=地块 2=批次
+        var loading = ref(false);
+        var searchKeyword = ref('');
+
+        var currentAreaName = ref('');
+        var currentPlotName = ref('');
+        var currentAreaId = ref(null);
+        var currentPlotId = ref(null);
+
+        /* ===== 产区地图（只读可缩放） ===== */
+        var mapKey = ref('');
+        var mapSecurity = ref('');
+        var mapEnabled = ref(false);
+        var currentAreaBoundary = ref('');   // 当前产区边界 GeoJSON 字符串
+        var currentAreaCenter = ref([]);     // 当前产区中心点 [lng, lat]
+
+        // 拉取地图配置（仅前端 Key + 安全码 + 开关）；失败静默，地图卡不显示
+        var fetchMapConfig = function () {
+            HuiYanFarmer.request.get('/production-area/map-config').then(function (res) {
+                var data = (res.data && res.data.data) ? res.data.data : null;
+                if (!data) { return; }
+                mapKey.value = data.amap_web_key || '';
+                mapSecurity.value = data.amap_js_security_code || '';
+                mapEnabled.value = !!data.enabled;
+            }).catch(function () { /* 忽略：无 Key 时地图卡隐藏 */ });
+        };
+
+        /* ===== 产区列表 ===== */
+        var areaList = ref([]);
+        var areaPagination = reactive({ current: 1, pageSize: 10, total: 0 });
+        var areaColumns = [
+            { colKey: 'name', title: '产区名称', ellipsis: true },
+            { colKey: 'code', title: '编号', width: 120, ellipsis: true },
+            { colKey: 'crop_category', title: '主要作物', width: 120, ellipsis: true },
+            { colKey: 'address', title: '地址', ellipsis: true },
+            { colKey: 'area_size', title: '面积(亩)', width: 100 },
+            { colKey: 'status', title: '状态', width: 90, cell: 'status' },
+            { colKey: 'operation', title: '操作', width: 110, cell: 'operation', fixed: 'right' }
+        ];
+
+        var fetchAreas = function () {
+            loading.value = true;
+            HuiYanFarmer.request.get('/production-area/list', {
+                params: {
+                    page: areaPagination.current,
+                    limit: areaPagination.pageSize,
+                    keywords: searchKeyword.value
+                }
+            }).then(function (res) {
+                var data = (res.data && res.data.data) ? res.data.data : res.data;
+                areaList.value = data.list || [];
+                areaPagination.total = data.total || 0;
+            }).catch(function () {}).finally(function () { loading.value = false; });
+        };
+
+        var onAreaPageChange = function (pageInfo) {
+            areaPagination.current = pageInfo.current;
+            areaPagination.pageSize = pageInfo.pageSize;
+            fetchAreas();
+        };
+
+        /* ===== 地块列表 ===== */
+        var plotList = ref([]);
+        var plotColumns = [
+            { colKey: 'name', title: '地块名称', ellipsis: true },
+            { colKey: 'code', title: '编号', width: 120, ellipsis: true },
+            { colKey: 'soil_type', title: '土壤类型', width: 120, ellipsis: true },
+            { colKey: 'area_size', title: '面积(亩)', width: 100 },
+            { colKey: 'status', title: '状态', width: 90, cell: 'status' },
+            { colKey: 'operation', title: '操作', width: 110, cell: 'operation', fixed: 'right' }
+        ];
+
+        var openPlots = function (row) {
+            loading.value = true;
+            currentAreaId.value = row.id;
+            currentAreaName.value = row.name;
+            // 地图数据：产区边界 + 中心点（从列表行直接取，/list 已返回 boundary/经纬度）
+            currentAreaBoundary.value = row.boundary || '';
+            currentAreaCenter.value = (row.longitude && row.latitude)
+                ? [Number(row.longitude), Number(row.latitude)] : [];
+            HuiYanFarmer.request.get('/production-area/' + row.id + '/plots').then(function (res) {
+                var data = (res.data && res.data.data) ? res.data.data : res.data;
+                plotList.value = data.list || [];
+                level.value = 1;
+            }).catch(function () { MessagePlugin.error('获取地块失败'); }).finally(function () {
+                loading.value = false;
+            });
+            fetchWeather(row.id);
+        };
+
+        /* ===== 产区天气卡片 ===== */
+        var weatherData = ref(null);
+        var weatherLoading = ref(false);
+
+        var fetchWeather = function (areaId) {
+            weatherLoading.value = true;
+            weatherData.value = null;
+            HuiYanFarmer.request.get('/weather', { params: { area_id: areaId } }).then(function (res) {
+                var data = (res.data && res.data.data) ? res.data.data : null;
+                weatherData.value = data;
+            }).catch(function () { /* 无数据静默，卡片显示暂无天气数据 */ }).finally(function () {
+                weatherLoading.value = false;
+            });
+        };
+
+        // 逐时时间格式化：ISO 时间取 HH 时
+        var formatHour = function (t) {
+            if (!t) return '';
+            var m = String(t).match(/T(\d{2}):/);
+            return m ? m[1] + '时' : String(t);
+        };
+
+        /* ===== 批次列表 ===== */
+        var batchList = ref([]);
+        var batchColumns = [
+            { colKey: 'batch_no', title: '批次编号', width: 130, ellipsis: true },
+            { colKey: 'crop_name', title: '作物', ellipsis: true },
+            { colKey: 'crop_variety', title: '品种', ellipsis: true },
+            { colKey: 'season', title: '茬口', width: 90, ellipsis: true },
+            { colKey: 'plant_date', title: '种植日期', width: 120 },
+            { colKey: 'expected_harvest_date', title: '预计采收', width: 120 },
+            { colKey: 'plant_count', title: '株数', width: 90 },
+            { colKey: 'status', title: '状态', width: 90, cell: 'status' },
+            { colKey: 'operation', title: '操作', width: 90, cell: 'operation', fixed: 'right' }
+        ];
+
+        var openBatches = function (row) {
+            loading.value = true;
+            currentPlotId.value = row.id;
+            currentPlotName.value = row.name;
+            HuiYanFarmer.request.get('/production-area/plot/' + row.id + '/batches').then(function (res) {
+                var data = (res.data && res.data.data) ? res.data.data : res.data;
+                batchList.value = data.list || [];
+                level.value = 2;
+            }).catch(function () { MessagePlugin.error('获取批次失败'); }).finally(function () {
+                loading.value = false;
+            });
+        };
+
+        /* ===== 批次积温弹窗 ===== */
+        var gddVisible = ref(false);
+        var gddLoading = ref(false);
+        var gddBatchNo = ref('');
+        var gddData = ref(null);
+
+        var openGdd = function (row) {
+            gddBatchNo.value = row.batch_no || '';
+            gddData.value = null;
+            gddVisible.value = true;
+            gddLoading.value = true;
+            HuiYanFarmer.request.get('/weather/gdd', {
+                params: { area_id: row.area_id, batch_id: row.id }
+            }).then(function (res) {
+                gddData.value = (res.data && res.data.data) ? res.data.data : null;
+            }).catch(function () { MessagePlugin.error('积温查询失败'); }).finally(function () {
+                gddLoading.value = false;
+            });
+        };
+
+        /* ===== 导航 ===== */
+        var goBack = function () {
+            if (level.value === 2) { level.value = 1; }
+            else if (level.value === 1) { level.value = 0; }
+        };
+        var backToAreas = function () { level.value = 0; };
+
+        onMounted(function () { fetchAreas(); fetchMapConfig(); });
+
+        return {
+            level: level, loading: loading, searchKeyword: searchKeyword,
+            currentAreaName: currentAreaName, currentPlotName: currentPlotName,
+            areaList: areaList, areaPagination: areaPagination, areaColumns: areaColumns,
+            fetchAreas: fetchAreas, onAreaPageChange: onAreaPageChange,
+            plotList: plotList, plotColumns: plotColumns, openPlots: openPlots,
+            batchList: batchList, batchColumns: batchColumns, openBatches: openBatches,
+            goBack: goBack, backToAreas: backToAreas,
+            batchLabel: batchLabel, batchTheme: batchTheme,
+            weatherData: weatherData, weatherLoading: weatherLoading, formatHour: formatHour,
+            mapKey: mapKey, mapSecurity: mapSecurity, mapEnabled: mapEnabled,
+            currentAreaBoundary: currentAreaBoundary, currentAreaCenter: currentAreaCenter,
+            gddVisible: gddVisible, gddLoading: gddLoading, gddBatchNo: gddBatchNo,
+            gddData: gddData, openGdd: openGdd
+        };
+    }
+});
+</script>
+{% endblock %}

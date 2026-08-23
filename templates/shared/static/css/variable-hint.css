@@ -1,0 +1,13 @@
+/* 变量提示共享弹层：以主题令牌约束宽度、排版和深浅色适配。 */
+.variable-hint-popup {
+    width: min(360px, calc(100vw - var(--app-spacing-xl)));
+    padding: var(--app-spacing-md);
+    background: var(--app-bg-card);
+}
+.variable-hint-popup__title {
+    margin: 0 0 var(--app-spacing-sm);
+    color: var(--app-text-primary);
+    font-size: var(--app-font-size-md);
+    font-weight: 600;
+}
+.variable-hint-popup .t-table { width: 100%; }

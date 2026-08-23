@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}缓存管理 - 慧眼护农{% endblock %}
+{% block content %}
+<div id="page-app" v-cloak class="cache-page">
+    <t-card title="缓存清除">
+        <div class="cache-list">
+            <div v-for="item in cacheActions" :key="item.key" class="cache-list-item">
+                <div class="cache-list-item-info">
+                    <div class="cache-list-item-title">[[ item.title ]]</div>
+                    <div class="cache-list-item-desc">[[ item.desc ]]</div>
+                </div>
+                <t-button :theme="item.theme"
+                    :loading="clearing === item.key" @click="doClear(item)">清除</t-button>
+            </div>
+        </div>
+    </t-card>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="/static/js/pages/cache.js?v={{ config.app_version }}"></script>
+{% endblock %}

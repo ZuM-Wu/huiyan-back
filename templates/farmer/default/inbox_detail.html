@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+{% block title %}站内信详情 - 慧眼护农 农户端{% endblock %}
+{% block content %}
+<style>
+.farmer-inbox-detail-page .inbox-detail-card { max-width: 920px; }
+.farmer-inbox-detail-page .inbox-detail-meta-bar {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 12px;
+    font-size: 14px; color: var(--app-text-secondary);
+}
+.farmer-inbox-detail-page .inbox-detail-title {
+    font-size: 18px; font-weight: 600; margin: 0 0 16px 0;
+    color: var(--app-text-primary);
+}
+.farmer-inbox-detail-page .inbox-detail-content-wrap { margin-top: var(--app-spacing-lg); padding-top: var(--app-spacing-lg); border-top: 1px solid var(--app-border); }
+.farmer-inbox-detail-page .inbox-rich-content { min-height: 240px; color: var(--app-text-primary); font-size: var(--app-font-size-md); line-height: 1.8; word-break: break-word; }
+.farmer-inbox-detail-page .inbox-rich-content :is(h1, h2, h3, h4, h5, h6) { margin: var(--app-spacing-lg) 0 var(--app-spacing-sm); color: var(--app-text-primary); }
+.farmer-inbox-detail-page .inbox-rich-content :is(p, ul, ol, blockquote, pre, table) { margin: 0 0 var(--app-spacing-md); }
+.farmer-inbox-detail-page .inbox-rich-content :is(ul, ol) { padding-left: var(--app-spacing-xl); }
+.farmer-inbox-detail-page .inbox-rich-content blockquote { margin-left: 0; padding-left: var(--app-spacing-md); color: var(--app-text-secondary); border-left: 3px solid var(--app-brand-color); }
+.farmer-inbox-detail-page .inbox-rich-content pre { overflow-x: auto; padding: var(--app-spacing-md); background: var(--app-bg-container); border-radius: var(--app-radius-md); }
+.farmer-inbox-detail-page .inbox-rich-content table { width: 100%; border-collapse: collapse; }
+.farmer-inbox-detail-page .inbox-rich-content :is(th, td) { padding: var(--app-spacing-sm); border: 1px solid var(--app-border); text-align: left; }
+.farmer-inbox-detail-page .inbox-rich-content img { max-width: 100%; height: auto; }
+.farmer-inbox-detail-page .inbox-navigation { display: flex; justify-content: space-between; gap: var(--app-spacing-md); margin-top: var(--app-spacing-xl); padding-top: var(--app-spacing-md); border-top: 1px solid var(--app-border); }
+.farmer-inbox-detail-page .inbox-navigation-item { min-width: 0; max-width: 48%; }
+.farmer-inbox-detail-page .inbox-navigation-item--next { margin-left: auto; text-align: right; }
+.farmer-inbox-detail-page .inbox-navigation-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--app-text-secondary); font-size: var(--app-font-size-sm); }
+</style>
+<div id="page-app" v-cloak class="farmer-inbox-detail-page">
+    <t-card title="站内信详情" class="inbox-detail-card">
+        <template #header>
+            <div class="farmer-toolbar">
+                <div class="farmer-toolbar-left">
+                    <t-button theme="default" @click="goBack">
+                        <template #icon><t-icon name="chevron-left"></t-icon></template>
+                        返回
+                    </t-button>
+                </div>
+                <div class="farmer-toolbar-right">
+                    <t-button v-if="detail.is_read === 0" theme="primary" @click="markRead" :loading="marking">
+                        标记已读
+                    </t-button>
+                    <t-popconfirm content="确认删除该消息？" @confirm="deleteMsg">
+                        <t-button theme="danger" variant="outline">删除</t-button>
+                    </t-popconfirm>
+                </div>
+            </div>
+        </template>
+        <div v-if="detail.id" class="inbox-detail-full">
+                <div class="inbox-detail-meta-bar">
+                <t-tag v-if="detail.priority === 1" theme="danger" variant="light">重要消息</t-tag>
+                <t-tag v-if="detail.is_read === 1" theme="success" variant="light">已读</t-tag>
+                <span>发送于 [[ detail.create_time ]]</span>
+            </div>
+            <h2 class="inbox-detail-title">[[ detail.title ]]</h2>
+                <div class="inbox-detail-content-wrap">
+                    <inbox-rich-content :content="detail.content"></inbox-rich-content>
+                </div>
+                <nav class="inbox-navigation" aria-label="站内信阅读导航">
+                    <div v-if="detail.prev" class="inbox-navigation-item">
+                        <t-button theme="default" size="small" @click="goOtherMessage(detail.prev.id)">
+                            <template #icon><t-icon name="chevron-left"></t-icon></template>
+                            上一封
+                        </t-button>
+                        <div class="inbox-navigation-title">[[ detail.prev.title ]]</div>
+                    </div>
+                    <div v-if="detail.next" class="inbox-navigation-item inbox-navigation-item--next">
+                        <t-button theme="default" size="small" @click="goOtherMessage(detail.next.id)">
+                            下一封
+                            <template #suffix><t-icon name="chevron-right"></t-icon></template>
+                        </t-button>
+                        <div class="inbox-navigation-title">[[ detail.next.title ]]</div>
+                    </div>
+                </nav>
+            </div>
+        <t-skeleton v-else-if="loading" :row-col="[6]" animation="gradient"></t-skeleton>
+    </t-card>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="/static/js/components/inbox-rich-content.js?v={{ config.app_version }}"></script>
+<script>
+HuiYanFarmer.createApp({
+    setup: function () {
+        var ref = Vue.ref;
+        var reactive = Vue.reactive;
+        var onMounted = Vue.onMounted;
+        var messageId = {{ message_id }};
+
+        var detail = reactive({
+            id: 0, title: '', content: '', priority: 0,
+            is_read: 0, create_time: '', read_time: '', prev: null, next: null
+        });
+        var loading = ref(false);
+        var marking = ref(false);
+
+        var fetchDetail = function () {
+            loading.value = true;
+            HuiYanFarmer.request.get('/inbox/' + messageId)
+                .then(function (res) {
+                    var data = res.data.data || res.data;
+                    detail.id = data.id;
+                    detail.title = data.title;
+                    detail.content = data.content;
+                    detail.priority = data.priority;
+                    detail.is_read = data.is_read;
+                    detail.create_time = data.create_time;
+                    detail.read_time = data.read_time || '';
+                    detail.prev = data.prev || null;
+                    detail.next = data.next || null;
+                    if (data.is_read === 0) {
+                        markRead();
+                    }
+                }).catch(function () {
+                    HuiYanFarmer.message.error('站内信加载失败，请返回列表重试');
+                })
+                .finally(function () { loading.value = false; });
+        };
+
+        var markRead = function () {
+            marking.value = true;
+            HuiYanFarmer.request.put('/inbox/' + messageId + '/read')
+                .then(function () {
+                    detail.is_read = 1;
+                }).catch(function () {
+                    HuiYanFarmer.message.error('标记已读失败，请稍后重试');
+                })
+                .finally(function () { marking.value = false; });
+        };
+
+        var deleteMsg = function () {
+            HuiYanFarmer.request.delete('/inbox/' + messageId)
+                .then(function () {
+                    HuiYanFarmer.message.success('已删除');
+                    goBack();
+                }).catch(function () {
+                    HuiYanFarmer.message.error('删除失败，请稍后重试');
+                });
+        };
+
+        var goBack = function () {
+            window.location.href = '/farmer/inbox';
+        };
+
+        var goOtherMessage = function (id) {
+            window.location.href = '/farmer/inbox/' + id;
+        };
+
+        onMounted(function () { fetchDetail(); });
+
+        return {
+            detail: detail, loading: loading, marking: marking,
+            markRead: markRead, deleteMsg: deleteMsg, goBack: goBack,
+            goOtherMessage: goOtherMessage
+        };
+    }
+});
+</script>
+{% endblock %}

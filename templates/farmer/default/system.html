@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}系统信息 - 慧眼护农 农户端{% endblock %}
+{% block content %}
+<div id="page-app" v-cloak class="farmer-system-page">
+    <t-card title="系统信息">
+        <template #header>
+            <h3 class="farmer-card-header-title">系统信息</h3>
+        </template>
+
+        <t-skeleton v-if="loading" :row-col="[{width: '120px'}, {width: '200px'}, {width: '180px'}]" animation="gradient"></t-skeleton>
+        <div v-else class="farmer-info-grid">
+                <!-- 应用信息 -->
+                <div class="farmer-info-section">
+                    <h4 class="farmer-info-section-title">应用信息</h4>
+                    <div class="farmer-info-row">
+                        <span class="farmer-info-label">系统版本</span>
+                        <t-tag theme="primary" variant="light">v[[ info.app_version || '-' ]]</t-tag>
+                    </div>
+                    <div class="farmer-info-row">
+                        <span class="farmer-info-label">调试模式</span>
+                        <t-tag :theme="info.debug_mode ? 'warning' : 'success'" variant="light">
+                            [[ info.debug_mode ? '开启' : '关闭' ]]
+                        </t-tag>
+                    </div>
+                    <div class="farmer-info-row">
+                        <span class="farmer-info-label">运行时长</span>
+                        <span class="farmer-info-value">[[ formatUptime(info.uptime_seconds) ]]</span>
+                    </div>
+                </div>
+
+                <!-- 运行环境 -->
+                <div class="farmer-info-section">
+                    <h4 class="farmer-info-section-title">运行环境</h4>
+                    <div class="farmer-info-row">
+                        <span class="farmer-info-label">Python</span>
+                        <span class="farmer-info-value">[[ info.python_version || '-' ]]</span>
+                    </div>
+                    <div class="farmer-info-row">
+                        <span class="farmer-info-label">FastAPI</span>
+                        <span class="farmer-info-value">[[ info.fastapi_version || '-' ]]</span>
+                    </div>
+                    <div class="farmer-info-row">
+                        <span class="farmer-info-label">SQLAlchemy</span>
+                        <span class="farmer-info-value">[[ info.sqlalchemy_version || '-' ]]</span>
+                    </div>
+                    <div class="farmer-info-row">
+                        <span class="farmer-info-label">操作系统</span>
+                        <span class="farmer-info-value">[[ info.os_info || '-' ]]</span>
+                    </div>
+                </div>
+
+                <!-- 数据库状态 -->
+                <div class="farmer-info-section">
+                    <h4 class="farmer-info-section-title">数据库状态</h4>
+                    <div class="farmer-info-row">
+                        <span class="farmer-info-label">连接状态</span>
+                        <t-tag :theme="info.database_status === 'connected' ? 'success' : 'danger'" variant="light">
+                            [[ info.database_status === 'connected' ? '正常' : '异常' ]]
+                        </t-tag>
+                    </div>
+                    <div class="farmer-info-row">
+                        <span class="farmer-info-label">数据表数量</span>
+                        <span class="farmer-info-value">[[ info.table_count || 0 ]] 张</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </t-card>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+HuiYanFarmer.createApp({
+    setup() {
+        var ref = Vue.ref;
+        var reactive = Vue.reactive;
+        var onMounted = Vue.onMounted;
+
+        var loading = ref(true);
+        var info = reactive({
+            app_version: '', debug_mode: false,
+            python_version: '', fastapi_version: '',
+            sqlalchemy_version: '', os_info: '',
+            database_status: '', table_count: 0,
+            uptime_seconds: 0
+        });
+
+        /** 格式化运行时长 */
+        var formatUptime = function (seconds) {
+            if (!seconds) return '-';
+            var d = Math.floor(seconds / 86400);
+            var h = Math.floor((seconds % 86400) / 3600);
+            var m = Math.floor((seconds % 3600) / 60);
+            var parts = [];
+            if (d > 0) parts.push(d + ' 天');
+            if (h > 0) parts.push(h + ' 小时');
+            parts.push(m + ' 分钟');
+            return parts.join(' ');
+        };
+
+        onMounted(function () {
+            HuiYanFarmer.request.get('/system/info').then(function (res) {
+                var d = (res.data && res.data.data) ? res.data.data : res.data;
+                Object.assign(info, d);
+            }).catch(function () {
+                /* 接口不可用时保留默认值 */
+            }).finally(function () {
+                loading.value = false;
+            });
+        });
+
+        return { loading: loading, info: info, formatUptime: formatUptime };
+    }
+});
+</script>
+{% endblock %}

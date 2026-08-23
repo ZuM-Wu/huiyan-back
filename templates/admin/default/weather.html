@@ -1,0 +1,361 @@
+{% extends "base.html" %}
+{% block title %}天气服务 - 慧眼护农{% endblock %}
+{% block head %}
+<style>
+.weather-hint { font-size: 12px; color: var(--app-text-secondary); margin-top: var(--app-spacing-xs); }
+.weather-error-text { color: var(--app-error, #d54941); font-size: 12px; }
+/* 预警详情弹窗布局（参照通知日志详情结构，引用 --app-* 令牌） */
+.alert-detail-meta {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--app-border);
+    font-size: 14px;
+    line-height: 1.8;
+}
+.alert-detail-section {
+    margin-top: 16px;
+}
+.alert-detail-section-title {
+    font-weight: 600;
+    margin-bottom: 8px;
+    font-size: 14px;
+    color: var(--app-text-secondary);
+}
+.alert-detail-pre {
+    white-space: pre-wrap;
+    word-break: break-all;
+    max-height: 280px;
+    overflow: auto;
+    background: var(--app-bg-container);
+    color: var(--app-text-primary);
+    padding: 12px;
+    border-radius: var(--app-radius-md);
+    font-size: 13px;
+    line-height: 1.6;
+}
+.weather-query-scroll {
+    max-height: calc(100vh - 360px);
+    min-height: 160px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding-right: var(--app-spacing-xs);
+}
+.weather-alert-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--app-spacing-md);
+    margin: var(--app-spacing-md) 0 var(--app-spacing-lg);
+}
+.weather-alert-list .t-alert {
+    border-radius: var(--app-radius-md);
+}
+</style>
+{% endblock %}
+{% block content %}
+<div id="page-app" v-cloak class="admin-list-page">
+    <t-card title="天气服务">
+        <t-tabs v-model="activeTab" theme="normal">
+            <!-- ==================== Tab1: 数据源插件 ==================== -->
+            <t-tab-panel value="sources" label="数据源插件">
+                <t-skeleton v-if="sourceLoading" :row-col="[6]" animation="gradient"></t-skeleton>
+                <t-table v-else :data="sourceList" :columns="sourceColumns"
+                    row-key="name" hover>
+                    <template #status="{ row }">
+                        <t-tag v-if="!row.installed" theme="default" variant="light">未安装</t-tag>
+                        <t-tag v-else-if="row.status === 1" theme="success" variant="light">已启用</t-tag>
+                        <t-tag v-else-if="row.status === 2" theme="danger" variant="light">已禁用</t-tag>
+                        <t-tag v-else theme="default" variant="light">已安装</t-tag>
+                    </template>
+                    <template #operation="{ row }">
+                        <template v-if="!row.installed">
+                            <t-button theme="primary" variant="text" size="small" @click="installSource(row)">安装</t-button>
+                        </template>
+                        <template v-else>
+                            <t-button theme="default" variant="text" size="small" @click="openConfig(row)">配置</t-button>
+                            <t-button theme="default" variant="text" size="small" @click="testSource(row)">测试</t-button>
+                            <t-button v-if="row.status !== 1" theme="primary" variant="text" size="small" @click="toggleSource(row, 1)">启用</t-button>
+                            <t-button v-if="row.status === 1" theme="warning" variant="text" size="small" @click="toggleSource(row, 2)">禁用</t-button>
+                            <t-button theme="danger" variant="text" size="small" @click="uninstallSource(row)">卸载</t-button>
+                        </template>
+                    </template>
+                </t-table>
+            </t-tab-panel>
+
+            <!-- ==================== Tab2: 拉取设置 ==================== -->
+            <t-tab-panel value="settings" label="拉取设置">
+                <t-form :data="settingsForm" label-width="140px" style="max-width: 560px; margin-top: var(--app-spacing-md);"
+                    @submit="saveSettings">
+                    <t-form-item label="天气拉取总开关" name="enabled">
+                        <t-switch v-model="settingsForm.enabled"></t-switch>
+                    </t-form-item>
+                    <t-form-item label="全局默认数据源" name="source">
+                        <t-select v-model="settingsForm.source" placeholder="选择默认数据源" clearable>
+                            <t-option v-for="p in enabledSources" :key="p.name" :value="p.name" :label="p.title"></t-option>
+                        </t-select>
+                    </t-form-item>
+                    <t-form-item label="拉取频率" name="interval_minutes">
+                        <t-select v-model="settingsForm.interval_minutes">
+                            <t-option :value="10" label="每 10 分钟"></t-option>
+                            <t-option :value="15" label="每 15 分钟（推荐）"></t-option>
+                            <t-option :value="30" label="每 30 分钟"></t-option>
+                            <t-option :value="60" label="每 1 小时"></t-option>
+                            <t-option :value="180" label="每 3 小时"></t-option>
+                        </t-select>
+                    </t-form-item>
+                    <t-form-item label="积温基点温度(℃)" name="gdd_base_temp">
+                        <t-input-number v-model="settingsForm.gdd_base_temp" :min="0" :max="30" :step="0.5"
+                            style="width: 160px;"></t-input-number>
+                    </t-form-item>
+                    <t-form-item label="逐日历史保留天数" name="daily_retention_days">
+                        <t-input-number v-model="settingsForm.daily_retention_days" :min="365" :max="3650" :step="30"
+                            style="width: 160px;"></t-input-number>
+                        <div class="weather-hint" style="margin-left: var(--app-spacing-md);">
+                            积温计算的数据基础，每日 3:30 自动清理更早记录（下限 365 天）
+                        </div>
+                    </t-form-item>
+                    <t-form-item label="预警保留天数" name="alert_retention_days">
+                        <t-input-number v-model="settingsForm.alert_retention_days" :min="30" :max="730" :step="30"
+                            style="width: 160px;"></t-input-number>
+                        <div class="weather-hint" style="margin-left: var(--app-spacing-md);">
+                            仅清理已失效预警，生效中预警不受影响（下限 30 天）
+                        </div>
+                    </t-form-item>
+                    <t-form-item>
+                        <t-button theme="primary" type="submit" :loading="settingsSaving">保存并生效</t-button>
+                        <div class="weather-hint" style="margin-left: var(--app-spacing-md);">
+                            保存后调度即时生效，无需重启服务
+                        </div>
+                    </t-form-item>
+                </t-form>
+            </t-tab-panel>
+
+            <!-- ==================== Tab3: 产区绑定与状态 ==================== -->
+            <t-tab-panel value="bindings" label="产区绑定">
+                <div class="card-header-toolbar">
+                    <div class="card-header-toolbar-left">
+                        <t-button theme="primary" :loading="pulling" @click="pullAll">手动全量拉取</t-button>
+                    </div>
+                    <div class="card-header-toolbar-right">
+                        <t-button theme="default" @click="fetchBindings">刷新列表</t-button>
+                    </div>
+                </div>
+                <t-skeleton v-if="bindingLoading" :row-col="[6]" animation="gradient"></t-skeleton>
+                <t-table v-else :data="bindingList" :columns="bindingColumns"
+                    row-key="area_id" hover>
+                    <template #bound_source="{ row }">
+                        <t-select :value="row.bound_source" clearable placeholder="默认源" style="width: 150px;"
+                            @change="function(v) { saveBinding(row, v); }">
+                            <t-option v-for="p in enabledSources" :key="p.name" :value="p.name" :label="p.title"></t-option>
+                        </t-select>
+                    </template>
+                    <template #fetch_state="{ row }">
+                        <t-tag v-if="!row.has_location" theme="warning" variant="light">未设置位置</t-tag>
+                        <template v-else-if="row.error_msg">
+                            <t-tag theme="danger" variant="light">拉取失败</t-tag>
+                            <div class="weather-error-text">[[ row.error_msg ]]</div>
+                        </template>
+                        <t-tag v-else-if="row.fetch_time" theme="success" variant="light">正常</t-tag>
+                        <t-tag v-else theme="default" variant="light">暂无数据</t-tag>
+                    </template>
+                    <template #operation="{ row }">
+                        <t-button theme="primary" variant="text" size="small" :disabled="!row.has_location"
+                            @click="refreshArea(row)">刷新</t-button>
+                        <t-button theme="default" variant="text" size="small" :disabled="!row.fetch_time"
+                            @click="viewWeather(row)">查看</t-button>
+                    </template>
+                </t-table>
+                <div class="weather-hint" style="margin-top: var(--app-spacing-sm);">
+                    产区未指定数据源时使用全局默认源；「未设置位置」的产区请先在产区管理中设置中心点坐标。
+                </div>
+            </t-tab-panel>
+
+            <!-- ==================== Tab4: 数据查询（批次积温 + 逐日历史） ==================== -->
+            <t-tab-panel value="query" label="数据查询">
+                <div class="card-header-toolbar">
+                    <div class="card-header-toolbar-left">
+                        <t-select v-model="queryAreaId" placeholder="选择产区" filterable style="width: 200px;"
+                            @change="onQueryAreaChange">
+                            <t-option v-for="a in bindingList" :key="a.area_id" :value="a.area_id" :label="a.area_name"></t-option>
+                        </t-select>
+                        <t-select v-model="queryBatchId" placeholder="选择种植批次" filterable clearable style="width: 260px;"
+                            :disabled="!queryAreaId" @change="fetchGdd">
+                            <t-option v-for="b in queryBatchOptions" :key="b.id" :value="b.id" :label="b.label"></t-option>
+                        </t-select>
+                        <t-date-range-picker v-model="queryDateRange" clearable style="width: 260px;"
+                            :disabled="!queryAreaId" @change="fetchDaily"></t-date-range-picker>
+                    </div>
+                </div>
+
+                <div class="weather-query-scroll">
+                <!-- 生效气象预警横幅（选产区后加载该产区生效中预警） -->
+                <div v-if="queryAlerts.length" class="weather-alert-list">
+                    <t-alert v-for="a in queryAlerts" :key="a.alert_id" theme="warning"
+                        :title="a.title" :close="true">
+                        [[ a.text ]]
+                    </t-alert>
+                </div>
+
+                <!-- 批次积温统计 -->
+                <template v-if="queryBatchId">
+                    <t-loading v-if="gddLoading" size="small" text="计算中..."></t-loading>
+                    <t-alert v-else-if="gddError" theme="warning" :title="gddError"></t-alert>
+                    <template v-else-if="gddData">
+                        <t-descriptions :column="3" bordered size="small">
+                            <t-descriptions-item label="作物">[[ gddData.crop_name || '-' ]]</t-descriptions-item>
+                            <t-descriptions-item label="批次编号">[[ gddData.batch_no || '-' ]]</t-descriptions-item>
+                            <t-descriptions-item label="定植日期">[[ gddData.plant_date ]]</t-descriptions-item>
+                            <t-descriptions-item label="基点温度">[[ gddData.base_temp ]]℃</t-descriptions-item>
+                            <t-descriptions-item label="活动积温">[[ gddData.active_gdd ]]℃·d</t-descriptions-item>
+                            <t-descriptions-item label="有效积温">[[ gddData.effective_gdd ]]℃·d</t-descriptions-item>
+                        </t-descriptions>
+                        <div class="weather-hint">
+                            已统计 [[ gddData.counted_days ]] 天
+                            <template v-if="gddData.missing_days > 0">
+                                ，另有 [[ gddData.missing_days ]] 天缺失数据已跳过（逐日天气自系统接入起积累）
+                            </template>
+                        </div>
+                    </template>
+                </template>
+                <div v-else-if="queryAreaId" class="weather-hint">选择种植批次后展示自定植日起算的活动/有效积温。</div>
+
+                <!-- 产区积温走势图（按逐日日均温与基点温度前端累计，自查询范围首日起算） -->
+                <div v-show="queryAreaId && dailyRows.length" id="gdd-chart"
+                    style="height: 320px; margin-top: var(--app-spacing-md);"></div>
+
+                <!-- 逐日天气历史 -->
+                <t-skeleton v-if="queryAreaId && dailyLoading" :row-col="[6]" animation="gradient"
+                    style="margin-top: var(--app-spacing-md);"></t-skeleton>
+                <t-table v-else-if="queryAreaId" :data="dailyRows" :columns="dailyColumns"
+                    row-key="date" size="small" hover table-layout="fixed" max-height="420"
+                    style="margin-top: var(--app-spacing-md);">
+                </t-table>
+                <div v-else class="weather-hint">选择产区后展示逐日天气历史（积温计算的数据基础）。</div>
+                </div>
+            </t-tab-panel>
+
+            <!-- ==================== Tab5: 预警记录（全量预警分页 + 多条件筛选 + 详情） ==================== -->
+            <t-tab-panel value="alerts" label="预警记录">
+                <!-- 筛选工具栏：产区/等级/生效状态/日期范围 -->
+                <div class="card-header-toolbar">
+                    <div class="card-header-toolbar-right" style="width:100%; display:flex; gap:8px; flex-wrap:wrap;">
+                        <t-select v-model="alertFilterAreaId" placeholder="产区" filterable clearable style="width: 160px;" @change="fetchAlerts">
+                            <t-option v-for="a in bindingList" :key="a.area_id" :value="a.area_id" :label="a.area_name"></t-option>
+                        </t-select>
+                        <t-select v-model="alertFilterLevel" placeholder="等级" clearable style="width: 100px;" @change="fetchAlerts">
+                            <t-option value="蓝色" label="蓝色"></t-option>
+                            <t-option value="黄色" label="黄色"></t-option>
+                            <t-option value="橙色" label="橙色"></t-option>
+                            <t-option value="红色" label="红色"></t-option>
+                        </t-select>
+                        <t-select v-model="alertFilterActive" placeholder="生效状态" clearable style="width: 110px;" @change="fetchAlerts">
+                            <t-option value="1" label="生效中"></t-option>
+                            <t-option value="0" label="已结束"></t-option>
+                        </t-select>
+                        <t-date-range-picker v-model="alertDateRange" clearable style="width: 260px;" @change="fetchAlerts"></t-date-range-picker>
+                        <t-button theme="primary" @click="fetchAlerts">查询</t-button>
+                    </div>
+                </div>
+                <!-- 预警记录表格（服务端分页） -->
+                <t-skeleton v-if="alertLoading" :row-col="[6]" animation="gradient"></t-skeleton>
+                <t-table v-else :data="alertTableData" :columns="alertColumns" :pagination="alertPagination"
+                    row-key="id" hover @page-change="onAlertPageChange">
+                    <template #level="{ row }">
+                        <t-tag :theme="levelTheme(row.level)" variant="light">[[ levelText(row.level) ]]</t-tag>
+                    </template>
+                    <template #active="{ row }">
+                        <t-tag :theme="row.active === 1 ? 'warning' : 'default'" variant="light">
+                            [[ row.active === 1 ? '生效中' : '已结束' ]]
+                        </t-tag>
+                    </template>
+                    <template #op="{ row }">
+                        <t-link theme="primary" @click="showAlertDetail(row)">详情</t-link>
+                    </template>
+                </t-table>
+            </t-tab-panel>
+        </t-tabs>
+    </t-card>
+
+    <!-- 插件配置弹窗（动态表单，按 config_schema 渲染） -->
+    <t-dialog v-model:visible="configVisible" :header="configPluginTitle + ' - 配置'" :footer="false" width="720px">
+        <t-form v-if="configVisible" :data="configForm" :rules="configRules" label-width="140px" @submit="saveConfig">
+            <t-form-item v-for="field in configSchema" :key="field.key" :label="field.label" :name="field.key">
+                <t-input v-if="field.type === 'password'" v-model="configForm[field.key]"
+                    :placeholder="field.placeholder || ''" type="password"></t-input>
+                <t-textarea v-else-if="field.type === 'textarea'" v-model="configForm[field.key]"
+                    :placeholder="field.placeholder || ''" :autosize="{minRows: 3, maxRows: 8}"></t-textarea>
+                <t-select v-else-if="field.type === 'select'" v-model="configForm[field.key]"
+                    :placeholder="field.placeholder || '请选择'">
+                    <t-option v-for="opt in field.options" :key="opt.value" :value="opt.value" :label="opt.label"></t-option>
+                </t-select>
+                <t-input v-else v-model="configForm[field.key]" :placeholder="field.placeholder || ''"></t-input>
+            </t-form-item>
+            <div style="display:flex;gap:var(--app-spacing-sm);justify-content:flex-end;margin-top:var(--app-spacing-md);">
+                <t-button theme="primary" type="submit" :loading="configSaving">保存</t-button>
+                <t-button theme="default" @click="configVisible = false">取消</t-button>
+            </div>
+        </t-form>
+    </t-dialog>
+
+    <!-- 产区天气详情弹窗 -->
+    <t-dialog v-model:visible="weatherVisible" :header="weatherAreaName + ' - 天气详情'" :footer="false" width="720px">
+        <div v-if="weatherLoading" style="text-align:center;padding:var(--app-spacing-lg);">
+            <t-loading text="加载中..."></t-loading>
+        </div>
+        <template v-else-if="weatherDetail">
+            <t-descriptions :column="3" bordered size="small" v-if="weatherDetail.realtime">
+                <t-descriptions-item label="温度">[[ weatherDetail.realtime.temp ]]℃</t-descriptions-item>
+                <t-descriptions-item label="天气">[[ weatherDetail.realtime.text ]]</t-descriptions-item>
+                <t-descriptions-item label="湿度">[[ weatherDetail.realtime.humidity ]]%</t-descriptions-item>
+                <t-descriptions-item label="风向">[[ weatherDetail.realtime.wind_dir ]]</t-descriptions-item>
+                <t-descriptions-item label="风力">[[ weatherDetail.realtime.wind_scale ]]级</t-descriptions-item>
+                <t-descriptions-item label="观测时间">[[ weatherDetail.realtime.obs_time ]]</t-descriptions-item>
+            </t-descriptions>
+            <div v-if="weatherDetail.granularity === 'district'" class="weather-hint">
+                当前数据源为区县级粒度（高德气象）
+            </div>
+            <!-- 生效预警条 -->
+            <t-alert v-for="a in (weatherDetail.alerts || [])" :key="a.alert_id" theme="warning"
+                :title="a.title" style="margin-top: var(--app-spacing-sm);">
+                [[ a.text ]]
+            </t-alert>
+            <!-- 未来预报 -->
+            <t-table v-if="(weatherDetail.forecast || []).length" :data="weatherDetail.forecast"
+                :columns="forecastColumns" row-key="date" size="small" style="margin-top: var(--app-spacing-md);" hover>
+            </t-table>
+            <div class="weather-hint" style="margin-top: var(--app-spacing-sm);">
+                数据来源: [[ weatherDetail.source ]] · 拉取时间: [[ weatherDetail.fetch_time ]]
+            </div>
+        </template>
+    </t-dialog>
+
+    <!-- 预警详情弹窗（Tab5 预警记录列表点击详情） -->
+    <t-dialog v-model:visible="alertDetailVisible" header="预警详情" :footer="false" width="720px">
+        <div v-if="alertDetailRow" class="alert-detail-body">
+            <!-- 基础信息：两列横排 -->
+            <div class="alert-detail-meta">
+                <span><b>ID:</b> [[ alertDetailRow.id ]]</span>
+                <span><b>产区:</b> [[ alertDetailRow.area_name || '-' ]]</span>
+                <span><b>类型:</b> [[ alertDetailRow.alert_type || '-' ]]</span>
+                <span><b>等级:</b> [[ levelText(alertDetailRow.level) ]]</span>
+                <span><b>生效时间:</b> [[ alertDetailRow.start_time || '-' ]]</span>
+                <span><b>结束时间:</b> [[ alertDetailRow.end_time || '持续生效' ]]</span>
+                <span><b>来源:</b> [[ alertDetailRow.source || '-' ]]</span>
+                <span><b>入库时间:</b> [[ alertDetailRow.create_time || '-' ]]</span>
+            </div>
+            <!-- 预警全文 -->
+            <div class="alert-detail-section">
+                <div class="alert-detail-section-title">[[ alertDetailRow.title ]]</div>
+                <pre class="alert-detail-pre">[[ alertDetailRow.text || '（无详情文本）' ]]</pre>
+            </div>
+        </div>
+    </t-dialog>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="/static/vendor/echarts/echarts.min.js"></script>
+<script src="/static/js/pages/weather-alerts.js?v={{ config.app_version }}"></script>
+<script src="/static/js/components/weather-chart.js?v={{ config.app_version }}"></script>
+<script src="/static/js/pages/weather.js?v={{ config.app_version }}"></script>
+{% endblock %}

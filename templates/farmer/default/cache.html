@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}缓存管理 - 慧眼护农 农户端{% endblock %}
+{% block content %}
+<div id="page-app" v-cloak class="farmer-cache-page">
+    <t-card title="缓存管理">
+        <template #header>
+            <h3 class="farmer-card-header-title">缓存管理</h3>
+        </template>
+        <p class="farmer-card-desc">
+            清除客户端本地缓存数据，解决因缓存导致的数据显示异常问题。
+        </p>
+        <div class="farmer-cache-list">
+            <div v-for="item in cacheActions" :key="item.key" class="farmer-cache-item">
+                <div class="farmer-cache-item-info">
+                    <div class="farmer-cache-item-title">[[ item.title ]]</div>
+                    <div class="farmer-cache-item-desc">[[ item.desc ]]</div>
+                </div>
+                <t-button :theme="item.theme"
+                    :loading="clearing === item.key" @click="doClear(item)">清除</t-button>
+            </div>
+        </div>
+    </t-card>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+HuiYanFarmer.createApp({
+    setup() {
+        var ref = Vue.ref;
+
+        var clearing = ref('');
+
+        /** 可清除的本地缓存项 */
+        var cacheActions = [
+            { key: 'sidebar', title: '侧边栏状态', desc: '重置侧边栏折叠和展开状态', theme: 'primary' },
+            { key: 'page', title: '页面缓存', desc: '清除当前页面缓存数据，刷新后重新加载', theme: 'primary' },
+            { key: 'all', title: '全部本地缓存', desc: '清除所有本地存储数据（将退出登录）', theme: 'danger' }
+        ];
+
+        /** 执行缓存清除 */
+        var doClear = function (item) {
+            var dlg = TDesign.DialogPlugin.confirm({
+                header: '确认清除',
+                body: '确定要清除【' + item.title + '】吗？',
+                confirmBtn: { content: '确认清除', theme: 'danger' },
+                onConfirm: function () {
+                    dlg.setConfirmLoading(true);
+                    try {
+                        if (item.key === 'sidebar') {
+                            localStorage.removeItem('farmer_sidebar_collapsed');
+                        } else if (item.key === 'page') {
+                            var keys = Object.keys(localStorage);
+                            keys.forEach(function (k) {
+                                if (k.indexOf('farmer_token') === -1 &&
+                                    k.indexOf('farmer_sidebar') === -1) {
+                                    localStorage.removeItem(k);
+                                }
+                            });
+                        } else if (item.key === 'all') {
+                            localStorage.clear();
+                            dlg.destroy();
+                            setTimeout(function () { location.href = '/farmer/login'; }, 500);
+                            return;
+                        }
+                        TDesign.MessagePlugin.success(item.title + '已清除');
+                        dlg.destroy();
+                    } catch (e) {
+                        TDesign.MessagePlugin.error('清除失败：' + e.message);
+                        dlg.destroy();
+                    }
+                    clearing.value = '';
+                },
+                onClose: function () { dlg.destroy(); }
+            });
+        };
+
+        return { clearing: clearing, cacheActions: cacheActions, doClear: doClear };
+    }
+});
+</script>
+{% endblock %}

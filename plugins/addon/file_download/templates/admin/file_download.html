@@ -1,0 +1,167 @@
+{% extends "plugin_page_shell.html" %}
+{% block title %}文件下载 - 慧眼护农{% endblock %}
+{#
+  文件下载插件后台管理页
+
+  布局：左栏文件夹列表（全部文件 + 各夹计数 + 管理操作），右侧文件表格。
+  要点：
+  1. 继承核心 base.html；页面脚本内联在 block scripts（插件不挂 /static）
+  2. 根节点 #page-app + v-cloak；Vue 分隔符 [[ ]]；t-* 组件禁止自闭合
+  3. 按钮 v-permission 控显隐，权限码与 auth.py / router_admin 一一对应
+  4. 下载走 request blob 方式（附带 JWT），文件名取 Content-Disposition
+#}
+{% block content %}
+<div id="page-app" v-cloak class="file-download-page">
+    <div class="fd-layout">
+        <!-- 左栏：文件夹 -->
+        <t-card class="fd-folder-panel" title="文件夹">
+            <template #actions>
+                <t-button v-permission="'file_download:folder'" theme="primary" variant="text"
+                    size="small" @click="openFolderCreate">
+                    <template #icon><t-icon name="add"></t-icon></template>
+                    新建
+                </t-button>
+            </template>
+            <div class="fd-folder-list">
+                <div class="fd-folder-item" :class="{ active: currentFolderId === 0 }" @click="selectFolder(0)">
+                    <t-icon name="folder-open" class="fd-folder-icon"></t-icon>
+                    <span class="fd-folder-name">全部文件</span>
+                    <span class="fd-folder-count">[[ totalFileCount ]]</span>
+                </div>
+                <div v-for="folder in folders" :key="folder.id" class="fd-folder-item"
+                    :class="{ active: currentFolderId === folder.id }" @click="selectFolder(folder.id)">
+                    <t-icon name="folder" class="fd-folder-icon"></t-icon>
+                    <span class="fd-folder-name">
+                        [[ folder.name ]]
+                        <t-tag v-if="folder.is_default === 1" size="small" theme="primary" variant="light">默认</t-tag>
+                    </span>
+                    <span class="fd-folder-count">[[ folder.file_count ]]</span>
+                    <t-dropdown v-permission="'file_download:folder'" :options="folderMenu(folder)"
+                        @click="onFolderMenu($event, folder)" trigger="click">
+                        <t-button theme="default" variant="text" size="small" @click.stop>
+                            <template #icon><t-icon name="more"></t-icon></template>
+                        </t-button>
+                    </t-dropdown>
+                </div>
+            </div>
+        </t-card>
+
+        <!-- 右侧：文件表格 -->
+        <t-card class="fd-file-panel" title="文件管理">
+            <template #header>
+                <div class="card-header-toolbar">
+                    <div class="card-header-toolbar-left">
+                        <t-input v-model="searchKeyword" placeholder="搜索文件名称..." clearable
+                            class="search-input" @change="fetchFiles"/>
+                    </div>
+                    <div class="card-header-toolbar-right">
+                        <t-button v-permission="'file_download:create'" theme="primary" :disabled="!uploadPolicyReady"
+                            @click="openUpload">
+                            <template #icon><t-icon name="upload"></t-icon></template>
+                            上传文件
+                        </t-button>
+                    </div>
+                </div>
+            </template>
+
+            <t-table :data="tableData" :columns="columns" :loading="loading" :pagination="pagination"
+                row-key="id" hover @page-change="onPageChange">
+                <template #name="{ row }">
+                    <div class="fd-file-name">
+                        <span>[[ row.name ]]</span>
+                        <span class="fd-file-origin">[[ row.origin_name ]]</span>
+                    </div>
+                </template>
+                <template #filesize="{ row }">[[ formatSize(row.filesize) ]]</template>
+                <template #visible_range="{ row }">
+                    <t-tag :theme="row.visible_range === 'all' ? 'success' : 'warning'" variant="light">
+                        [[ row.visible_range === 'all' ? '所有农户' : '指定产区' ]]
+                    </t-tag>
+                </template>
+                <template #hidden="{ row }">
+                    <t-switch :value="row.hidden === 0" :disabled="!canUpdate"
+                        @change="toggleHidden(row)"></t-switch>
+                </template>
+                <template #actions="{ row }">
+                    <t-button v-permission="'file_download:list'" theme="primary" variant="text"
+                        size="small" @click="downloadRow(row)">下载</t-button>
+                    <t-button v-permission="'file_download:update'" theme="primary" variant="text"
+                        size="small" @click="openEdit(row)">编辑</t-button>
+                    <t-popconfirm content="确认删除该文件？物理文件将一并删除" @confirm="removeRow(row)">
+                        <t-button v-permission="'file_download:delete'" theme="danger" variant="text"
+                            size="small">删除</t-button>
+                    </t-popconfirm>
+                </template>
+            </t-table>
+        </t-card>
+    </div>
+
+    <!-- 新建/重命名文件夹弹窗 -->
+    <t-dialog v-model:visible="folderFormVisible" :header="folderFormTitle" :on-confirm="submitFolder"
+        width="420px" placement="center">
+        <t-form ref="folderFormRef" :data="folderForm" :rules="folderRules" label-width="90px">
+            <t-form-item label="文件夹名称" name="name">
+                <t-input v-model="folderForm.name" placeholder="请输入文件夹名称" :maxlength="100"/>
+            </t-form-item>
+        </t-form>
+    </t-dialog>
+
+    <!-- 上传/编辑文件弹窗 -->
+    <t-dialog v-model:visible="fileFormVisible" :header="fileFormTitle" :on-confirm="submitFile"
+        :confirm-loading="submitting" width="560px" placement="center">
+        <t-form ref="fileFormRef" :data="fileForm" :rules="fileRules" label-width="90px">
+            <t-form-item v-if="!editingId" label="选择文件" name="upload">
+                <t-upload v-model="uploadFiles" :auto-upload="false" :max="1" theme="file"
+                    :accept="uploadAccept" :placeholder="uploadHint"></t-upload>
+            </t-form-item>
+            <t-form-item label="显示名称" name="name">
+                <t-input v-model="fileForm.name" placeholder="缺省取原文件名" :maxlength="200"/>
+            </t-form-item>
+            <t-form-item label="所属文件夹" name="folder_id">
+                <t-select v-model="fileForm.folder_id" :options="folderOptions" placeholder="请选择文件夹"></t-select>
+            </t-form-item>
+            <t-form-item label="可见范围">
+                <t-radio-group v-model="fileForm.visible_range">
+                    <t-radio value="all">所有农户</t-radio>
+                    <t-radio value="area">指定产区</t-radio>
+                </t-radio-group>
+            </t-form-item>
+            <t-form-item v-if="fileForm.visible_range === 'area'" label="选择产区" name="area_ids">
+                <t-select v-model="fileForm.area_ids" :options="areaOptions" multiple clearable
+                    placeholder="产区绑定的农户可见"></t-select>
+            </t-form-item>
+            <t-form-item label="描述">
+                <t-textarea v-model="fileForm.description" placeholder="选填" :maxlength="1000"
+                    :autosize="{ minRows: 2 }"/>
+            </t-form-item>
+        </t-form>
+    </t-dialog>
+</div>
+
+<style>
+/* 布局与文件夹面板 — 色值全部使用 --app-* 变量，深色模式自动适配 */
+.fd-layout { display: flex; gap: var(--app-spacing-md); align-items: flex-start; }
+.fd-folder-panel { width: 260px; flex-shrink: 0; }
+.fd-file-panel { flex: 1; min-width: 0; }
+.fd-folder-list { display: flex; flex-direction: column; gap: 2px; }
+.fd-folder-item {
+    display: flex; align-items: center; gap: var(--app-spacing-sm);
+    padding: 7px 10px; border-radius: var(--app-radius-md); cursor: pointer;
+    color: var(--app-text-primary);
+}
+.fd-folder-item:hover { background: var(--app-tree-hover); }
+.fd-folder-item.active { background: var(--app-brand-light); color: var(--app-brand-color); }
+.fd-folder-icon { flex-shrink: 0; }
+.fd-folder-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fd-folder-count { font-size: var(--app-font-size-sm); color: var(--app-text-secondary); }
+.fd-file-name { display: flex; flex-direction: column; }
+.fd-file-origin { font-size: var(--app-font-size-sm); color: var(--app-text-secondary); }
+@media (max-width: 900px) { .fd-layout { flex-direction: column; } .fd-folder-panel { width: 100%; } }
+</style>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<!-- 页面脚本外提至共享 js/pages（与 admin_notifier 同范式），降低模板行数 -->
+<script src="/static/js/pages/file_download.js?v={{ config.app_version }}"></script>
+{% endblock %}

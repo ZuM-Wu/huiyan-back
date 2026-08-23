@@ -1,0 +1,217 @@
+{% extends "plugin_page_shell.html" %}
+{% block title %}农业知识库 - 慧眼护农{% endblock %}
+{#
+  农业知识库插件后台管理页
+
+  布局：左栏分类树（大类>子类，增删改），右侧知识条目表格 + 新增/编辑弹窗。
+  勘误审核已迁至独立页 knowledge_corrections.html。
+  要点：
+  1. 继承核心 base.html；页面脚本外提至共享 js/pages（插件不挂 /static）
+  2. 根节点 #page-app + v-cloak；Vue 分隔符 [[ ]]；t-* 组件禁止自闭合
+  3. 按钮 v-permission 控显隐，权限码与 auth.py / router_admin 一一对应
+  4. 典型图片复用全局 image-upload 组件（调 /api/admin/v1/upload/image）
+#}
+{% block content %}
+<div id="page-app" v-cloak class="kb-page">
+    <div class="kb-layout">
+        <!-- 左栏：分类树 -->
+        <t-card class="kb-cat-panel" title="知识分类">
+            <template #actions>
+                <t-button v-permission="'knowledge:category'" theme="primary" variant="text"
+                    @click="openCatCreate(0)">
+                    <template #icon><t-icon name="add"></t-icon></template>
+                    新建大类
+                </t-button>
+            </template>
+            <div class="kb-cat-tree">
+                <div class="kb-cat-item" :class="{ active: currentCategoryId === 0 }" @click="selectCategory(0)">
+                    <t-icon name="view-list" class="kb-cat-icon"></t-icon>
+                    <span class="kb-cat-name">全部条目</span>
+                </div>
+                <div v-for="root in categories" :key="root.id" class="kb-cat-group">
+                    <div class="kb-cat-item" :class="{ active: currentCategoryId === root.id }"
+                        @click="selectCategory(root.id)">
+                        <t-icon name="folder" class="kb-cat-icon"></t-icon>
+                        <span class="kb-cat-name">
+                            [[ root.name ]]
+                            <t-tag v-if="root.status === 0" theme="warning" variant="light">停用</t-tag>
+                        </span>
+                        <t-dropdown v-permission="'knowledge:category'" :options="rootMenu()"
+                            @click="onCatMenu($event, root, 0)" trigger="click">
+                            <t-button theme="default" variant="text" @click.stop>
+                                <template #icon><t-icon name="more"></t-icon></template>
+                            </t-button>
+                        </t-dropdown>
+                    </div>
+                    <div v-for="child in root.children" :key="child.id" class="kb-cat-item kb-cat-child"
+                        :class="{ active: currentCategoryId === child.id }" @click="selectCategory(child.id)">
+                        <t-icon name="chevron-right" class="kb-cat-icon"></t-icon>
+                        <span class="kb-cat-name">
+                            [[ child.name ]]
+                            <t-tag v-if="child.status === 0" theme="warning" variant="light">停用</t-tag>
+                        </span>
+                        <t-dropdown v-permission="'knowledge:category'" :options="childMenu()"
+                            @click="onCatMenu($event, child, root.id)" trigger="click">
+                            <t-button theme="default" variant="text" @click.stop>
+                                <template #icon><t-icon name="more"></t-icon></template>
+                            </t-button>
+                        </t-dropdown>
+                    </div>
+                </div>
+            </div>
+        </t-card>
+
+        <!-- 右侧：条目表格 -->
+        <div class="kb-main">
+            <t-card class="kb-entry-panel" title="知识条目">
+                <template #header>
+                    <div class="card-header-toolbar">
+                        <div class="card-header-toolbar-left">
+                            <t-button v-permission="'knowledge:create'" theme="default"
+                                @click="openBatch">
+                                <template #icon><t-icon name="add"></t-icon></template>
+                                批量新增
+                            </t-button>
+                            <t-button v-permission="'knowledge:create'" theme="primary" @click="openEntryCreate">
+                                <template #icon><t-icon name="add"></t-icon></template>
+                                新增条目
+                            </t-button>
+                        </div>
+                        <div class="card-header-toolbar-right">
+                            <t-input v-model="searchKeyword" placeholder="搜索标题/摘要..." clearable
+                                class="search-input" @change="onFilterChange"></t-input>
+                            <t-input v-model="cropKeyword" placeholder="按适用作物筛选..." clearable
+                                class="search-input" @change="onFilterChange"></t-input>
+                        </div>
+                    </div>
+                </template>
+                <t-table :data="tableData" :columns="columns" :loading="loading" :pagination="pagination"
+                    row-key="id" hover @page-change="onPageChange">
+                    <template #category_id="{ row }">[[ categoryName(row.category_id) ]]</template>
+                    <template #actions="{ row }">
+                        <t-button v-permission="'knowledge:update'" theme="primary" variant="text"
+                            size="small" @click="openEntryEdit(row)">编辑</t-button>
+                        <t-popconfirm content="确认删除该知识条目？" @confirm="removeEntry(row)">
+                            <t-button v-permission="'knowledge:delete'" theme="danger" variant="text"
+                                size="small">删除</t-button>
+                        </t-popconfirm>
+                    </template>
+                </t-table>
+            </t-card>
+        </div>
+    </div>
+
+    <!-- 分类新建/编辑弹窗 -->
+    <t-dialog v-model:visible="catFormVisible" :header="catFormTitle" :on-confirm="submitCategory"
+        width="420px" placement="center">
+        <t-form ref="catFormRef" :data="catForm" :rules="catRules" label-width="90px">
+            <t-form-item label="分类名称" name="name">
+                <t-input v-model="catForm.name" placeholder="请输入分类名称" :maxlength="50"></t-input>
+            </t-form-item>
+            <t-form-item label="排序">
+                <t-input-number v-model="catForm.sort_order" :min="0" theme="column"></t-input-number>
+            </t-form-item>
+            <t-form-item v-if="catEditingId" label="状态">
+                <t-radio-group v-model="catForm.status">
+                    <t-radio :value="1">启用</t-radio>
+                    <t-radio :value="0">停用</t-radio>
+                </t-radio-group>
+            </t-form-item>
+        </t-form>
+    </t-dialog>
+
+    <!-- 条目新建/编辑弹窗 -->
+    <t-dialog v-model:visible="entryFormVisible" :header="entryFormTitle" :on-confirm="submitEntry"
+        :confirm-loading="submitting" width="640px" placement="center">
+        <t-form ref="entryFormRef" :data="entryForm" :rules="entryRules" label-width="90px">
+            <t-form-item label="知识标题" name="title">
+                <t-input v-model="entryForm.title" placeholder="如 小麦白粉病" :maxlength="200"></t-input>
+            </t-form-item>
+            <t-form-item label="所属分类" name="category_id">
+                <t-select v-model="entryForm.category_id" :options="categoryOptions"
+                    placeholder="请选择分类"></t-select>
+            </t-form-item>
+            <t-form-item label="适用作物">
+                <t-input v-model="entryForm.crop" placeholder="逗号分隔，如 小麦,大麦" :maxlength="200"></t-input>
+            </t-form-item>
+            <t-form-item label="摘要">
+                <t-textarea v-model="entryForm.summary" placeholder="一句话摘要（选填）" :maxlength="500"
+                    :autosize="{ minRows: 2 }"></t-textarea>
+            </t-form-item>
+            <t-form-item label="发生原因">
+                <t-textarea v-model="entryForm.cause" placeholder="发生原因（选填）"
+                    :autosize="{ minRows: 3 }"></t-textarea>
+            </t-form-item>
+            <t-form-item label="解决方案">
+                <t-textarea v-model="entryForm.solution" placeholder="解决方案（选填）"
+                    :autosize="{ minRows: 3 }"></t-textarea>
+            </t-form-item>
+            <t-form-item label="典型图片">
+                <div class="kb-img-list">
+                    <div v-for="(img, idx) in entryForm.images" :key="idx" class="kb-img-cell">
+                        <img :src="img" alt="典型图片" class="kb-img-thumb">
+                        <div class="kb-img-del" title="移除" @click="removeImage(idx)">
+                            <t-icon name="delete"></t-icon>
+                        </div>
+                    </div>
+                    <image-upload v-model="imageTemp"></image-upload>
+                </div>
+            </t-form-item>
+        </t-form>
+    </t-dialog>
+
+    <!-- 批量新增条目弹窗 -->
+    <t-dialog v-model:visible="batchVisible" header="批量新增条目" :on-confirm="submitBatch"
+        :confirm-loading="batchSubmitting" width="640px" placement="center">
+        <t-form ref="batchFormRef" :data="batchForm" :rules="batchRules" label-width="90px">
+            <t-form-item label="所属分类" name="category_id">
+                <t-select v-model="batchForm.category_id" :options="categoryOptions"
+                    placeholder="请选择分类（批量共享）"></t-select>
+            </t-form-item>
+            <t-form-item label="适用作物">
+                <t-input v-model="batchForm.crop" placeholder="逗号分隔，如 小麦,大麦（批量共享，选填）"
+                    :maxlength="200"></t-input>
+            </t-form-item>
+            <t-form-item label="标题列表" name="titlesText">
+                <t-textarea v-model="batchForm.titlesText" placeholder="每行一个标题，一行一条"
+                    :autosize="{ minRows: 5 }"></t-textarea>
+            </t-form-item>
+        </t-form>
+    </t-dialog>
+</div>
+
+<style>
+/* 布局与分类面板 — 色值统一引用 --app-* 变量，深浅色自适应 */
+.kb-layout { display: flex; gap: var(--app-spacing-md); align-items: flex-start; }
+.kb-cat-panel { width: 260px; flex-shrink: 0; }
+.kb-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--app-spacing-md); }
+.kb-cat-tree { display: flex; flex-direction: column; gap: 2px; }
+.kb-cat-item {
+    display: flex; align-items: center; gap: var(--app-spacing-sm);
+    padding: 7px 10px; border-radius: var(--app-radius-md); cursor: pointer;
+    color: var(--app-text-primary);
+}
+.kb-cat-item:hover { background: var(--app-tree-hover); }
+.kb-cat-item.active { background: var(--app-brand-light); color: var(--app-brand-color); }
+.kb-cat-child { padding-left: var(--app-spacing-lg); }
+.kb-cat-icon { flex-shrink: 0; }
+.kb-cat-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 操作列不参与文本省略，避免按钮被截断成省略号 */
+.kb-entry-panel .t-table td.kb-td-actions { overflow: visible; text-overflow: clip; white-space: nowrap; }
+.kb-img-list { display: flex; flex-wrap: wrap; gap: var(--app-spacing-sm); align-items: flex-start; }
+.kb-img-cell { position: relative; width: 96px; height: 96px; border-radius: var(--app-radius-md); overflow: hidden; }
+.kb-img-thumb { width: 100%; height: 100%; object-fit: cover; }
+.kb-img-del {
+    position: absolute; top: 2px; right: 2px; width: 22px; height: 22px;
+    display: flex; align-items: center; justify-content: center; cursor: pointer;
+    border-radius: 4px; color: var(--app-text-anti); background: var(--app-mask);
+}
+@media (max-width: 900px) { .kb-layout { flex-direction: column; } .kb-cat-panel { width: 100%; } }
+</style>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<!-- 页面脚本外提至共享 js/pages（与 file_download 同范式），控制模板有效行数 <=400 -->
+<script src="/static/js/pages/knowledge.js?v={{ config.app_version }}"></script>
+{% endblock %}

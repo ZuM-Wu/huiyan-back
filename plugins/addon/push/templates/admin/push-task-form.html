@@ -1,0 +1,65 @@
+{% extends "plugin_page_shell.html" %}
+{% block title %}{{ '编辑' if request.query_params.get('id') else '创建' }}推送任务 - 慧眼护农{% endblock %}
+{% block head %}
+{{ super() }}
+<style>
+.push-form-page .schedule-section,.push-form-page .target-panel{padding:var(--app-spacing-md);background:var(--app-bg-container);border-radius:var(--app-radius-sm)}
+.push-form-page .target-panel{width:100%}.push-form-page .target-row{display:flex;align-items:center;gap:var(--app-spacing-md);flex-wrap:wrap}
+.push-form-page .target-count{color:var(--app-text-secondary);font-size:var(--app-font-size-sm)}
+.push-form-page .section-desc{color:var(--app-text-secondary);font-size:var(--app-font-size-sm);font-weight:400}
+.push-form-page .form-footer{display:flex;justify-content:space-between;align-items:center;margin-top:var(--app-spacing-lg)}
+.push-form-page .form-actions{display:flex;gap:var(--app-spacing-sm)}
+</style>
+{% endblock %}
+{% block content %}
+<div id="page-app" v-cloak class="push-form-page admin-list-page">
+    <t-card title="推送任务">
+        <template #header><div class="card-header-toolbar"><div class="card-header-toolbar-left">
+            <t-button theme="default" @click="goBack"><template #icon><t-icon name="chevron-left"/></template>返回列表</t-button>
+            <h3 class="form-page-title">[[ isEdit ? '编辑推送任务' : '创建推送任务' ]]</h3>
+        </div></div></template>
+        <t-skeleton :loading="pageLoading" :row-col="[{ height: '40px' }, { height: '360px' }]">
+            <t-form ref="formRef" :data="formData" :rules="formRules" label-align="top" @submit="onFormSubmit">
+                <h3 class="form-section-title">推送内容 <span class="section-desc">配置主题、渠道和通知内容</span></h3>
+                <t-row :gutter="[16,16]"><t-col :xs="12" :md="5"><t-form-item label="推送标题" name="title"><t-input v-model="formData.title" placeholder="请输入推送标题"/></t-form-item></t-col>
+                    <t-col :xs="12" :md="4"><t-form-item label="关键词" name="keywords"><t-input v-model="formData.keywords" placeholder="关键词/备注（可选）"/></t-form-item></t-col>
+                    <t-col :xs="12" :md="3"><t-form-item label="推送渠道" name="channels"><t-checkbox-group v-model="channelValues"><t-checkbox v-for="item in channelOptions" :key="item.value" :value="item.value">[[ item.label ]]</t-checkbox></t-checkbox-group></t-form-item></t-col>
+                </t-row>
+                <t-row :gutter="[16,16]" v-if="formData.channels.sms"><t-col :xs="12" :md="4"><t-form-item label="短信接口"><t-select v-model="selectedSmsPlugin" clearable placeholder="选择短信插件" @change="onSmsPluginChange"><t-option v-for="item in smsPlugins" :key="item.name" :value="item.name" :label="item.title"/></t-select></t-form-item></t-col>
+                    <t-col :xs="12" :md="4"><t-form-item label="短信模板"><t-select v-model="formData.channels.sms_template_id" clearable placeholder="选择短信模板"><t-option v-for="item in smsTemplates" :key="item.id" :value="item.id" :label="item.title"/></t-select></t-form-item></t-col>
+                </t-row>
+                <t-row :gutter="[16,16]" v-if="formData.channels.email"><t-col :xs="12" :md="4"><t-form-item label="邮件模板"><t-select v-model="formData.channels.email_template_id" clearable placeholder="选择邮件模板" @change="onEmailTemplateChange"><t-option v-for="item in emailTemplates" :key="item.id" :value="item.id" :label="item.name || item.title"/></t-select></t-form-item></t-col>
+                    <t-col :xs="12" :md="8"><t-form-item label="邮件标题"><t-input v-model="formData.subject" placeholder="请输入邮件标题"/></t-form-item></t-col>
+                </t-row>
+                <t-form-item label="推送内容" name="content"><com-tinymce ref="pushEditor" id="push-content-editor" :default-value="formData.content" :height="300"/></t-form-item>
+
+                <h3 class="form-section-title">推送目标 <span class="section-desc">先预览匹配名单，再保存任务</span></h3>
+                <t-form-item label="接收农户" name="target_rule"><div class="target-panel"><div class="target-row">
+                    <t-radio-group v-model="formData.target_rule.mode"><t-radio value="all">全部农户</t-radio><t-radio value="specified">指定农户</t-radio><t-radio value="filtered">条件筛选</t-radio></t-radio-group>
+                    <t-button theme="default" @click="previewTarget"><template #icon><t-icon name="usergroup"/></template>查看匹配名单</t-button><span class="target-count">当前匹配 [[ targetCount ]] 位农户</span>
+                </div>
+                <div v-if="formData.target_rule.mode === 'specified'" style="margin-top:var(--app-spacing-sm)"><t-select v-model="formData.target_rule.farmer_ids" multiple filterable clearable :loading="farmerOptionsLoading" placeholder="搜索并选择农户" :min-collapsed-num="3"><t-option v-for="item in farmerOptions" :key="item.id" :value="item.id" :label="item.nickname || item.name || ('ID:' + item.id)"/></t-select></div>
+                <div v-if="formData.target_rule.mode === 'filtered'" style="margin-top:var(--app-spacing-sm)"><t-checkbox-group v-model="filterConditions"><t-checkbox value="has_phone">绑定手机</t-checkbox><t-checkbox value="has_email">绑定邮箱</t-checkbox><t-checkbox value="has_plot">绑定产区/地块</t-checkbox></t-checkbox-group><t-row :gutter="[8,8]" style="margin-top:var(--app-spacing-sm)"><t-col :xs="12" :md="4"><t-input v-model="filterArea" placeholder="产区名称关键词（可选）"/></t-col><t-col :xs="12" :md="4"><t-input v-model="filterKeyword" placeholder="农户关键词（可选）"/></t-col></t-row></div>
+                </div></t-form-item>
+
+                <h3 class="form-section-title">发送安排 <span class="section-desc">支持一次性和周期性任务</span></h3>
+                <div class="schedule-section"><t-row :gutter="[16,16]"><t-col :xs="12" :md="4"><t-form-item label="推送周期"><t-select v-model="formData.schedule_rule.cycle"><t-option value="onetime" label="一次性"/><t-option value="day" label="每日"/><t-option value="week" label="每周"/><t-option value="month" label="每月"/></t-select></t-form-item></t-col>
+                    <t-col :xs="12" :md="4" v-if="formData.schedule_rule.cycle === 'week'"><t-form-item label="每周几"><t-select v-model="formData.schedule_rule.week_day"><t-option v-for="day in 7" :key="day" :value="day" :label="weekDayLabel(day)"/></t-select></t-form-item></t-col>
+                    <t-col :xs="12" :md="4" v-if="formData.schedule_rule.cycle === 'month'"><t-form-item label="每月几号"><t-select v-model="formData.schedule_rule.month_day"><t-option v-for="day in 28" :key="day" :value="day" :label="day + '号'"/></t-select></t-form-item></t-col>
+                    <t-col :xs="12" :md="4"><t-form-item label="发送时间"><t-time-picker v-model="formData.schedule_rule.time_hour_min" format="HH:mm"/></t-form-item></t-col>
+                    <t-col :xs="12" :md="4"><t-form-item label="有效期开始"><t-date-picker v-model="formData.schedule_rule.start_time" enable-time-picker clearable placeholder="可选" style="width:100%"/></t-form-item></t-col>
+                    <t-col :xs="12" :md="4"><t-form-item label="有效期结束"><t-date-picker v-model="formData.schedule_rule.end_time" enable-time-picker clearable placeholder="可选" style="width:100%"/></t-form-item></t-col>
+                </t-row></div>
+                <div class="form-footer"><variable-hint title="推送内容支持以下变量" :items="[{var:'{username}',desc:'农户用户名'},{var:'{phone}',desc:'手机号'},{var:'{email}',desc:'邮箱'},{var:'{company}',desc:'公司名'}]"></variable-hint><div class="form-actions"><t-button v-if="formData.channels.sms || formData.channels.email" theme="default" @click="showPreview"><template #icon><t-icon name="play-circle"></t-icon></template>发送预览</t-button><t-button theme="default" @click="goBack">取消</t-button><t-button theme="primary" type="submit" :loading="submitting">保存任务</t-button></div></div>
+            </t-form>
+        </t-skeleton>
+    </t-card>
+    <t-dialog v-model:visible="targetDialogVisible" header="匹配农户名单" :footer="false" width="760px"><p class="target-count">共匹配 <strong>[[ targetCount ]]</strong> 位农户</p><t-table :data="targetPreviewList" :columns="targetColumns" row-key="id" :loading="targetPreviewLoading" :pagination="targetPagination" @page-change="onTargetPageChange" max-height="440"/ hover></t-dialog>
+    <t-dialog v-model:visible="previewVisible" header="发送预览" :footer="false" width="480px"><t-form :data="previewForm" label-align="top"><t-form-item label="测试邮箱"><t-input v-model="previewForm.email" placeholder="输入接收预览的邮箱"/></t-form-item><t-form-item label="测试手机号"><t-input v-model="previewForm.phone" placeholder="输入接收预览的手机号"/></t-form-item><div class="form-actions" style="justify-content:flex-end"><t-button theme="default" @click="previewVisible=false">取消</t-button><t-button theme="primary" :loading="previewSending" @click="submitPreview">确认发送</t-button></div></t-form></t-dialog>
+</div>
+{% endblock %}
+{% block scripts %}
+{{ super() }}
+<script src="/static/vendor/tinymce/tinymce.min.js?v={{ config.app_version }}"></script>
+<script src="/static/js/pages/push-task-form.js?v={{ config.app_version }}&center=2"></script>
+{% endblock %}

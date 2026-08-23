@@ -1,0 +1,364 @@
+/**
+ * 慧眼护农 V3.4 - 统一 Design Token
+ * 合并原 token-dark.css + token-light.css，一处修改全局生效
+ * 所有视觉属性必须通过 CSS 变量控制，禁止在组件内硬编码
+ */
+
+:root {
+  /* ===== TDesign 颜色事实源；--app-* 仅作兼容别名 ===== */
+  --td-brand-color: #0052D9;
+  --td-brand-color-hover: #266FE8;
+  --td-brand-color-active: #0034B5;
+  --td-brand-color-light: rgba(0, 82, 217, 0.08);
+  --td-success-color: #2BA471;
+  --td-warning-color: #E37318;
+  --td-error-color: #D54941;
+  --td-text-color-primary: rgba(0,0,0,0.9);
+  --td-text-color-secondary: rgba(0,0,0,0.6);
+  --td-text-color-placeholder: #999;
+  --td-text-color-disabled: rgba(0,0,0,0.26);
+  --td-bg-color-page: #F5F5F5;
+  --td-bg-color-container: #FFFFFF;
+  --td-bg-color-secondarycontainer: #F8F9FA;
+  --td-border-level-1-color: #E7E7E7;
+  --td-border-level-2-color: #C0C4CC;
+  --app-brand-color: var(--td-brand-color);
+  --app-brand-hover: var(--td-brand-color-hover);
+  --app-brand-active: var(--td-brand-color-active);
+  --app-brand-light: var(--td-brand-color-light);
+  --app-success: var(--td-success-color);
+  --app-warning: var(--td-warning-color);
+  --app-error: var(--td-error-color);
+  --app-text-primary: var(--td-text-color-primary);
+  --app-text-secondary: var(--td-text-color-secondary);
+  --app-text-placeholder: var(--td-text-color-placeholder);
+  --app-text-disabled: var(--td-text-color-disabled);
+  /* 反色文字：用于品牌色/深色背景上的白色文字，明暗模式下保持恒定 */
+  --app-text-anti: #FFFFFF;
+  --app-bg-page: var(--td-bg-color-page);
+  --app-bg-card: var(--td-bg-color-container);
+  --app-bg-container: var(--td-bg-color-secondarycontainer);
+  --app-border: var(--td-border-level-1-color);
+  --app-border-hover: var(--td-border-level-2-color);
+
+  /* ===== 圆角 ===== */
+  --app-radius-sm: 3px;
+  --app-radius-md: 6px;
+  --app-radius-lg: 9px;
+  --app-radius-pill: 999px;
+  --app-radius-user: 8px;
+
+  /* ===== 字体 ===== */
+  --app-font-family: -apple-system, "Microsoft YaHei", "PingFang SC", "Helvetica Neue", sans-serif;
+  --app-font-size-xl: 20px;
+  --app-font-size-lg: 16px;
+  --app-font-size-md: 14px;
+  --app-font-size-sm: 12px;
+  --app-line-height: 1.5;
+
+  /* ===== 间距 ===== */
+  --app-spacing-xs: 4px;
+  --app-spacing-sm: 8px;
+  --app-spacing-md: 16px;
+  --app-spacing-lg: 24px;
+  --app-spacing-xl: 32px;
+  --app-page-padding: 24px;
+  --app-card-padding: 16px 32px;
+  --app-header-margin: 20px;
+  --app-card-gap: 16px;
+  --app-form-gap: 24px;
+
+  /* ===== 阴影 ===== */
+  --app-shadow-1: 0 1px 2px rgba(0,0,0,0.06);
+  --app-shadow-2: 0 3px 6px rgba(0,0,0,0.08);
+  --app-shadow-3: 0 6px 16px rgba(0,0,0,0.12);
+  /* 深色底上的文字投影（登录页品牌区大标题） */
+  --app-shadow-text: 0 2px 8px rgba(0, 0, 0, 0.15);
+
+  /* ===== 透明变体令牌（存量 rgba 硬编码归类收敛，禁止在业务样式中直写 rgba） ===== */
+  /* 功能色浅底：图标底、状态横幅、拖拽提示、标签底色 */
+  --app-success-light: rgba(43, 164, 113, 0.1);
+  --app-success-light-weak: rgba(43, 164, 113, 0.06);
+  --app-success-light-mid: rgba(43, 164, 113, 0.08);
+  --app-success-light-hover: rgba(43, 164, 113, 0.15);
+  --app-warning-light: rgba(227, 115, 24, 0.1);
+  --app-warning-light-weak: rgba(227, 115, 24, 0.06);
+  --app-warning-light-mid: rgba(227, 115, 24, 0.08);
+  --app-warning-light-hover: rgba(227, 115, 24, 0.2);
+  --app-error-light: rgba(213, 73, 65, 0.1);
+  --app-neutral-light: rgba(144, 146, 170, 0.1);
+  /* 品牌色聚焦光晕（输入框 focus 的 box-shadow 扩散色） */
+  --app-brand-focus-ring: rgba(0, 82, 217, 0.1);
+  /* 遮罩与玻璃拟态（明暗两套值，暗色见 data-theme=dark 覆盖） */
+  --app-mask: rgba(0, 0, 0, 0.45);
+  --app-glass-bg: rgba(245, 245, 250, 0.55);
+  --app-glass-card-bg: rgba(255, 255, 255, 0.7);
+  --app-glass-nav-bg: rgba(255, 255, 255, 0.85);
+  /* 深色底上的白色叠加刻度（品牌横幅/官网 hero/页脚，明暗恒定） */
+  --app-overlay-white-faint: rgba(255, 255, 255, 0.06);
+  --app-overlay-white-divider: rgba(255, 255, 255, 0.08);
+  --app-overlay-white-weak: rgba(255, 255, 255, 0.15);
+  --app-overlay-white-mid: rgba(255, 255, 255, 0.2);
+  --app-overlay-white-strong: rgba(255, 255, 255, 0.6);
+  --app-overlay-white-text: rgba(255, 255, 255, 0.8);
+  --app-overlay-white-text-strong: rgba(255, 255, 255, 0.88);
+  /* 品牌区斜纹装饰（登录页，三道递减制造纵深，明暗恒定） */
+  --app-stripe-1: rgba(255, 255, 255, 0.06);
+  --app-stripe-2: rgba(255, 255, 255, 0.04);
+  --app-stripe-3: rgba(255, 255, 255, 0.03);
+
+  /* ===== 全局辅助色（行悬停、树节点悬停、滚动条） ===== */
+  --app-row-hover: rgba(0, 82, 217, 0.02);
+  --app-tree-hover: rgba(0, 0, 0, 0.04);
+  --app-scrollbar-thumb: rgba(0,0,0,0.15);
+  --app-scrollbar-thumb-hover: rgba(0,0,0,0.25);
+
+  /* ===== 动效（TDesign 视觉 + Discord 交互） ===== */
+  /* 时长：微交互用 fast，常规过渡用 base，展开/折叠用 slow */
+  --app-duration-fast: 0.15s;
+  --app-duration-base: 0.2s;
+  --app-duration-slow: 0.28s;
+  /* 缓动：standard 为 TDesign 标准；spring 为 Discord 风回弹（Q 弹丝滑）；out 为减速弹出 */
+  --app-ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --app-ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+  --app-ease-out: cubic-bezier(0, 0, 0.15, 1);
+
+  /* ===== 布局 ===== */
+  --app-sidebar-width: 232px;
+  --app-sidebar-collapsed: 64px;
+  --app-header-height: 56px;
+  --app-card-max-height: 75vh;
+
+  /* ===== 侧边栏配色（明亮模式 — 白底，默认） ===== */
+  --app-sidebar-bg: #FFFFFF;
+  --app-sidebar-user-bg: #F6F7F9;
+  --app-sidebar-user-hover: #EBEDF0;
+  --app-sidebar-menu-text: #4E5969;
+  --app-sidebar-menu-text-active: #1D2129;
+  --app-sidebar-menu-hover-bg: rgba(0,0,0,0.04);
+  --app-sidebar-menu-active-bg: var(--app-brand-light);
+  --app-sidebar-avatar-bg: #5865F2;
+  --app-sidebar-status-dot: #23A55A;
+  --app-sidebar-logo-border: #E7E7E7;
+  --app-sidebar-border: #E7E7E7;
+  --app-sidebar-gear-hover-bg: rgba(0,0,0,0.06);
+  --app-sidebar-scrollbar-thumb: rgba(0,0,0,0.15);
+  --app-sidebar-scrollbar-thumb-hover: rgba(0,0,0,0.25);
+
+  /* TDesign 颜色事实源的兼容别名。 */
+  --td-text-color-anti: #FFFFFF;
+  --td-text-color-link: var(--td-brand-color-hover);
+  --td-text-color-brand: var(--td-brand-color);
+
+  /* ===== 兼容旧变量名（过渡期保留，后续逐步迁移至 --app-* 前缀） ===== */
+  --primary-color: var(--app-brand-color);
+  --success-color: var(--app-success);
+  --warning-color: var(--app-warning);
+  --danger-color: var(--app-error);
+  --text-primary: var(--app-text-primary);
+  --text-secondary: var(--app-text-secondary);
+  --text-placeholder: var(--app-text-placeholder);
+  --text-disabled: var(--app-text-disabled);
+  --body-bg: var(--app-bg-page);
+  --card-bg: var(--app-bg-card);
+  --bg-color-page: var(--app-bg-card);
+  --bg-color-container: var(--app-bg-container);
+  --brand-color-light: var(--app-brand-light);
+  --border-color: var(--app-border);
+  --border-color-hover: var(--app-border-hover);
+  --title-h2-size: var(--app-font-size-xl);
+  --title-card-size: var(--app-font-size-md);
+  --body-text-size: var(--app-font-size-md);
+  --auxiliary-text-size: var(--app-font-size-sm);
+  --line-height: var(--app-line-height);
+  --page-padding: var(--app-page-padding);
+  --card-padding: var(--app-card-padding);
+  --header-margin-bottom: var(--app-header-margin);
+  --toolbar-margin: var(--app-spacing-md) 0;
+  --card-gap: var(--app-card-gap);
+  --form-item-gap: var(--app-form-gap);
+  --radius-common: var(--app-radius-md);
+  --radius-user-card: var(--app-radius-user);
+  --sidebar-bg: var(--app-sidebar-bg);
+  --sidebar-user-bg: var(--app-sidebar-user-bg);
+  --sidebar-user-hover: var(--app-sidebar-user-hover);
+  --sidebar-menu-text: var(--app-sidebar-menu-text);
+  --sidebar-menu-text-active: var(--app-sidebar-menu-text-active);
+  --sidebar-menu-hover-bg: var(--app-sidebar-menu-hover-bg);
+  --sidebar-menu-active-bg: var(--app-sidebar-menu-active-bg);
+  --sidebar-avatar-bg: var(--app-sidebar-avatar-bg);
+  --sidebar-status-dot: var(--app-sidebar-status-dot);
+  --sidebar-logo-border: var(--app-sidebar-logo-border);
+  --sidebar-border: var(--app-sidebar-border);
+}
+
+/* ===== 深色模式：全局内容区 + 侧边栏 Discord 风格深色配色 ===== */
+[data-theme="dark"] {
+  /* ===== 品牌色（深色模式下 brand-light 提亮以保持对比度） ===== */
+  --app-brand-color: #0052D9;
+  --app-brand-hover: #266FE8;
+  --app-brand-active: #0034B5;
+  --app-brand-light: rgba(0, 82, 217, 0.15);
+
+  /* ===== 中性色（深色模式） ===== */
+  --app-text-primary: rgba(255,255,255,0.9);
+  --app-text-secondary: rgba(255,255,255,0.6);
+  --app-text-placeholder: #6B6F76;
+  --app-text-disabled: rgba(255,255,255,0.26);
+  --app-bg-page: #1A1B1E;
+  --app-bg-card: #232428;
+  --app-bg-container: #2B2D31;
+  --app-border: rgba(255,255,255,0.08);
+  --app-border-hover: rgba(255,255,255,0.16);
+
+  /* ===== 阴影（深色模式加深） ===== */
+  --app-shadow-1: 0 1px 2px rgba(0,0,0,0.3);
+  --app-shadow-2: 0 3px 6px rgba(0,0,0,0.4);
+  --app-shadow-3: 0 6px 16px rgba(0,0,0,0.5);
+
+  /* ===== 全局辅助色（深色模式） ===== */
+  --app-row-hover: rgba(255,255,255,0.04);
+  --app-tree-hover: rgba(255,255,255,0.06);
+  --app-scrollbar-thumb: rgba(255,255,255,0.12);
+  --app-scrollbar-thumb-hover: rgba(255,255,255,0.2);
+
+  /* ===== 透明变体令牌（深色模式：功能色浅底提亮保持对比度，与 --td-*-light 暗色惯例一致） ===== */
+  --app-success-light: rgba(43, 164, 113, 0.15);
+  --app-success-light-weak: rgba(43, 164, 113, 0.1);
+  --app-success-light-mid: rgba(43, 164, 113, 0.12);
+  --app-success-light-hover: rgba(43, 164, 113, 0.2);
+  --app-warning-light: rgba(227, 115, 24, 0.15);
+  --app-warning-light-weak: rgba(227, 115, 24, 0.1);
+  --app-warning-light-mid: rgba(227, 115, 24, 0.12);
+  --app-warning-light-hover: rgba(227, 115, 24, 0.25);
+  --app-error-light: rgba(213, 73, 65, 0.15);
+  --app-neutral-light: rgba(144, 146, 170, 0.15);
+  --app-brand-focus-ring: rgba(0, 82, 217, 0.2);
+  /* 遮罩与玻璃拟态（暗色变体） */
+  --app-mask: rgba(0, 0, 0, 0.6);
+  --app-glass-bg: rgba(26, 27, 30, 0.55);
+  --app-glass-card-bg: rgba(40, 40, 40, 0.7);
+  --app-glass-nav-bg: rgba(26, 27, 30, 0.85);
+
+  /* ===== TDesign 组件库变量覆盖（深色模式） ===== */
+  /* 背景色：映射到项目 --app-* 变量，所有 TDesign 组件自动跟随深色模式 */
+  --td-bg-color-page: var(--app-bg-page);
+  --td-bg-color-container: var(--app-bg-card);
+  --td-bg-color-secondarycontainer: var(--app-bg-container);
+  --td-bg-color-secondarycontainer-hover: var(--app-row-hover);
+  --td-bg-color-secondarycontainer-active: var(--app-tree-hover);
+  --td-bg-color-container-hover: var(--app-row-hover);
+  --td-bg-color-container-active: var(--app-tree-hover);
+  --td-bg-color-container-select: var(--app-bg-container);
+  --td-bg-color-component: var(--app-bg-container);
+  --td-bg-color-component-hover: var(--app-border);
+  --td-bg-color-component-active: var(--app-border-hover);
+  --td-bg-color-component-disabled: var(--app-bg-container);
+  --td-bg-color-specialcomponent: var(--app-bg-card);
+
+  /* 文字色 */
+  --td-text-color-primary: var(--app-text-primary);
+  --td-text-color-secondary: var(--app-text-secondary);
+  --td-text-color-placeholder: var(--app-text-placeholder);
+  --td-text-color-disabled: var(--app-text-disabled);
+  --td-text-color-anti: #fff;
+  --td-text-color-link: var(--app-brand-hover);
+  --td-text-color-brand: var(--app-brand-color);
+
+  /* 边框色 */
+  --td-border-level-1-color: var(--app-border);
+  --td-border-level-2-color: var(--app-border-hover);
+  --td-component-stroke: var(--app-border);
+  --td-component-border: var(--app-border-hover);
+
+  /* 品牌色 */
+  --td-brand-color: var(--app-brand-color);
+  --td-brand-color-hover: var(--app-brand-hover);
+  --td-brand-color-active: var(--app-brand-active);
+  --td-brand-color-light: var(--app-brand-light);
+  --td-brand-color-light-hover: rgba(0, 82, 217, 0.2);
+  --td-brand-color-focus: var(--app-brand-light);
+  --td-brand-color-disabled: rgba(0, 82, 217, 0.3);
+
+  /* 功能色基础值（深色模式保持辨识度） */
+  --td-success-color: var(--app-success);
+  --td-warning-color: var(--app-warning);
+  --td-error-color: var(--app-error);
+
+  /* 功能色浅底（深色模式下提高透明度以保持对比度） */
+  --td-success-color-light: rgba(43, 164, 113, 0.15);
+  --td-success-color-light-hover: rgba(43, 164, 113, 0.2);
+  --td-warning-color-light: rgba(227, 115, 24, 0.15);
+  --td-warning-color-light-hover: rgba(227, 115, 24, 0.2);
+  --td-error-color-light: rgba(213, 73, 65, 0.15);
+  --td-error-color-light-hover: rgba(213, 73, 65, 0.2);
+
+  /* 功能色聚焦底色（Alert 等组件背景，深色模式须压暗以衬托浅色文字） */
+  --td-success-color-focus: rgba(43, 164, 113, 0.15);
+  --td-warning-color-focus: rgba(227, 115, 24, 0.15);
+  --td-error-color-focus: rgba(213, 73, 65, 0.15);
+
+  /* 阴影（深色模式加深） */
+  --td-shadow-1: var(--app-shadow-1);
+  --td-shadow-2: var(--app-shadow-2);
+  --td-shadow-3: var(--app-shadow-3);
+
+  /* 滚动条 */
+  --td-scrollbar-color: var(--app-scrollbar-thumb);
+  --td-scrollbar-hover-color: var(--app-scrollbar-thumb-hover);
+  --td-scroll-track-color: transparent;
+
+  /* 遮罩层 */
+  --td-mask-active: rgba(0, 0, 0, 0.6);
+  --td-mask-disabled: rgba(255, 255, 255, 0.08);
+
+  /* ===== 侧边栏深色（Discord 风格） ===== */
+  --app-sidebar-bg: #1E1F22;
+  --app-sidebar-user-bg: #232428;
+  --app-sidebar-user-hover: #2B2D31;
+  --app-sidebar-menu-text: #B5BAC1;
+  --app-sidebar-menu-text-active: #DCDDDE;
+  --app-sidebar-menu-hover-bg: rgba(255,255,255,0.06);
+  --app-sidebar-menu-active-bg: #404249;
+  --app-sidebar-avatar-bg: #5865F2;
+  --app-sidebar-status-dot: #23A55A;
+  --app-sidebar-logo-border: rgba(0,0,0,0.24);
+  --app-sidebar-border: rgba(255,255,255,0.08);
+  --app-sidebar-gear-hover-bg: rgba(255,255,255,0.08);
+  --app-sidebar-scrollbar-thumb: rgba(255,255,255,0.12);
+  --app-sidebar-scrollbar-thumb-hover: rgba(255,255,255,0.2);
+
+  /* 深色端面沿用 TDesign 事实源，历史 --app-* 只做映射别名。 */
+  --td-brand-color: #0052D9;
+  --td-brand-color-hover: #266FE8;
+  --td-brand-color-active: #0034B5;
+  --td-brand-color-light: rgba(0, 82, 217, 0.15);
+  --td-success-color: #2BA471;
+  --td-warning-color: #E37318;
+  --td-error-color: #D54941;
+  --td-text-color-primary: rgba(255,255,255,0.9);
+  --td-text-color-secondary: rgba(255,255,255,0.6);
+  --td-text-color-placeholder: #6B6F76;
+  --td-text-color-disabled: rgba(255,255,255,0.26);
+  --td-bg-color-page: #1A1B1E;
+  --td-bg-color-container: #232428;
+  --td-bg-color-secondarycontainer: #2B2D31;
+  --td-border-level-1-color: rgba(255,255,255,0.08);
+  --td-border-level-2-color: rgba(255,255,255,0.16);
+  --app-brand-color: var(--td-brand-color);
+  --app-brand-hover: var(--td-brand-color-hover);
+  --app-brand-active: var(--td-brand-color-active);
+  --app-brand-light: var(--td-brand-color-light);
+  --app-success: var(--td-success-color);
+  --app-warning: var(--td-warning-color);
+  --app-error: var(--td-error-color);
+  --app-text-primary: var(--td-text-color-primary);
+  --app-text-secondary: var(--td-text-color-secondary);
+  --app-text-placeholder: var(--td-text-color-placeholder);
+  --app-text-disabled: var(--td-text-color-disabled);
+  --app-bg-page: var(--td-bg-color-page);
+  --app-bg-card: var(--td-bg-color-container);
+  --app-bg-container: var(--td-bg-color-secondarycontainer);
+  --app-border: var(--td-border-level-1-color);
+  --app-border-hover: var(--td-border-level-2-color);
+}

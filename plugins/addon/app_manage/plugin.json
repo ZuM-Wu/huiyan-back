@@ -1,0 +1,27 @@
+{
+  "name": "app_manage",
+  "title": "App管理",
+  "version": "2.0.0",
+  "description": "App管理插件：农户端App的版本更新（APK上传/强制更新）、开屏广告（单张投放/缓存标识）与App公告管理，并提供App端免登录公开接口",
+  "author": "HuiYan Team",
+  "module": "addon",
+  "owner_id": "app_manage",
+  "surface": "admin",
+  "enabled": true,
+  "default_order": 100,
+  "compatible_app_versions": [">=4.0.0"],
+  "dependencies": [],
+  "conflicts": [],
+  "permissions": ["app_manage:list"],
+  "capabilities": ["app.release"],
+  "pages": [{"page_key": "plugin_app_manage", "surface": "admin", "route": "/plugin/app_manage/app_manage", "template": "app_manage.html", "permission": "app_manage:list"}],
+  "resources": [],
+  "tasks": [],
+  "events": [],
+  "health": {"check": "plugin.app_manage"},
+  "config": {
+    "app_manage.apk_max_size": "300",
+    "app_manage.ad_img_max_size": "5",
+    "app_manage.cache_ttl": "300"
+  }
+}

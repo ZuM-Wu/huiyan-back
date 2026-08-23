@@ -1,0 +1,105 @@
+{% extends "plugin_page_shell.html" %}
+{% block title %}企业微信通知 - 慧眼护农{% endblock %}
+{% block head %}
+{{ super() }}
+<link rel="stylesheet" href="/static/css/wecom-webhook.css?v={{ config.app_version }}">
+{% endblock %}
+{% block content %}
+<div id="page-app" v-cloak class="system-settings-page wecom-webhook-page">
+    <t-card class="t-card--scrollable" title="企业微信通知">
+        <t-tabs v-model="activeTab" theme="normal">
+            <t-tab-panel value="config" label="插件配置" :destroy-on-hide="false">
+                <div class="settings-tab-content">
+                    <t-skeleton v-if="configLoading" :row-col="configSkeleton"></t-skeleton>
+                    <t-form v-else :data="configForm" @submit="saveConfig">
+                        <div class="form-section-title">机器人连接</div>
+                        <div class="form-grid form-grid--2">
+                            <t-form-item label="Webhook 地址" class="wecom-field-wide">
+                                <t-input v-model="configForm.webhook_url" placeholder="https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx"></t-input>
+                            </t-form-item>
+                            <t-form-item label="全局启用">
+                                <t-radio-group v-model="configForm.enabled"><t-radio :value="1">开启</t-radio><t-radio :value="0">关闭</t-radio></t-radio-group>
+                            </t-form-item>
+                        </div>
+                        <div class="form-section-title">投递策略</div>
+                        <div class="form-grid form-grid--2">
+                            <t-form-item label="请求超时（秒）"><t-input-number v-model="configForm.timeout_seconds" :min="1" :max="60"></t-input-number></t-form-item>
+                            <t-form-item label="失败重试次数"><t-input-number v-model="configForm.retry_times" :min="0" :max="5"></t-input-number></t-form-item>
+                        </div>
+                        <div class="settings-form-actions"><t-button v-permission="'wecom_webhook:config:update'" theme="primary" type="submit" :loading="configSaving">保存配置</t-button></div>
+                    </t-form>
+                </div>
+            </t-tab-panel>
+
+            <t-tab-panel value="actions" label="通知动作" :destroy-on-hide="false">
+                <div class="settings-tab-content wecom-table-panel">
+                    <div class="form-section-title">管理员通知动作</div>
+                    <t-tabs v-model="actionTypeFilter" theme="normal" class="wecom-action-type-tabs">
+                        <t-tab-panel value="" label="全部"></t-tab-panel>
+                        <t-tab-panel v-for="category in actionCategories" :key="category" :value="category" :label="category"></t-tab-panel>
+                    </t-tabs>
+                    <t-table class="wecom-action-table" :data="filteredActionData" :columns="actionColumns" :loading="actionLoading" row-key="action_key" hover table-layout="fixed" :pagination="null">
+                        <template #action_name="{ row }"><div class="wecom-action-name">[[ row.action_name ]]</div></template>
+                        <template #action_type="{ row }"><t-tag theme="default" variant="light">[[ actionTypeLabel(row.action_type) ]]</t-tag></template>
+                        <template #enabled="{ row }"><t-switch v-model="row.enabled" :custom-value="[1, 0]" :loading="actionToggleKey === row.action_key" @change="toggleAction(row, $event)"></t-switch></template>
+                        <template #available_variables="{ row }"><div class="wecom-template-preview">[[ variablePreview(row.available_variables) ]]</div></template>
+                        <template #operation="{ row }"><t-button v-permission="'wecom_webhook:config:update'" theme="primary" variant="text" size="small" @click="openActionDialog(row)">编辑</t-button></template>
+                        <template #empty><t-empty description="暂无通知动作"></t-empty></template>
+                    </t-table>
+                </div>
+            </t-tab-panel>
+
+            <t-tab-panel value="send" label="发送卡片" :destroy-on-hide="false">
+                <div class="settings-tab-content">
+                    <t-form :data="sendForm" @submit="sendMessage">
+                        <div class="form-section-title">卡片内容</div>
+                        <div class="form-grid form-grid--2">
+                            <t-form-item label="主标题" class="wecom-field-wide"><t-input v-model="sendForm.main_title" placeholder="请输入卡片主标题"></t-input></t-form-item>
+                            <t-form-item label="主描述"><t-input v-model="sendForm.main_desc" placeholder="可选"></t-input></t-form-item>
+                            <t-form-item label="来源描述"><t-input v-model="sendForm.source_desc" placeholder="慧眼护农系统通知"></t-input></t-form-item>
+                            <t-form-item label="副标题"><t-input v-model="sendForm.sub_title_text" placeholder="可选"></t-input></t-form-item>
+                            <t-form-item label="跳转地址" class="wecom-field-wide"><t-input v-model="sendForm.card_url" placeholder="https://...，可选"></t-input></t-form-item>
+                        </div>
+                        <div class="form-section-title">摘要字段</div>
+                        <div class="form-grid form-grid--2">
+                            <template v-for="(item, index) in sendForm.fields" :key="index">
+                                <t-form-item :label="'字段 ' + (index + 1)"><t-input v-model="item.keyname" placeholder="字段名"></t-input></t-form-item>
+                                <t-form-item label="字段值"><t-input v-model="item.value" placeholder="字段值"></t-input></t-form-item>
+                            </template>
+                        </div>
+                        <div class="settings-form-actions"><t-button v-permission="'wecom_webhook:message:send'" theme="primary" type="submit" :loading="sendSending">发送卡片</t-button></div>
+                    </t-form>
+                </div>
+            </t-tab-panel>
+
+            <t-tab-panel value="logs" label="发送日志" :destroy-on-hide="false">
+                <div class="settings-tab-content wecom-table-panel">
+                    <div class="card-header-toolbar wecom-log-toolbar">
+                        <div class="card-header-toolbar-left"><t-button theme="primary" @click="fetchLogs">查询</t-button><t-button theme="default" @click="resetLogFilters">重置</t-button></div>
+                        <div class="card-header-toolbar-right wecom-log-filters">
+                            <t-select v-model="logFilters.action_key" class="search-input" clearable filterable placeholder="通知动作"><t-option v-for="item in actionData" :key="item.action_key" :value="item.action_key" :label="item.action_name"></t-option></t-select>
+                            <t-select v-model="logFilters.status" class="search-input--sm" clearable placeholder="发送状态"><t-option :value="1" label="成功"></t-option><t-option :value="0" label="失败"></t-option></t-select>
+                        </div>
+                    </div>
+                    <t-table class="wecom-log-table" :data="logData" :columns="logColumns" :loading="logLoading" row-key="id" hover table-layout="fixed" :pagination="logPagination" @page-change="onLogPageChange">
+                        <template #status="{ row }"><t-tag :theme="row.status === 1 ? 'success' : 'danger'" variant="light">[[ row.status === 1 ? '成功' : '失败' ]]</t-tag></template>
+                        <template #empty><t-empty description="暂无发送日志"></t-empty></template>
+                    </t-table>
+                </div>
+            </t-tab-panel>
+        </t-tabs>
+    </t-card>
+
+    <t-dialog v-model:visible="actionDialogVisible" class="wecom-action-dialog-shell" header="编辑通知动作" width="720px" placement="center" :confirm-btn="{ content: '保存', loading: actionSaving }" @confirm="saveAction">
+        <t-form :data="actionForm" class="wecom-action-dialog">
+            <div class="wecom-action-summary"><div class="wecom-action-summary__main"><strong>[[ actionForm.action_name ]]</strong><span>[[ actionForm.action_key ]]</span></div><t-tag theme="primary" variant="light">[[ actionTypeLabel(actionForm.action_type) ]]</t-tag></div>
+            <div class="wecom-card-fields"><div class="wecom-template-title">卡片字段</div><div class="wecom-template-description">系统会按事件数据自动生成卡片，以下字段仅供查看</div><variable-hint title="可用卡片字段" :items="actionForm.available_variables"></variable-hint></div>
+            <t-collapse v-model="actionAdvanced" class="wecom-action-advanced"><t-collapse-panel value="advanced" header="高级设置"><div class="wecom-webhook-field"><div class="wecom-webhook-field__label">动作级 Webhook</div><div class="wecom-webhook-field__description">留空时继承插件配置中的全局 Webhook</div><t-input v-model="actionForm.webhook_url" placeholder="留空继承全局 Webhook"></t-input></div></t-collapse-panel></t-collapse>
+        </t-form>
+    </t-dialog>
+</div>
+{% endblock %}
+{% block scripts %}
+{{ super() }}
+<script src="/static/js/pages/wecom_webhook.js?v={{ config.app_version }}"></script>
+{% endblock %}

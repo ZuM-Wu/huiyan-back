@@ -1,0 +1,415 @@
+/**
+ * AI 对话共享样式 — 后台与农户端复用的聊天 UI 组件样式
+ *
+ * 全部使用 --app-* 令牌，零硬编码色值，支持明亮/深色双主题
+ * 页面级布局样式（.ai-chat-shell / .farmer-ai-page 等）保留在各页面模板 <style> 中
+ */
+
+/* ===== 工具调用过程气泡 ===== */
+.ai-tool-bubble {
+    margin: var(--app-spacing-xs) 0;
+    padding: 8px 12px;
+    font-size: 12px;
+    background: var(--app-bg-container);
+    border: 1px solid var(--app-border);
+    border-left: 3px solid var(--app-brand-color);
+    border-radius: var(--app-radius-md);
+    transition: border-color 0.3s;
+    max-width: 680px;
+    overflow: hidden;
+}
+.ai-tool-bubble.executing { border-left-color: var(--app-warning); }
+.ai-tool-bubble.denied { border-left-color: var(--app-error); }
+.ai-tool-bubble .tool-name {
+    font-weight: 600;
+    color: var(--app-text-primary);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.ai-tool-bubble .tool-toggle {
+    cursor: pointer;
+    color: var(--app-text-secondary);
+    font-weight: 400;
+    font-size: 11px;
+    user-select: none;
+}
+.ai-tool-bubble .tool-toggle:hover { color: var(--app-brand-color); }
+.ai-tool-bubble .tool-args,
+.ai-tool-bubble .tool-result {
+    margin-top: 4px;
+    color: var(--app-text-secondary);
+    word-break: break-all;
+    white-space: pre-wrap;
+    max-width: 100%;
+    max-height: 160px;
+    overflow-y: auto;
+}
+.ai-tool-bubble .tool-denied { color: var(--app-error); }
+.ai-tool-bubble .tool-executing-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--app-warning);
+    animation: tool-pulse 1s infinite;
+}
+
+/* ===== 动画 ===== */
+@keyframes tool-pulse { 0%,100% { opacity: 0.3; } 50% { opacity: 1; } }
+
+/* ===== 三点移动动画（复刻 TDesign Chat ChatLoading） ===== */
+.t-chat-loading {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.t-chat-loading__moving {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+.t-chat-loading__moving--top,
+.t-chat-loading__moving--left,
+.t-chat-loading__moving--right {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--app-text-placeholder);
+    animation: t-chat-loading-bounce 1.4s infinite ease-in-out both;
+}
+.t-chat-loading__moving--top { animation-delay: -0.32s; }
+.t-chat-loading__moving--left { animation-delay: -0.16s; }
+@keyframes t-chat-loading-bounce {
+    0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+    40% { transform: scale(1); opacity: 1; }
+}
+.t-chat-loading__text {
+    font-size: 13px;
+    color: var(--app-text-secondary);
+}
+
+/* ===== 消息列表容器 ===== */
+.ai-message-list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: var(--app-spacing-xs) 0;
+}
+
+/* ===== 思维链折叠面板（AiReasoningBlock 组件专用，基于 t-collapse 类名） ===== */
+.t-chat__item__think {
+    background: var(--app-bg-container);
+    border-radius: var(--app-radius-md);
+    margin-bottom: var(--app-spacing-xs);
+    max-width: 680px;
+    overflow: hidden;
+}
+.t-chat__item__think .t-collapse-panel__header {
+    padding: 10px 14px;
+    font-size: 13px;
+    color: var(--app-text-secondary);
+}
+.t-chat__item__think .t-collapse-panel__content {
+    padding: 0 14px 10px;
+}
+.t-chat__item__think .ai-markdown-body {
+    font-size: 13px;
+    color: var(--app-text-secondary);
+    line-height: 1.6;
+}
+.ai-reasoning-done-text { font-weight: 500; color: var(--app-text-secondary); }
+
+/* ===== ChatSender 底部工具栏（沿用 TDesign Chat 标准 sender 结构） ===== */
+.chat-sender {
+    display: block;
+    width: 100%;
+    margin-top: var(--app-spacing-sm);
+}
+.t-chat__inner.assistant .ai-tool-bubble,
+.t-chat__inner.assistant .t-chat__item__think {
+    max-width: 100%;
+    box-sizing: border-box;
+}
+.chat-sender::part(t-chat__input) {
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-lg);
+    background: var(--app-bg-card);
+    box-shadow: var(--app-shadow-1);
+    transition: border-color var(--app-duration-fast) var(--app-ease-standard),
+        box-shadow var(--app-duration-fast) var(--app-ease-standard);
+}
+.chat-sender::part(t-chat__input):focus-within {
+    border-color: var(--app-brand-color);
+    box-shadow: 0 0 0 2px var(--app-brand-focus-ring);
+}
+.chat-sender::part(t-chat__input__content) {
+    padding: var(--app-spacing-xs) var(--app-spacing-md) 0;
+}
+.chat-sender::part(t-chat__input__textarea__wrapper) {
+    min-height: 32px;
+    max-height: 32px;
+    overflow: hidden;
+}
+.chat-sender::part(t-chat__input__footer) {
+    min-height: 36px;
+    padding: 0 var(--app-spacing-md) var(--app-spacing-xs);
+    gap: var(--app-spacing-sm);
+}
+/* TDesign ChatSender 的实际 footer DOM，确保模式、图片和发送按钮同一行。 */
+.chat-sender .t-chat-sender__footer {
+    display: flex;
+    align-items: center;
+    flex-wrap: nowrap;
+    min-width: 0;
+    min-height: 36px;
+    padding: 0 var(--app-spacing-md) var(--app-spacing-xs);
+    gap: var(--app-spacing-sm);
+}
+.chat-sender .t-chat-sender__mode {
+    flex: 0 1 auto;
+    min-width: 0;
+}
+.chat-sender .t-chat-sender__button {
+    flex: 0 0 auto;
+    width: auto;
+    min-width: 0;
+}
+.chat-sender .t-chat-sender__button__sendbtn {
+    display: flex;
+    align-items: center;
+    flex-wrap: nowrap;
+    gap: var(--app-spacing-xs);
+    width: auto;
+}
+.chat-sender .model-select {
+    display: flex;
+    align-items: center;
+    flex-wrap: nowrap;
+    gap: var(--app-spacing-xs);
+    width: max-content;
+    min-width: 0;
+}
+.chat-sender .model-unavailable {
+    display: flex;
+    align-items: center;
+    flex-wrap: nowrap;
+    gap: var(--app-spacing-xs);
+    min-width: 0;
+    color: var(--app-text-secondary);
+    font-size: 12px;
+}
+.chat-sender .model-unavailable > span {
+    max-width: 260px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.chat-sender .model-select .t-select {
+    width: 158px;
+    min-width: 0;
+    flex: 0 1 auto;
+    height: 30px;
+    border-radius: var(--app-radius-pill) !important;
+}
+.chat-sender .model-select .t-select .t-input__wrap,
+.chat-sender .model-select .t-select .t-input {
+    min-height: 30px;
+    height: 30px;
+    border-radius: var(--app-radius-pill) !important;
+    background: var(--app-bg-container);
+}
+.chat-sender .check-box {
+    min-width: 82px;
+    height: 30px;
+    box-sizing: border-box;
+    flex: 0 0 auto;
+    border-radius: var(--app-radius-pill);
+    background: var(--app-bg-container);
+}
+.chat-sender .check-box .t-button__text {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.chat-sender .check-box .t-button__text span {
+    margin-left: var(--app-spacing-sm);
+}
+.chat-sender .check-box.is-active {
+    border-color: var(--app-brand-color);
+    background: var(--app-brand-light);
+    color: var(--app-brand-color);
+}
+@media (max-width: 640px) {
+    .chat-sender::part(t-chat__input__content) {
+        padding-left: var(--app-spacing-sm);
+        padding-right: var(--app-spacing-sm);
+    }
+    .chat-sender::part(t-chat__input__footer) {
+        padding-left: var(--app-spacing-sm);
+        padding-right: var(--app-spacing-sm);
+    }
+    .chat-sender .t-chat-sender__footer { padding-left: var(--app-spacing-sm); padding-right: var(--app-spacing-sm); }
+    .chat-sender .model-select .t-select { flex: 0 1 auto; width: 132px; }
+}
+
+/* ===== Markdown 渲染样式 ===== */
+.ai-markdown-body {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--app-text-primary);
+    word-break: break-word;
+}
+.ai-markdown-body h1,
+.ai-markdown-body h2,
+.ai-markdown-body h3 {
+    margin: var(--app-spacing-sm) 0 var(--app-spacing-xs);
+    font-weight: 600;
+    color: var(--app-text-primary);
+}
+.ai-markdown-body h1 { font-size: 20px; }
+.ai-markdown-body h2 { font-size: 17px; }
+.ai-markdown-body h3 { font-size: 15px; }
+.ai-markdown-body p { margin: var(--app-spacing-xs) 0; }
+.ai-markdown-body ul,
+.ai-markdown-body ol {
+    margin: var(--app-spacing-xs) 0;
+    padding-left: var(--app-spacing-md);
+}
+.ai-markdown-body li { margin: 4px 0; }
+.ai-markdown-body pre {
+    margin: var(--app-spacing-xs) 0;
+    padding: 12px;
+    background: var(--app-bg-page);
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-sm);
+    overflow-x: auto;
+    font-size: 13px;
+}
+.ai-markdown-body code {
+    padding: 2px 6px;
+    background: var(--app-bg-page);
+    border-radius: var(--app-radius-sm);
+    font-size: 13px;
+    font-family: 'Consolas', 'Monaco', monospace;
+}
+.ai-markdown-body pre code { padding: 0; background: none; }
+.ai-markdown-body blockquote {
+    margin: var(--app-spacing-xs) 0;
+    padding: 8px 12px;
+    border-left: 3px solid var(--app-brand-color);
+    background: var(--app-bg-container);
+    color: var(--app-text-secondary);
+    border-radius: 0 var(--app-radius-sm) var(--app-radius-sm) 0;
+}
+.ai-markdown-body a {
+    color: var(--app-brand-color);
+    text-decoration: none;
+}
+.ai-markdown-body a:hover { text-decoration: underline; }
+.ai-markdown-body table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: var(--app-spacing-xs) 0;
+    font-size: 13px;
+}
+.ai-markdown-body th,
+.ai-markdown-body td {
+    border: 1px solid var(--app-border);
+    padding: 6px 10px;
+    text-align: left;
+}
+.ai-markdown-body th { background: var(--app-bg-container); font-weight: 600; }
+.ai-markdown-body img { max-width: 100%; border-radius: var(--app-radius-sm); }
+.ai-markdown-body hr {
+    border: none;
+    border-top: 1px solid var(--app-border);
+    margin: var(--app-spacing-sm) 0;
+}
+
+/* ===== 技能选择面板 ===== */
+.ai-skill-panel {
+    position: absolute;
+    left: var(--app-spacing-sm);
+    right: var(--app-spacing-sm);
+    bottom: 84px;
+    z-index: 10;
+    background: var(--app-bg-card);
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-md);
+    box-shadow: var(--app-shadow-2);
+    max-height: min(360px, 45vh);
+    overflow-y: auto;
+}
+.t-chat__inner.assistant .t-chat__detail {
+    width: 100%;
+}
+.t-chat__inner.user .ai-markdown-body {
+    width: auto;
+}
+.ai-markdown-body.t-chat__text__user p:first-child:last-child {
+    margin: 0;
+}
+.ai-skill-group-title {
+    height: 26px;
+    padding: 6px 12px 0;
+    box-sizing: border-box;
+    color: var(--app-text-secondary);
+    font-size: 12px;
+    border-top: 1px solid var(--app-border);
+}
+.ai-skill-item {
+    display: flex;
+    align-items: center;
+    gap: var(--app-spacing-xs);
+    height: 32px;
+    padding: 0 12px;
+    box-sizing: border-box;
+    cursor: pointer;
+    transition: background 0.15s;
+    border-bottom: 1px solid var(--app-border);
+    white-space: nowrap;
+    overflow: hidden;
+}
+.ai-skill-item:last-child { border-bottom: none; }
+.ai-skill-item:hover { background: var(--app-bg-container); }
+.ai-skill-item .skill-icon {
+    flex: 0 0 auto;
+    color: var(--app-text-secondary);
+    font-size: 14px;
+}
+.ai-skill-item .skill-name {
+    flex: 0 0 auto;
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 13px;
+    color: var(--app-text-primary);
+}
+.ai-skill-item .skill-desc {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 12px;
+    color: var(--app-text-secondary);
+}
+.ai-skill-empty { padding: 12px; text-align: center; font-size: 12px; color: var(--app-text-secondary); }
+.ai-skill-tag-row { padding: 4px 0; }
+
+/* ===== 欢迎占位 ===== */
+.ai-chat-welcome {
+    position: absolute;
+    inset: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: var(--app-spacing-sm);
+    align-items: center;
+    justify-content: center;
+    color: var(--app-text-secondary);
+    pointer-events: none;
+}
+.ai-chat-welcome strong { font-size: 20px; color: var(--app-text-primary); }
+.ai-chat-welcome span { font-size: 13px; }

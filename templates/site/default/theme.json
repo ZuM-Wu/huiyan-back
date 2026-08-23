@@ -1,0 +1,21 @@
+{
+  "key": "default",
+  "name": "默认官网主题",
+  "module": "site",
+  "theme_id": "default",
+  "surface": "site",
+  "compatible_app_versions": [">=4.0.0"],
+  "template_overrides": [],
+  "static_assets": [{"key": "preview.svg", "path": "assets/preview.svg", "type": "preview"}],
+  "component_tokens": {},
+  "dependencies": [],
+  "conflicts": [],
+  "fallback_theme": "default",
+  "owner": "theme:site:default",
+  "enabled": true,
+  "version": "1.0.0",
+  "author": "HuiYan",
+  "preview": "preview.svg",
+  "min_app_version": "3.4.0",
+  "description": "慧眼护农官方门户默认主题，浅色简洁风格，PC 端自适应布局"
+}

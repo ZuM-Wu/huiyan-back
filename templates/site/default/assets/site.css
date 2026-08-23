@@ -1,0 +1,396 @@
+/**
+ * 官网默认主题样式 — 「慧眼瞰农 · 卫星视角」重设计
+ *
+ * 与 admin.css / farmer.css 完全隔离，仅作用于 templates/site 下的 base.html。
+ * 所有色值/字号/间距/圆角/阴影统一引用 Design Token（/static/css/theme.css 中 --app-* 变量），
+ * 深色模式自动跟随 [data-theme="dark"] 覆盖，无需单独写暗色分支。
+ * 官网独有变量用 --site-* 前缀，底层引用 --app-*。
+ */
+
+/* ---------- 局部 token（官网专属变量，底层引用 --app-*）---------- */
+:root {
+    --site-primary:       var(--app-brand-color,    #0052d9);
+    --site-primary-hover: var(--app-brand-hover,    #266fe8);
+    --site-primary-active:var(--app-brand-active,   #0034b5);
+    --site-accent:        var(--app-success,        #2ba471);
+    --site-text:          var(--app-text-primary);
+    --site-text-muted:    var(--app-text-secondary);
+    --site-text-faint:    var(--app-text-placeholder,#999);
+    /* 反色文字：品牌色/深色背景上的白色文字 */
+    --site-text-inverse:  var(--app-text-anti,       #fff);
+    --site-bg:            var(--app-bg-card,        #ffffff);
+    --site-bg-soft:       var(--app-bg-container,   #f8f9fa);
+    --site-bg-page:       var(--app-bg-page,        #f5f5f5);
+    --site-border:        var(--app-border,         #e7e7e7);
+    --site-radius:        var(--app-radius-md,     6px);
+    --site-radius-lg:     var(--app-radius-lg,      9px);
+    --site-shadow-sm:     var(--app-shadow-1);
+    --site-shadow-md:     var(--app-shadow-2);
+    --site-shadow-lg:     var(--app-shadow-3);
+    /* 导航毛玻璃背景（引用全局玻璃令牌，明暗自动切换） */
+    --site-nav-bg:        var(--app-glass-nav-bg);
+    /* 页脚深色背景（呼应后台侧边栏 Discord 深色，固定深色不随主题切换） */
+    --site-footer-bg:     #1a1f2b;
+    --site-footer-text:   #b4b9c4;
+    --site-footer-faint:  #8a90a0;
+    --site-container:     1160px;
+    --site-header-h:      64px;
+    /* 字号令牌化（官网大标题略大于后台，符合落地页视觉） */
+    --site-fs-hero:       48px;
+    --site-fs-section:    32px;
+    --site-fs-lead:       18px;
+    --site-fs-body:       15px;
+    --site-fs-card-title:17px;
+    --site-fs-sm:         14px;
+    --site-fs-xs:         13px;
+    --site-fs-xxs:        12px;
+}
+
+/* ---------- 深色模式覆盖（官网独有变量；nav-bg 已由全局玻璃令牌自动切换）---------- */
+[data-theme="dark"] {
+    --site-footer-bg: #0d1117;
+}
+/* 页脚固定深色，不随主题切换（与后台侧边栏深色呼应一致） */
+
+/* ---------- 基础重置 ---------- */
+.site-body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB",
+                 "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+    font-size: var(--site-fs-body);
+    line-height: 1.6;
+    color: var(--site-text);
+    background: var(--site-bg);
+    -webkit-font-smoothing: antialiased;
+}
+.site-body * { box-sizing: border-box; }
+.site-body a { color: inherit; text-decoration: none; transition: color var(--app-duration-fast) var(--app-ease-standard); }
+.site-body a:hover { color: var(--site-primary); }
+.site-body h1, .site-body h2, .site-body h3, .site-body h4 {
+    margin: 0; font-weight: 600; color: var(--site-text);
+}
+.site-body ul { margin: 0; padding: 0; list-style: none; }
+
+/* ---------- 按钮 ---------- */
+.site-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    padding: var(--app-spacing-sm) var(--app-spacing-lg);
+    font-size: var(--site-fs-sm); font-weight: 500; line-height: 1.4;
+    border-radius: var(--site-radius);
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: background var(--app-duration-fast) var(--app-ease-standard),
+                color var(--app-duration-fast) var(--app-ease-standard),
+                border-color var(--app-duration-fast) var(--app-ease-standard),
+                box-shadow var(--app-duration-fast) var(--app-ease-standard);
+    white-space: nowrap;
+}
+.site-btn-lg { padding: var(--app-spacing-md) var(--app-spacing-xl); font-size: var(--site-fs-body); }
+.site-btn-primary {
+    background: var(--site-primary);
+    color: var(--site-text-inverse);
+}
+.site-btn-primary:hover {
+    background: var(--site-primary-hover);
+    color: var(--site-text-inverse);
+    box-shadow: var(--site-shadow-md);
+}
+.site-btn-ghost {
+    background: transparent;
+    color: var(--site-text-inverse);
+    border-color: var(--app-overlay-white-strong);
+}
+.site-btn-ghost:hover {
+    background: var(--app-overlay-white-weak);
+    color: var(--site-text-inverse);
+    border-color: var(--site-text-inverse);
+}
+
+/* ---------- 主题切换按钮 ---------- */
+.site-theme-toggle {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 36px; height: 36px;
+    border: 1px solid var(--site-border);
+    border-radius: var(--site-radius);
+    background: var(--site-bg-soft);
+    color: var(--site-text-muted);
+    cursor: pointer;
+    transition: background var(--app-duration-fast) var(--app-ease-standard),
+                color var(--app-duration-fast) var(--app-ease-standard),
+                border-color var(--app-duration-fast) var(--app-ease-standard);
+    margin-right: var(--app-spacing-sm);
+}
+.site-theme-toggle:hover {
+    color: var(--site-primary);
+    border-color: var(--site-primary);
+}
+.site-theme-toggle svg { width: 18px; height: 18px; }
+/* 深色模式显示太阳图标（点击切回明亮），明亮模式显示月亮图标（点击切到深色） */
+[data-theme="dark"] .theme-icon-sun { display: block !important; }
+[data-theme="dark"] .theme-icon-moon { display: none !important; }
+
+/* ---------- 顶部导航栏 ---------- */
+.site-nav {
+    position: sticky; top: 0; z-index: 50;
+    background: var(--site-nav-bg);
+    backdrop-filter: saturate(180%) blur(8px);
+    -webkit-backdrop-filter: saturate(180%) blur(8px);
+    border-bottom: 1px solid var(--site-border);
+}
+.site-nav-inner {
+    max-width: var(--site-container);
+    margin: 0 auto;
+    padding: 0 var(--app-spacing-lg);
+    height: var(--site-header-h);
+    display: flex; align-items: center; gap: var(--app-spacing-xl);
+}
+.site-brand {
+    display: inline-flex; align-items: center; gap: var(--app-spacing-sm);
+    font-weight: 600; font-size: var(--site-fs-sm);
+}
+.site-brand-logo { width: 32px; height: 32px; object-fit: contain; }
+.site-brand-name { color: var(--site-text); }
+
+.site-menu {
+    display: flex; align-items: center; gap: 28px;
+    flex: 1;
+}
+.site-menu-item a {
+    font-size: var(--site-fs-sm); color: var(--site-text-muted);
+}
+.site-menu-item a:hover { color: var(--site-primary); }
+
+.site-actions { margin-left: auto; }
+
+.site-menu-toggle {
+    display: none;
+    width: 40px; height: 40px;
+    border: none; background: transparent; cursor: pointer;
+    flex-direction: column; justify-content: center; align-items: center; gap: 5px;
+}
+.site-menu-toggle span {
+    display: block; width: 22px; height: 2px;
+    background: var(--site-text); border-radius: 2px;
+}
+
+/* ---------- Banner（卫星视角重设计）---------- */
+.site-banner {
+    position: relative;
+    padding: 110px var(--app-spacing-lg) 120px;
+    color: var(--site-text-inverse);
+    /* 默认背景：品牌蓝渐变 + CSS 网格纹理（卫星遥感俯瞰感） */
+    background-color: var(--site-primary);
+    background-image:
+        /* 网格纹理层（细线网格，模拟卫星坐标网） */
+        linear-gradient(var(--app-overlay-white-faint) 1px, transparent 1px),
+        linear-gradient(90deg, var(--app-overlay-white-faint) 1px, transparent 1px),
+        /* 主渐变层（品牌蓝 → 品牌蓝深） */
+        linear-gradient(135deg, var(--site-primary) 0%, var(--site-primary-active) 100%);
+    background-size: 40px 40px, 40px 40px, 100% 100%;
+    background-position: 0 0, 0 0, center;
+    overflow: hidden;
+}
+/* Banner 顶部扫描线动画（科技感，呼应卫星遥感扫描） */
+.site-banner::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--site-accent), transparent);
+    animation: site-scan 4s var(--app-ease-standard) infinite;
+}
+@keyframes site-scan {
+    0%   { transform: translateX(-100%); opacity: 0; }
+    50%  { opacity: 1; }
+    100% { transform: translateX(100%); opacity: 0; }
+}
+/* Banner 底部装饰条（品牌蓝 + 农业绿渐变） */
+.site-banner::after {
+    content: '';
+    position: absolute; bottom: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--site-primary), var(--site-accent));
+}
+.site-banner-inner {
+    max-width: var(--site-container);
+    margin: 0 auto;
+    position: relative;
+    z-index: 1;
+    text-align: center;
+}
+.site-banner-title {
+    font-size: var(--site-fs-hero); font-weight: 700; line-height: 1.15;
+    letter-spacing: -0.5px;
+    margin: 0 0 var(--app-spacing-md);
+}
+.site-banner-subtitle {
+    font-size: var(--site-fs-lead); line-height: 1.6;
+    color: var(--app-overlay-white-text-strong);
+    margin: 0 0 var(--app-spacing-xl);
+}
+.site-banner-actions {
+    display: flex; gap: var(--app-spacing-md); justify-content: center;
+    flex-wrap: wrap;
+}
+
+/* ---------- 功能介绍 ---------- */
+.site-features {
+    padding: calc(var(--app-spacing-xl) * 2.75) var(--app-spacing-lg);
+    background: var(--site-bg);
+}
+.site-features-inner {
+    max-width: var(--site-container);
+    margin: 0 auto;
+}
+.site-features-heading {
+    font-size: var(--site-fs-section); text-align: center;
+    margin: 0 0 var(--app-spacing-lg);
+}
+.site-features-intro {
+    max-width: 720px;
+    margin: 0 auto var(--app-spacing-xl);
+    text-align: center;
+    font-size: var(--site-fs-sm); color: var(--site-text-muted);
+    line-height: 1.7;
+}
+.site-features-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--app-spacing-lg);
+}
+.site-feature-card {
+    position: relative;
+    padding: var(--app-spacing-xl) var(--app-spacing-lg);
+    background: var(--site-bg-soft);
+    border-radius: var(--site-radius-lg);
+    border: 1px solid var(--site-border);
+    transition: transform var(--app-duration-base) var(--app-ease-spring),
+                box-shadow var(--app-duration-base) var(--app-ease-standard),
+                background var(--app-duration-base) var(--app-ease-standard);
+    overflow: hidden;
+}
+/* 卡片顶部装饰条（品牌色，呼应科技感） */
+.site-feature-card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--site-primary), var(--site-accent));
+    opacity: 0;
+    transition: opacity var(--app-duration-base) var(--app-ease-standard);
+}
+.site-feature-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--site-shadow-lg);
+    /* 玻璃拟态悬停效果 */
+    background: var(--app-glass-card-bg);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+/* 暗色悬停背景由 --app-glass-card-bg 令牌自动切换，无需单独覆盖 */
+.site-feature-card:hover::before { opacity: 1; }
+/* 图标容器：渐变背景圆 */
+.site-feature-icon {
+    width: 48px; height: 48px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--site-primary), var(--site-accent));
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: var(--app-spacing-md);
+}
+.site-feature-icon svg { width: 24px; height: 24px; color: var(--site-text-inverse); }
+.site-feature-title { font-size: var(--site-fs-card-title); margin: 0 0 var(--app-spacing-sm); }
+.site-feature-desc {
+    margin: 0; font-size: var(--site-fs-sm); color: var(--site-text-muted); line-height: 1.6;
+}
+
+/* ---------- CTA ---------- */
+.site-cta {
+    padding: 80px var(--app-spacing-lg);
+    background: linear-gradient(135deg, var(--site-primary) 0%, var(--site-primary-active) 100%);
+    text-align: center;
+}
+.site-cta-inner { max-width: var(--site-container); margin: 0 auto; }
+.site-cta-title { font-size: var(--site-fs-section); color: var(--site-text-inverse); margin: 0 0 var(--app-spacing-sm); }
+.site-cta-desc {
+    font-size: var(--site-fs-body); color: var(--app-overlay-white-text);
+    margin: 0 0 var(--app-spacing-xl);
+}
+
+/* ---------- 页脚 ---------- */
+.site-footer {
+    padding: var(--app-spacing-xl) var(--app-spacing-lg) var(--app-spacing-lg);
+    background: var(--site-footer-bg);
+    color: var(--site-footer-text);
+}
+.site-footer-inner {
+    max-width: var(--site-container);
+    margin: 0 auto;
+}
+.site-footer-slogan {
+    text-align: center;
+    font-size: var(--site-fs-sm); font-weight: 500;
+    color: var(--site-text-inverse);
+    margin-bottom: var(--app-spacing-xl);
+    opacity: .7;
+    letter-spacing: 1px;
+}
+.site-footer-groups {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: var(--app-spacing-xl);
+    padding-bottom: var(--app-spacing-xl);
+    border-bottom: 1px solid var(--app-overlay-white-divider);
+}
+.site-footer-title {
+    font-size: var(--site-fs-sm); font-weight: 600;
+    color: var(--site-text-inverse);
+    margin: 0 0 var(--app-spacing-sm);
+}
+.site-footer-links li { margin: var(--app-spacing-sm) 0; }
+.site-footer-links a {
+    font-size: var(--site-fs-xs); color: var(--site-footer-text);
+}
+.site-footer-links a:hover { color: var(--site-text-inverse); }
+
+.site-footer-bottom {
+    padding-top: var(--app-spacing-lg);
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: var(--site-fs-xxs); color: var(--site-footer-faint);
+    flex-wrap: wrap; gap: var(--app-spacing-sm);
+}
+
+/* ---------- 响应式 ---------- */
+@media (max-width: 880px) {
+    .site-features-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .site-banner { padding: 80px var(--app-spacing-lg) 90px; }
+    .site-banner-title { font-size: 34px; }
+    .site-banner-subtitle { font-size: var(--site-fs-sm); }
+}
+
+@media (max-width: 640px) {
+    .site-nav-inner { padding: 0 var(--app-spacing-md); }
+    .site-menu { display: none; }
+    .site-menu.is-open {
+        display: flex;
+        position: absolute;
+        top: var(--site-header-h); left: 0; right: 0;
+        flex-direction: column;
+        background: var(--site-bg);
+        border-bottom: 1px solid var(--site-border);
+        padding: var(--app-spacing-sm) var(--app-spacing-md);
+        gap: var(--app-spacing-xs);
+        box-shadow: var(--site-shadow-sm);
+    }
+    .site-menu.is-open .site-menu-item a {
+        display: block; padding: 10px var(--app-spacing-sm);
+        border-radius: var(--site-radius);
+    }
+    .site-menu.is-open .site-menu-item a:hover {
+        background: var(--site-bg-soft);
+    }
+    .site-menu-toggle { display: flex; }
+    .site-actions { margin-left: auto; margin-right: var(--app-spacing-sm); }
+
+    .site-features-grid { grid-template-columns: 1fr; }
+    .site-banner-title { font-size: 28px; }
+    .site-features, .site-cta { padding: 56px var(--app-spacing-lg); }
+    .site-features-heading { font-size: var(--site-fs-lead); }
+}

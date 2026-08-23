@@ -1,0 +1,473 @@
+/* 慧眼护农 V4 管理后台样式（拆分 1/4）：Reset & Base + Layout + 页面通用 + 卡片头部工具栏 + 可滚动表格 */
+/* 由 admin.css 等价拆分而来，模板按原顺序 <link> 顺次引入，整体等价单文件 */
+
+/* 慧眼护农 V4 管理后台全局样式 */
+
+/* ========== Reset & Base ========== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--app-font-family); font-size: var(--app-font-size-md); color: var(--app-text-primary); background: var(--app-bg-page); }
+a { color: var(--app-brand-color); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* ========== Layout ========== */
+#app-layout { display: flex; min-height: 100vh; }
+
+/* 侧边栏 — 明亮/深色双模式，配色由 CSS 变量控制（详见 theme.css） */
+.sidebar {
+    width: var(--app-sidebar-width); background: var(--app-sidebar-bg); color: var(--app-sidebar-menu-text-active);
+    display: flex; flex-direction: column; flex-shrink: 0;
+    border-right: 1px solid var(--app-sidebar-border);
+    transition: width 0.25s cubic-bezier(.4,0,.2,1);
+    overflow: hidden;
+    /* 钉在视口高度内：菜单过长时由 .sidebar-menu 内部滚动，
+       避免撑高整体布局（#app-layout 为 min-height 弹性容器） */
+    height: 100vh;
+    position: sticky; top: 0;
+    /* 强制独立 GPU 合成层，防止 SPA 导航时 .page-content 大量重绘
+       导致 sticky 侧边栏视觉撕裂（如 AI 对话页加载大量页面 CSS） */
+    will-change: transform;
+}
+.sidebar.collapsed {
+    width: var(--app-sidebar-collapsed);
+}
+.sidebar.collapsed .sidebar-title,
+.sidebar.collapsed .sidebar-user__meta,
+.sidebar.collapsed .t-menu__content { display: none; }
+/* 折叠时隐藏用户卡片文字、齿轮、状态点 + 子菜单 */
+.sidebar.collapsed .sidebar-user__meta,
+.sidebar.collapsed .sidebar-user__gear,
+.sidebar.collapsed .sidebar-user__status { display: none; }
+.sidebar.collapsed .sidebar-user {
+    justify-content: center;
+    padding: 8px 0;
+    margin: 6px 4px;
+}
+.sidebar.collapsed .t-fake-arrow { display: none; }
+.sidebar.collapsed .t-menu__sub { display: none !important; }
+
+.sidebar-logo {
+    display: flex; align-items: center; justify-content: center;
+    padding: var(--app-spacing-sm) var(--app-spacing-md); height: var(--app-header-height); flex-shrink: 0;
+    border-bottom: 1px solid var(--app-sidebar-logo-border);
+}
+/* Logo 容器：无跳转时为 span，有跳转地址时为 a，二者共用居中布局 */
+.sidebar-logo__link {
+    display: flex; align-items: center; justify-content: center;
+    width: 100%; height: 100%; text-decoration: none;
+}
+a.sidebar-logo__link { cursor: pointer; }
+.sidebar-logo__img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: var(--app-radius-sm); }
+/* Logo/Favicon 切换：展开显示 logo，折叠显示 favicon */
+.sidebar-logo--mini { display: none; }
+.sidebar.collapsed .sidebar-logo--full { display: none; }
+.sidebar.collapsed .sidebar-logo--mini { display: block; }
+.sidebar.collapsed .sidebar-logo__img { max-width: 32px; max-height: 32px; }
+.sidebar-title { display: none; }
+
+.sidebar-menu { flex: 1; overflow-y: auto; overflow-x: hidden; padding: var(--app-spacing-sm); }
+/* 折叠时菜单宽度跟随侧边栏（覆盖 TDesign 内联 width） */
+.sidebar.collapsed .sidebar-menu { padding: var(--app-spacing-xs); }
+.sidebar.collapsed .t-default-menu { width: var(--app-sidebar-collapsed) !important; }
+.sidebar.collapsed .t-menu__item { justify-content: center; padding: 0; }
+.sidebar.collapsed .t-submenu > .t-menu__item { justify-content: center; padding: 0; }
+
+/* Discord 风格底部用户卡片 */
+.sidebar-user {
+    display: flex; align-items: center; gap: var(--app-spacing-sm);
+    padding: var(--app-spacing-sm) 10px; margin: 6px var(--app-spacing-sm);
+    background: var(--app-sidebar-user-bg); border-radius: 8px; flex-shrink: 0;
+    transition: background var(--app-duration-fast) var(--app-ease-standard),
+                transform var(--app-duration-base) var(--app-ease-spring);
+}
+.sidebar-user:hover { background: var(--app-sidebar-user-hover); transform: translateY(-1px); }
+.sidebar-user:active { transform: translateY(0) scale(0.99); }
+.sidebar-user__avatar {
+    position: relative; width: 32px; height: 32px; flex-shrink: 0;
+    border-radius: 50%; background: var(--app-sidebar-avatar-bg); color: var(--app-sidebar-menu-text-active);
+    display: flex; align-items: center; justify-content: center;
+    font-size: var(--app-font-size-md); font-weight: 600;
+    /* 不设 overflow:hidden：避免裁掉溢出到右下角的在线状态小圆点，圆形裁剪交由头像图片自身 border-radius 完成 */
+}
+.sidebar-user__avatar-img {
+    width: 100%; height: 100%; object-fit: cover; display: block; border-radius: 50%;
+}
+.sidebar-user__status {
+    position: absolute; right: -2px; bottom: -2px;
+    width: 12px; height: 12px; border-radius: 50%;
+    background: var(--app-sidebar-status-dot); border: 2px solid var(--app-sidebar-user-bg);
+}
+.sidebar-user__meta { flex: 1; min-width: 0; }
+.sidebar-user__name {
+    font-size: var(--app-font-size-sm); font-weight: 600; color: var(--app-sidebar-menu-text-active);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.sidebar-user__role {
+    font-size: var(--app-font-size-sm); color: var(--app-sidebar-menu-text);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.sidebar-user__gear {
+    width: 28px; height: 28px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: transparent; border: none; cursor: pointer;
+    color: var(--app-sidebar-menu-text); border-radius: var(--app-radius-sm); transition: all 0.15s;
+}
+.sidebar-user__gear:hover { background: var(--app-sidebar-gear-hover-bg); color: var(--app-sidebar-menu-text-active); }
+
+/* 主内容区 */
+.main-area { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+
+/* 顶部栏 */
+.topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    height: var(--app-header-height); padding: 0 var(--app-spacing-lg); background: var(--app-bg-card);
+    border-bottom: 1px solid var(--app-border); flex-shrink: 0;
+}
+.topbar-right { display: flex; align-items: center; gap: var(--app-spacing-md); }
+
+/* 页面内容：填满视口高度（减去顶栏 56px），禁止页面级滚动，由卡片内部滚动 */
+.page-content {
+    height: calc(100vh - var(--app-header-height));
+    padding: var(--app-page-padding);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    transition: opacity 0.15s ease;
+    /* 隔离渲染边界，SPA 导航时内容区重绘不波及 sticky 侧边栏 */
+    contain: layout;
+}
+
+/* 页面根容器填满可用空间 */
+#page-app {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+/* 单卡片页面：卡片填满视口，内容区内部滚动 */
+#page-app > .t-card {
+    flex: 1;
+    min-height: 0;
+    max-height: none;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    margin-bottom: 0;
+}
+
+#page-app > .t-card > .t-card__body {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+/* 非单卡片页面（仪表盘、农户详情）：允许页面级滚动 */
+.dashboard-page,
+.farmer-detail-page {
+    overflow-y: auto;
+}
+
+/* 特殊布局页面：内部布局填满卡片内容区 */
+.theme-layout { flex: 1; min-height: 480px; }
+.nav-editor { flex: 1; min-height: 0; }
+
+/* ========== 页面通用样式 ========== */
+/* 页面标题已废弃：侧边栏已标识当前页，内容区不再显示标题 */
+
+/* ===== 间距工具类（全局，令牌驱动，替代模板内联 margin/gap） ===== */
+.mt0 { margin-top: 0 !important; }
+.mt8 { margin-top: var(--app-spacing-sm); }
+.mt16 { margin-top: var(--app-spacing-md); }
+.mb8 { margin-bottom: var(--app-spacing-sm); }
+.mb16 { margin-bottom: var(--app-spacing-md); }
+
+/* ===== API 密钥单元格（后台账户页 / 农户端个人中心共用）：明文省略 + 复制链接常显 ===== */
+.api-key-cell {
+    display: flex;
+    align-items: center;
+    gap: var(--app-spacing-sm);
+}
+.api-key-cell__text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.api-key-cell .t-link { flex-shrink: 0; }
+
+/* ========== 卡片头部工具栏统一规范 ========== */
+/* 
+ * DOM 结构有两种方式：
+ * 1. <t-card><template #header><div class="card-header-toolbar">...</div></template></t-card>
+ *    （农户、插件管理）→ 需覆盖 card__header 默认 padding
+ * 2. <t-card><t-tabs><t-tab-panel><div class="card-header-toolbar">...</div></t-tab-panel></t-tabs></t-card>
+ *    （用户管理）→ 工具栏无外层容器，直接设置 padding
+ */
+
+/* 通用工具栏容器 */
+.card-header-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+}
+
+/* 场景 C：toolbar 直接在 card body 内（非 #header 槽位、非 tabs 内容区），消费 --toolbar-margin token */
+.t-card__body > .card-header-toolbar {
+    margin-bottom: var(--app-spacing-md);
+}
+
+/* TDesign card header 已包含内容，需移除默认 padding，由 left/right 区域负责间距 */
+.t-card__header .card-header-toolbar,
+.detail-toolbar .card-header-toolbar {
+    padding: 0;
+}
+
+/* 左侧工具区：按钮 + 操作项 */
+.card-header-toolbar-left { 
+    display: flex; 
+    gap: var(--app-spacing-md); 
+    align-items: center;
+}
+
+/* 右侧工具区：搜索框 + 筛选器 */
+.card-header-toolbar-right { 
+    display: flex; 
+    gap: var(--app-spacing-sm); 
+    align-items: center;
+}
+
+/* 中间筛选区：搜索 + 下拉 + 查询按钮 */
+.card-header-toolbar-center {
+    display: flex;
+    gap: var(--app-spacing-sm);
+    align-items: center;
+}
+
+/* 插件管理两行工具栏容器 */
+.plugin-toolbar-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+}
+
+/* 场景 A：在 tabs 内容区内的工具栏（用户管理），需自行处理左右 padding */
+.admin-list-page .t-tabs__content .card-header-toolbar {
+    padding: var(--app-spacing-md) 24px;
+}
+
+/* 统一覆盖所有页面的卡片 header 间距 */
+.t-card__header {
+    padding: var(--app-spacing-md) 24px !important;
+}
+
+/* 管理员页面：Tabs 直接在卡片体内，去除 body 双重 padding，统一与 card-header 布局一致 */
+.admin-list-page .t-card__body:has(.t-tabs) {
+    padding: 0;
+}
+.admin-list-page .t-tabs__header {
+    margin-bottom: 0;
+    padding: var(--app-spacing-md) 24px 0;
+}
+.admin-list-page .t-card .t-tabs__content {
+    padding: var(--app-spacing-md) 24px 0;
+}
+.admin-list-page .t-tab-panel > .card-header-toolbar {
+    padding: var(--app-spacing-md) 0;
+}
+
+/* 卡片统一样式（圆角 + 阴影 + overflow裁剪子元素） */
+.t-card, .t-card--bordered { 
+    margin-bottom: 16px; 
+    border-radius: var(--app-radius-md) !important;
+    box-shadow: var(--app-shadow-1);
+    border: none !important;
+    overflow: hidden;
+}
+/* 确保卡片内部子元素继承圆角 */
+.t-card > :first-child { border-top-left-radius: var(--app-radius-md); border-top-right-radius: var(--app-radius-md); }
+.t-card > :last-child { border-bottom-left-radius: var(--app-radius-md); border-bottom-right-radius: var(--app-radius-md); }
+.t-card__header {
+    border-bottom: none;
+    padding: 12px 24px;
+    flex-shrink: 0;
+}
+.t-card__body { padding: 24px; }
+/* 可滚动卡片（设置 max-height 后 body 自动滚动） */
+.t-card--scrollable {
+    max-height: var(--app-card-max-height);
+    display: flex;
+    flex-direction: column;
+}
+.t-card--scrollable .t-card__body {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+}
+/* 表格卡片保留左右间距，恢复顶部内边距，底部由分页组件自带 */
+.t-card__body:has(.t-table) { padding: var(--app-spacing-md) 24px 0; }
+
+/* ===== 设置类页面（账户设置/系统设置）布局骨架 =====
+   根治 Tabs 栏跳动：卡片 body 归零内边距（中和上方 :has(.t-table) 动态 padding，
+   避免 apikey 面板表格随 destroyOnHide 挂载/销毁时 padding 翻转位移 Tabs 头部）、
+   停止滚动；Tabs 头部钉住不参与滚动；滚动职责下移到 t-tabs__content，
+   任何面板内容/表格挂载都不再影响 Tabs 头部布局。
+   全部用直接子代选择器，避免误伤系统设置页嵌套的左侧子 Tab */
+.system-settings-page > .t-card--scrollable {
+    height: var(--app-card-max-height);
+}
+.system-settings-page > .t-card--scrollable > .t-card__body {
+    padding: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+.system-settings-page > .t-card--scrollable > .t-card__body > .t-tabs {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+.system-settings-page > .t-card--scrollable > .t-card__body > .t-tabs > .t-tabs__header {
+    flex-shrink: 0;
+    padding: var(--app-spacing-lg) var(--app-spacing-lg) 0;
+}
+.system-settings-page > .t-card--scrollable > .t-card__body > .t-tabs > .t-tabs__content {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+    padding: 0 var(--app-spacing-lg) var(--app-spacing-lg);
+}
+
+/* ===== 可滚动表格：卡片含分页表格时，表体滚动 + 表头固定 + 翻页固定底部 =====
+   注：TDesign 无分页时也会渲染空 .t-table__pagination-wrap，故整条链用
+   :not(.system-settings-page) 排除设置页，避免劫持上方设置页骨架的滚动层 */
+/* 卡片体不整体滚动，由表格内部滚动 */
+#page-app:not(.system-settings-page) > .t-card > .t-card__body:has(.t-table__pagination-wrap) {
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+/* Tabs 链路逐层填满高度（仅限内部包含表格的内容切换 Tabs；筛选型空 Tabs 不拉伸） */
+#page-app:not(.system-settings-page) > .t-card > .t-card__body:has(.t-table__pagination-wrap) .t-tabs:has(.t-table) {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+/* 竖向 Tabs 保持 TDesign 的 row 布局（头在左、内容在右）；TDesign 的 t-is-left 类挂在 header 上而非 t-tabs 上 */
+#page-app:not(.system-settings-page) > .t-card > .t-card__body:has(.t-table__pagination-wrap) .t-tabs:has(> .t-tabs__header.t-is-left) {
+    flex-direction: row;
+}
+/* 竖向 Tabs 导航列：不参与 flex 伸缩，固定宽度成列 */
+#page-app:not(.system-settings-page) > .t-card > .t-card__body:has(.t-table__pagination-wrap) .t-tabs > .t-tabs__header.t-is-left {
+    flex-shrink: 0;
+}
+#page-app:not(.system-settings-page) > .t-card > .t-card__body:has(.t-table__pagination-wrap) .t-tabs:has(.t-table) > .t-tabs__content {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+/* 竖向 Tabs 内容区需 min-width:0 防溢出 */
+#page-app:not(.system-settings-page) > .t-card > .t-card__body:has(.t-table__pagination-wrap) .t-tabs:has(> .t-tabs__header.t-is-left) .t-tabs__content {
+    min-width: 0;
+}
+#page-app:not(.system-settings-page) > .t-card > .t-card__body:has(.t-table__pagination-wrap) .t-tab-panel {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+/* 工具栏固定不收缩 */
+#page-app:not(.system-settings-page) > .t-card > .t-card__body:has(.t-table__pagination-wrap) .card-header-toolbar {
+    flex-shrink: 0;
+}
+/* 日志面板内容容器填满高度（log/notice-log 页面 .log-panel-content 包装器） */
+#page-app:not(.system-settings-page) > .t-card > .t-card__body:has(.t-table__pagination-wrap) .log-panel-content {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+/* 分页表格填满剩余高度 */
+#page-app:not(.system-settings-page) > .t-card > .t-card__body:has(.t-table__pagination-wrap) .t-table {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+/* 表格内容区可滚动 */
+#page-app:not(.system-settings-page) > .t-card > .t-card__body:has(.t-table__pagination-wrap) .t-table__content {
+    flex: 1;
+    overflow-y: auto;
+}
+/* 表头固定（th 级别 sticky 兼容性优于 thead） */
+#page-app:not(.system-settings-page) > .t-card > .t-card__body:has(.t-table__pagination-wrap) .t-table__header th {
+    position: sticky;
+    top: 0;
+    z-index: 32;
+}
+/* 翻页固定卡片底部 */
+#page-app:not(.system-settings-page) > .t-card > .t-card__body:has(.t-table__pagination-wrap) .t-table__pagination-wrap {
+    flex-shrink: 0;
+}
+
+/* 表格统一样式（横线分割 + 无边框 + 禁止横向滚动） */
+.t-table, .t-table--bordered { 
+    border-radius: var(--app-radius-md); 
+    border: none !important; 
+    width: 100%;
+    table-layout: fixed;
+}
+.t-table__content { overflow-x: hidden !important; }
+.t-table th { background: var(--app-bg-container) !important; font-weight: 600; color: var(--app-text-primary); }
+.t-table td { 
+    color: var(--app-text-secondary); 
+    border-bottom: 1px solid var(--app-border);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.t-table .t-table__row--hover { background: var(--app-row-hover) !important; }
+/* 去掉表格内部单元格边框 */
+.t-table--bordered td, .t-table--bordered th { border: none !important; }
+
+/* 表单统一样式 */
+.t-form__label { font-weight: 500; color: var(--app-text-primary); }
+.t-input, .t-select, .t-textarea {
+    border-radius: var(--app-radius-md) !important;
+}
+.t-input:hover, .t-select:hover, .t-textarea:hover {
+    border-color: var(--app-border-hover) !important;
+}
+.t-input:focus, .t-select:focus, .t-textarea:focus {
+    border-color: var(--app-brand-color) !important;
+    box-shadow: 0 0 0 2px var(--app-brand-focus-ring) !important;
+}
+
+/* 按钮统一样式（按压回弹，Discord 风弹性反馈） */
+.t-button { border-radius: var(--app-radius-md); font-weight: 500; transition: transform var(--app-duration-base) var(--app-ease-spring), background var(--app-duration-fast) var(--app-ease-standard); }
+.t-button:active { transform: scale(0.96); }
+.t-button--primary { background: var(--app-brand-color); border-color: var(--app-brand-color); }
+.t-button--primary:hover { background: var(--app-brand-active); border-color: var(--app-brand-active); }
+
+/* Tab 统一样式（与卡片无额外间距）；激活态不加粗，避免字宽变化导致标签点击位移 */
+.t-tabs { margin-bottom: 0; }
+.t-tabs__nav-item { font-weight: 500; }
+
+/* 弹窗统一样式（禁止横向滚动，桌面端优先） */
+.t-dialog__body { overflow-x: hidden; }
+.t-dialog { max-width: calc(100vw - 48px); }
+
+/* TinyMCE 浮层（下拉菜单/颜色板/内置对话框）挂载在 body 下的 .tox-tinymce-aux，
+   默认 z-index 1300 低于 t-dialog 的 2500，弹窗内富文本工具栏浮层会被压住；
+   提升至 3500（高于弹窗、低于 TDesign Message 提示层）使其在弹窗内可用 */
+.tox.tox-tinymce-aux { z-index: 3500; }
+
+/* iframe 内嵌页面容器（外部链接 iframe 模式） */
+.iframe-page {
+    width: 100%; height: calc(100vh - 56px); border: none;
+    display: block; background: var(--app-bg-card);
+}

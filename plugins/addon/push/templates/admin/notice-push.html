@@ -1,0 +1,353 @@
+{% extends "plugin_page_shell.html" %}
+{% block title %}手动推送 - 慧眼护农{% endblock %}
+{% block head %}
+{{ super() }}
+<style>
+.detail-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: var(--app-spacing-md);
+}
+.detail-item label {
+    font-size: var(--app-font-size-sm);
+    color: var(--app-text-secondary);
+    display: block;
+    margin-bottom: var(--app-spacing-xs);
+}
+.detail-item .val {
+    font-size: var(--app-font-size-md);
+    color: var(--app-text-primary);
+}
+.detail-section {
+    margin-bottom: var(--app-spacing-md);
+}
+.detail-section-title {
+    margin-bottom: var(--app-spacing-sm);
+    font-size: var(--app-font-size-lg);
+    color: var(--app-text-primary);
+}
+.detail-val-success {
+    color: var(--app-success);
+}
+.detail-val-error {
+    color: var(--app-error);
+}
+.content-preview {
+    padding: var(--app-spacing-md);
+    background: var(--app-bg-container);
+    border-radius: var(--app-radius-sm);
+    max-height: 200px;
+    overflow-y: auto;
+}
+.push-list-page .task-summary { color: var(--app-text-secondary); font-size: var(--app-font-size-sm); }
+.push-list-page .task-title { font-weight: 600; color: var(--app-text-primary); cursor: pointer; }
+.push-list-page .task-subtitle { margin-top: var(--app-spacing-xs); color: var(--app-text-secondary); font-size: var(--app-font-size-sm); }
+.push-list-page .task-metric { font-variant-numeric: tabular-nums; }
+</style>
+{% endblock %}
+{% block content %}
+<div id="page-app" v-cloak class="push-list-page admin-list-page">
+    <t-card title="推送任务">
+        <template #header>
+            <div class="card-header-toolbar">
+                <div class="card-header-toolbar-left">
+                    <t-button v-permission="'push:create'" theme="primary" @click="goCreate">
+                        <template #icon><t-icon name="add"></t-icon></template>
+                        创建推送任务
+                    </t-button>
+                    <span class="task-summary">集中管理站内信、短信和邮件推送任务</span>
+                </div>
+                <div class="card-header-toolbar-right">
+                    <t-select v-model="filterStatus" placeholder="状态筛选" clearable
+                        class="filter-select" @change="fetchData">
+                        <t-option value="Wait" label="等待中"></t-option>
+                        <t-option value="Exec" label="执行中"></t-option>
+                        <t-option value="Finish" label="已完成"></t-option>
+                        <t-option value="Suspended" label="已暂停"></t-option>
+                        <t-option value="Expired" label="已过期"></t-option>
+                    </t-select>
+                    <t-input v-model="keyword" placeholder="搜索标题/关键词..." clearable
+                        class="search-input--md" @change="fetchData"></t-input>
+                </div>
+            </div>
+        </template>
+
+        <t-skeleton v-if="loading" :row-col="[6]" animation="gradient"></t-skeleton>
+        <t-table v-else :data="tableData" :columns="columns" :loading="loading"
+            row-key="id" :pagination="pagination" @page-change="onPageChange" hover>
+            <template #title="{ row }">
+                <div class="task-title" @click="viewDetail(row)">[[ row.title ]]</div>
+                <div v-if="row.keywords" class="task-subtitle">[[ row.keywords ]]</div>
+            </template>
+            <template #type="{ row }">
+                [[ channelsLabel(row.channels) ]]
+            </template>
+            <template #send_cycle="{ row }">
+                [[ cycleLabel(row.send_cycle) ]]
+            </template>
+            <template #status="{ row }">
+                <t-tag :theme="statusTheme(row.status)" variant="light" size="small">
+                    [[ statusLabel(row.status) ]]
+                </t-tag>
+            </template>
+            <template #op="{ row }">
+                <t-space>
+                    <t-button variant="text" theme="primary" size="small" @click="viewDetail(row)">详情</t-button>
+                    <t-button variant="text" theme="primary" size="small" @click="viewLogs(row)">日志</t-button>
+                    <t-button variant="text" theme="primary" size="small" v-permission="'push:create'" @click="resend(row)">复制重发</t-button>
+                    <t-button variant="text" theme="primary" size="small" v-permission="'push:update'"
+                        v-if="row.status === 'Wait'" @click="toggleStatus(row, 'Suspended')">暂停</t-button>
+                    <t-button variant="text" theme="primary" size="small" v-permission="'push:update'"
+                        v-if="row.status === 'Suspended'" @click="toggleStatus(row, 'Wait')">恢复</t-button>
+                    <t-button variant="text" theme="primary" size="small" v-permission="'push:update'"
+                        v-if="row.status === 'Wait'" @click="goEdit(row)">编辑</t-button>
+                    <t-button variant="text" size="small" theme="danger" v-permission="'push:delete'"
+                        v-if="row.status !== 'Exec'" @click="deleteTask(row)">删除</t-button>
+                </t-space>
+            </template>
+        </t-table>
+    </t-card>
+
+    <!-- 详情弹窗 -->
+    <t-dialog v-model:visible="detailDialogVisible" header="推送任务详情" width="720px"
+        :footer="false" destroy-on-close>
+        <div v-if="detailData">
+            <div class="detail-section">
+                <h4 class="detail-section-title">基本信息</h4>
+                <div class="detail-grid">
+                    <div class="detail-item"><label>推送标题</label><div class="val">[[ detailData.title ]]</div></div>
+                    <div class="detail-item"><label>关键词</label><div class="val">[[ detailData.keywords || '-' ]]</div></div>
+                    <div class="detail-item"><label>通知渠道</label><div class="val">[[ channelsLabel(detailData.channels) ]]</div></div>
+                    <div class="detail-item"><label>推送周期</label><div class="val">[[ cycleLabel(detailData.schedule_rule && detailData.schedule_rule.cycle) ]]</div></div>
+                    <div class="detail-item"><label>发送时间</label><div class="val">[[ detailData.schedule_rule && detailData.schedule_rule.time_hour_min ]]</div></div>
+                    <div class="detail-item"><label>状态</label><div class="val"><t-tag :theme="statusTheme(detailData.status)" variant="light" size="small">[[ statusLabel(detailData.status) ]]</t-tag></div></div>
+                </div>
+            </div>
+            <div class="detail-section">
+                <h4 class="detail-section-title">发送统计</h4>
+                <div class="detail-grid">
+                    <div class="detail-item"><label>目标用户数</label><div class="val">[[ detailData.target_count ]]</div></div>
+                    <div class="detail-item"><label>成功</label><div class="val detail-val-success">[[ detailData.success_num ]]</div></div>
+                    <div class="detail-item"><label>失败</label><div class="val detail-val-error">[[ detailData.fail_num ]]</div></div>
+                    <div class="detail-item"><label>上次执行</label><div class="val">[[ detailData.last_exec_time || '-' ]]</div></div>
+                    <div class="detail-item"><label>创建时间</label><div class="val">[[ detailData.create_time ]]</div></div>
+                </div>
+            </div>
+            <div>
+                <h4 class="detail-section-title">推送内容</h4>
+                <div class="content-preview" v-html="detailData.content"></div>
+            </div>
+        </div>
+    </t-dialog>
+
+    <!-- 日志弹窗 -->
+    <t-dialog v-model:visible="logDialogVisible" header="发送日志" width="720px"
+        :footer="false" destroy-on-close>
+        <div v-if="logDialogVisible">
+            <t-table :data="logData" :columns="logColumns" :loading="logLoading"
+                row-key="id" :pagination="logPagination" @page-change="onLogPageChange" hover>
+                <template #status="{ row }">
+                    <t-tag :theme="row.status === 'Success' ? 'success' : row.status === 'Failed' ? 'danger' : 'default'" variant="light" size="small">
+                        [[ row.status ]]
+                    </t-tag>
+                </template>
+            </t-table>
+        </div>
+    </t-dialog>
+</div>
+{% endblock %}
+{% block scripts %}
+{{ super() }}
+<script>
+(function() {
+    const { ref, reactive, onMounted } = Vue;
+    const { MessagePlugin, DialogPlugin } = TDesign;
+
+    HuiYan.createPluginPage({ plugin: 'push', page: 'notice-push',
+        setup() {
+            // 列表
+            const keyword = ref('');
+            const filterStatus = ref('');
+            const loading = ref(false);
+            const tableData = ref([]);
+            const pagination = reactive({ current: 1, pageSize: 10, total: 0 });
+            const columns = [
+                { colKey: 'id', title: 'ID', width: 60 },
+                { colKey: 'title', title: '推送任务', ellipsis: true, minWidth: 200, cell: 'title' },
+                { colKey: 'type', title: '通知形式', width: 100, cell: 'type' },
+                { colKey: 'send_cycle', title: '推送周期', width: 100, cell: 'send_cycle' },
+                { colKey: 'target_count', title: '目标数', width: 80 },
+                { colKey: 'success_num', title: '成功', width: 60 },
+                { colKey: 'fail_num', title: '失败', width: 60 },
+                { colKey: 'status', title: '状态', width: 90, cell: 'status' },
+                { colKey: 'create_time', title: '创建时间', width: 160 },
+                { colKey: 'op', title: '操作', width: 300, cell: 'op', fixed: 'right' },
+            ];
+
+            // 详情弹窗
+            const detailDialogVisible = ref(false);
+            const detailData = ref(null);
+
+            // 日志弹窗
+            const logDialogVisible = ref(false);
+            const logData = ref([]);
+            const logLoading = ref(false);
+            const logTaskId = ref(0);
+            const logPagination = reactive({ current: 1, pageSize: 20, total: 0 });
+            const logColumns = [
+                { colKey: 'username', title: '农户', width: 120 },
+                { colKey: 'channel', title: '渠道', width: 80 },
+                { colKey: 'status', title: '状态', width: 80, cell: 'status' },
+                { colKey: 'reason', title: '原因', ellipsis: true },
+                { colKey: 'create_time', title: '时间', width: 160 },
+            ];
+
+            // ========== 导航 ==========
+            const goCreate = () => {
+                location.href = '/admin/plugin/push/push-task-form';
+            };
+            const goEdit = (row) => {
+                location.href = '/admin/plugin/push/push-task-form?id=' + row.id;
+            };
+
+            // ========== 列表 ==========
+            const fetchData = async () => {
+                loading.value = true;
+                try {
+                    const res = await request.get('/push/tasks', {
+                        params: {
+                            keyword: keyword.value, status: filterStatus.value,
+                            page: pagination.current, limit: pagination.pageSize,
+                        }
+                    });
+                    if (res.status === 200) {
+                        const data = res.data?.data || res.data || {};
+                        tableData.value = data.list || [];
+                        pagination.total = data.total || 0;
+                    }
+                } catch (e) {
+                    MessagePlugin.error('推送任务加载失败，请稍后重试');
+                } finally { loading.value = false; }
+            };
+
+            const onPageChange = (info) => {
+                pagination.current = info.current;
+                pagination.pageSize = info.pageSize;
+                fetchData();
+            };
+
+            const cycleLabel = (cycle) => {
+                return { onetime: '一次性', day: '每日', week: '每周', month: '每月' }[cycle] || cycle || '-';
+            };
+            const channelsLabel = (channels) => {
+                const names = { inbox: '站内信', sms: '短信', email: '邮件' };
+                return Object.keys(names).filter((key) => channels && channels[key]).map((key) => names[key]).join('、') || '-';
+            };
+            const statusLabel = (status) => {
+                return { Wait: '等待中', Exec: '执行中', Finish: '已完成', Suspended: '已暂停', Expired: '已过期' }[status] || status || '-';
+            };
+            const statusTheme = (status) => {
+                return { Wait: 'warning', Exec: 'primary', Finish: 'success', Suspended: 'default', Expired: 'danger' }[status] || 'default';
+            };
+
+            const toggleStatus = async (row, targetStatus) => {
+                try {
+                    await request.post(`/push/tasks/${row.id}/${targetStatus === 'Suspended' ? 'pause' : 'resume'}`);
+                    MessagePlugin.success('状态已更新');
+                    fetchData();
+                } catch (e) {
+                    MessagePlugin.error(e.response?.data?.detail || '操作失败');
+                }
+            };
+
+            const resend = (row) => {
+                DialogPlugin.confirm({
+                    header: '确认重发',
+                    body: `确认重发推送任务「${row.title}」？将以原配置创建新的推送任务。`,
+                    onConfirm: async () => {
+                        try {
+                            await request.post(`/push/tasks/${row.id}/resend`);
+                            MessagePlugin.success('重发任务已创建');
+                            fetchData();
+                        } catch (e) {
+                            MessagePlugin.error('重发失败');
+                        }
+                    },
+                });
+            };
+
+            const deleteTask = (row) => {
+                DialogPlugin.confirm({
+                    header: '确认删除',
+                    body: `确认删除推送任务「${row.title}」？`,
+                    onConfirm: async () => {
+                        try {
+                            await request.delete(`/push/tasks/${row.id}`);
+                            MessagePlugin.success('删除成功');
+                            fetchData();
+                        } catch (e) {
+                            MessagePlugin.error(e.response?.data?.detail || '删除失败');
+                        }
+                    },
+                });
+            };
+
+            // ========== 详情弹窗 ==========
+            const viewDetail = async (row) => {
+                detailData.value = null;
+                detailDialogVisible.value = true;
+                try {
+                    const res = await request.get(`/push/tasks/${row.id}`);
+                    if (res.status === 200) detailData.value = res.data?.data || res.data;
+                } catch (e) {
+                    MessagePlugin.error('加载失败');
+                }
+            };
+
+            // ========== 日志弹窗 ==========
+            const viewLogs = (row) => {
+                logTaskId.value = row.id;
+                logPagination.current = 1;
+                logDialogVisible.value = true;
+                fetchLogs();
+            };
+
+            const fetchLogs = async () => {
+                logLoading.value = true;
+                try {
+                    const res = await request.get(`/push/tasks/${logTaskId.value}/deliveries`, {
+                        params: { page: logPagination.current, limit: logPagination.pageSize }
+                    });
+                    if (res.status === 200) {
+                        const data = res.data?.data || res.data || {};
+                        logData.value = data.list || [];
+                        logPagination.total = data.total || 0;
+                    }
+                } catch (e) {
+                    MessagePlugin.error('发送日志加载失败，请稍后重试');
+                } finally { logLoading.value = false; }
+            };
+
+            const onLogPageChange = (info) => {
+                logPagination.current = info.current;
+                fetchLogs();
+            };
+
+            onMounted(() => {
+                fetchData();
+            });
+
+            return {
+                keyword, filterStatus, loading, tableData, pagination, columns,
+                detailDialogVisible, detailData,
+                logDialogVisible, logData, logLoading, logPagination, logColumns,
+                goCreate, goEdit, fetchData, onPageChange,
+                cycleLabel, channelsLabel, statusLabel, statusTheme,
+                toggleStatus, resend, deleteTask,
+                viewDetail, viewLogs, fetchLogs, onLogPageChange,
+            };
+        },
+    });
+})();
+</script>
+{% endblock %}

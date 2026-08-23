@@ -1,0 +1,31 @@
+{
+  "name": "mail_smtp",
+  "title": "SMTP 邮件",
+  "version": "1.0.0",
+  "description": "标准 SMTP 协议邮件发送插件，支持 SSL/TLS 加密、HTML 正文与附件",
+  "author": "HuiYan Team",
+  "module": "mail",
+  "owner_id": "mail_smtp",
+  "surface": "platform",
+  "enabled": true,
+  "default_order": 100,
+  "compatible_app_versions": [">=4.0.0"],
+  "dependencies": [],
+  "conflicts": [],
+  "permissions": [],
+  "capabilities": ["notification.mail"],
+  "pages": [],
+  "resources": [],
+  "tasks": [],
+  "events": [],
+  "health": {"check": "plugin.mail_smtp"},
+  "config": {
+    "mail_smtp.host": "",
+    "mail_smtp.port": "465",
+    "mail_smtp.username": "",
+    "mail_smtp.password": "",
+    "mail_smtp.encryption": "ssl",
+    "mail_smtp.from_email": "",
+    "mail_smtp.from_name": "慧眼护农"
+  }
+}

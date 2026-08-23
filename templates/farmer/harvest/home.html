@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+{% block title %}首页 · 慧眼护农 农户端{% endblock %}
+
+{% block content %}
+<!-- 欢迎区域 -->
+<section class="farmer-hero">
+    <div class="farmer-hero-inner">
+        <h1 class="farmer-hero-title">[[ greeting ]]，[[ displayName ]]</h1>
+        <p class="farmer-hero-sub">智慧农业 · 农户服务平台</p>
+        <div class="farmer-hero-actions">
+            <t-button theme="primary" size="large" @click="goProfile">个人中心</t-button>
+            <t-button theme="default" size="large" @click="refresh">刷新</t-button>
+        </div>
+    </div>
+</section>
+
+<!-- 账号概览统计 -->
+<h3 class="farmer-section-title">账号概览</h3>
+<section class="farmer-stats">
+    <div class="farmer-stat-card">
+        <div class="farmer-stat-icon farmer-stat-icon--brand">
+            <t-icon name="user"></t-icon>
+        </div>
+        <div>
+            <div class="farmer-stat-label">账号状态</div>
+            <div class="farmer-stat-value">
+                <t-tag :theme="userStatus === 1 ? 'success' : 'danger'" size="small">
+                    [[ userStatus === 1 ? '正常' : '异常' ]]
+                </t-tag>
+            </div>
+        </div>
+    </div>
+    <div class="farmer-stat-card">
+        <div class="farmer-stat-icon farmer-stat-icon--success">
+            <t-icon name="secured"></t-icon>
+        </div>
+        <div>
+            <div class="farmer-stat-label">安全等级</div>
+            <div class="farmer-stat-value">[[ securityLevel ]]</div>
+        </div>
+    </div>
+    <div class="farmer-stat-card">
+        <div class="farmer-stat-icon farmer-stat-icon--warning">
+            <t-icon name="time"></t-icon>
+        </div>
+        <div>
+            <div class="farmer-stat-label">注册时间</div>
+            <div class="farmer-stat-value farmer-stat-value--sm">[[ registerDate ]]</div>
+        </div>
+    </div>
+</section>
+
+<!-- 功能模块 -->
+<h3 class="farmer-section-title">功能模块</h3>
+<section class="farmer-cards">
+    <div v-for="item in features" :key="item.key" class="farmer-card" @click="onFeatureClick(item)">
+        <t-card :bordered="true" :title="item.title">
+            <template #header>
+                <div class="card-header-title">
+                    <t-icon :name="item.icon"></t-icon>
+                    <span>[[ item.title ]]</span>
+                </div>
+            </template>
+            <p class="farmer-card-desc">[[ item.desc ]]</p>
+        </t-card>
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+HuiYanFarmer.createApp({
+    setup() {
+        var ref = Vue.ref;
+        var computed = Vue.computed;
+        var reactive = Vue.reactive;
+        var onMounted = Vue.onMounted;
+
+        /* ---- 用户信息 ---- */
+        var userInfo = reactive({ nickname: '', username: '', status: 1, create_time: '', email: '', phone: '' });
+
+        /* 问候语：根据时段显示 */
+        var greeting = computed(function () {
+            var h = new Date().getHours();
+            if (h < 6) return '凌晨好';
+            if (h < 9) return '早上好';
+            if (h < 12) return '上午好';
+            if (h < 14) return '中午好';
+            if (h < 18) return '下午好';
+            return '晚上好';
+        });
+
+        /* 显示名称：优先昵称，否则用户名 */
+        var displayName = computed(function () {
+            return userInfo.nickname || userInfo.username || '用户';
+        });
+
+        var userStatus = computed(function () { return userInfo.status; });
+
+        /* 安全等级：根据邮箱、手机号填写情况计算 */
+        var securityLevel = computed(function () {
+            var score = 0;
+            if (userInfo.email) score++;
+            if (userInfo.phone) score++;
+            if (userInfo.nickname) score++;
+            var levels = ['低', '中', '高', '高'];
+            return levels[score];
+        });
+
+        /* 注册时间格式化 */
+        var registerDate = computed(function () {
+            if (!userInfo.create_time) return '暂无';
+            return userInfo.create_time.split(' ')[0] || userInfo.create_time;
+        });
+
+        /* 加载用户信息 */
+        onMounted(function () {
+            HuiYanFarmer.request.get('/me').then(function (res) {
+                var d = res.data || {};
+                userInfo.nickname = d.nickname || '';
+                userInfo.username = d.name || d.username || '';
+                userInfo.email = d.email || '';
+                userInfo.phone = d.phone || '';
+            }).catch(function () { /* 忽略：默认显示“用户” */ });
+
+            /* 获取完整个人信息（含状态、注册时间） */
+            HuiYanFarmer.request.get('/profile').then(function (res) {
+                var d = (res.data && res.data.data) ? res.data.data : res.data;
+                userInfo.status = d.status != null ? d.status : 1;
+                userInfo.create_time = d.create_time || '';
+            }).catch(function () { /* 忽略 */ });
+        });
+
+        /* ---- 功能模块列表 ---- */
+        var features = ref([
+            { key: 'monitor', title: '设备监控', desc: '实时查看农场设备与环境数据', icon: 'chart-bar', link: '' },
+            { key: 'pest', title: '虫害识别', desc: '拍照上传，智能识别常见虫害', icon: 'image', link: '' },
+            { key: 'service', title: '农技服务', desc: '在线咨询与农技知识库', icon: 'service', link: '' },
+            { key: 'profile', title: '个人中心', desc: '管理账号信息与登录密码', icon: 'user-setting', link: '/farmer/profile' },
+            { key: 'log', title: '系统日志', desc: '查看系统操作记录与登录历史', icon: 'file', link: '/farmer/log' },
+            { key: 'system', title: '系统信息', desc: '查看系统版本与运行状态', icon: 'setting', link: '/farmer/system' }
+        ]);
+
+        var onFeatureClick = function (item) {
+            if (item.link && window.HuiYanFarmer && window.HuiYanFarmer.loadPage) {
+                window.HuiYanFarmer.loadPage(item.link);
+            } else if (item.link) {
+                location.href = item.link;
+            } else {
+                // 功能尚未开发，给用户反馈
+                if (typeof TDesign !== 'undefined' && TDesign.MessagePlugin) {
+                    TDesign.MessagePlugin.info(item.title + ' 功能开发中');
+                } else {
+                    alert(item.title + ' 功能开发中');
+                }
+            }
+        };
+
+        var goProfile = function () {
+            if (window.HuiYanFarmer && window.HuiYanFarmer.loadPage) {
+                window.HuiYanFarmer.loadPage('/farmer/profile');
+            } else {
+                location.href = '/farmer/profile';
+            }
+        };
+        var refresh = function () { location.reload(); };
+
+        return {
+            greeting: greeting, displayName: displayName,
+            userStatus: userStatus, securityLevel: securityLevel,
+            registerDate: registerDate,
+            features: features, onFeatureClick: onFeatureClick,
+            goProfile: goProfile, refresh: refresh
+        };
+    }
+});
+</script>
+{% endblock %}

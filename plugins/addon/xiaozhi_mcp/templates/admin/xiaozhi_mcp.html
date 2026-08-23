@@ -1,0 +1,133 @@
+{% extends "plugin_page_shell.html" %}
+{% block title %}小智 AI MCP - 慧眼护农{% endblock %}
+{% block head %}
+{{ super() }}
+<style>
+#page-app.xiaozhi-page { min-width: 0; }
+.xiaozhi-page > .t-card { margin-bottom: 0; }
+.xiaozhi-page .card-header-toolbar { gap: var(--app-spacing-md); }
+.xiaozhi-actions, .xiaozhi-source-tags, .xiaozhi-form-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--app-spacing-sm); }
+.xiaozhi-form-actions { justify-content: flex-end; padding-top: var(--app-spacing-md); }
+.xiaozhi-status-value { color: var(--app-text-primary); word-break: break-word; }
+.xiaozhi-mask, .xiaozhi-muted { color: var(--app-text-secondary); font-size: var(--app-font-size-sm); }
+.xiaozhi-runtime-alert, .xiaozhi-source-tags, .xiaozhi-tool-table, .xiaozhi-cache-alert { margin-top: var(--app-spacing-md); }
+.xiaozhi-page .xiaozhi-tool-table .t-table__content { overflow-x: auto !important; }
+.xiaozhi-control-stack { width: 100%; }
+.xiaozhi-field { display: flex; align-items: center; gap: var(--app-spacing-sm); width: 100%; }
+.xiaozhi-field .t-input { flex: 1; min-width: 0; }
+.xiaozhi-connection-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--app-spacing-xl); }
+.xiaozhi-section { min-width: 0; }
+.xiaozhi-section-title { margin: 0 0 var(--app-spacing-md); color: var(--app-text-primary); font-size: var(--app-font-size-lg); font-weight: 600; }
+.xiaozhi-page .json-editor-wrap { display: flex; width: 100%; overflow: hidden; border: 1px solid var(--app-border); border-radius: var(--app-radius-md); }
+.xiaozhi-page .json-editor-lines { flex-shrink: 0; min-width: calc(var(--app-spacing-xl) + var(--app-spacing-sm)); padding: var(--app-spacing-sm); color: var(--app-text-secondary); background: var(--app-bg-container); font-family: Consolas, "Courier New", monospace; text-align: right; white-space: pre; user-select: none; }
+.xiaozhi-page .json-editor-textarea, .xiaozhi-page .json-editor-textarea textarea { border: 0; border-radius: 0; font-family: Consolas, "Courier New", monospace; }
+@media (max-width: 768px) {
+    .xiaozhi-connection-grid { grid-template-columns: minmax(0, 1fr); }
+    .xiaozhi-field, .xiaozhi-form-actions { align-items: stretch; flex-direction: column; }
+    .xiaozhi-page .t-tabs__nav { max-width: 100%; overflow-x: auto; }
+    .xiaozhi-page .t-tabs__content { min-width: 0; }
+}
+</style>
+{% endblock %}
+{% block content %}
+<div id="page-app" v-cloak class="system-settings-page xiaozhi-page">
+    <t-card class="t-card--scrollable" title="小智 AI MCP">
+        <t-tabs v-model="activeTab" @change="onTabChange">
+            <t-tab-panel value="config" label="连接与监控" :destroy-on-hide="false">
+                <div class="settings-tab-content">
+                    <div class="xiaozhi-connection-grid">
+                        <section class="xiaozhi-section">
+                            <h2 class="xiaozhi-section-title">连接配置</h2>
+                            <t-skeleton v-if="configLoading" :row-col="[4, 1]" animation="gradient"></t-skeleton>
+                            <t-form v-else :data="form" :rules="configRules" label-align="top" @submit="saveConfig">
+                                <t-form-item label="启用常驻连接" name="enabled">
+                                    <t-switch v-model="form.enabled" :custom-value="[1, 0]"></t-switch>
+                                </t-form-item>
+                                <t-form-item label="小智 WSS 接入点" name="endpoint_url">
+                                    <div class="xiaozhi-control-stack">
+                                        <div class="xiaozhi-field">
+                                            <t-input v-model="form.endpoint_url" type="password" placeholder="请输入 wss:// 接入点" clearable></t-input>
+                                            <t-button v-if="config.endpoint_configured" theme="danger" variant="text" @click="clearEndpoint"><template #icon><t-icon name="delete"></t-icon></template>清除</t-button>
+                                        </div>
+                                        <div class="xiaozhi-mask">[[ config.endpoint_url || '未配置' ]]</div>
+                                    </div>
+                                </t-form-item>
+                                <div class="xiaozhi-form-actions" v-permission="'xiaozhi_mcp:manage'">
+                                    <t-button theme="primary" type="submit" :loading="saving"><template #icon><t-icon name="save"></t-icon></template>保存配置</t-button>
+                                </div>
+                            </t-form>
+                        </section>
+                        <section class="xiaozhi-section">
+                            <h2 class="xiaozhi-section-title">运行状态</h2>
+                            <t-skeleton v-if="statusLoading" :row-col="[4, 1]" animation="gradient"></t-skeleton>
+                            <template v-else>
+                                <t-descriptions :column="1" bordered>
+                                    <t-descriptions-item label="连接状态"><t-tag :theme="statusTheme" variant="light">[[ statusLabel ]]</t-tag></t-descriptions-item>
+                                    <t-descriptions-item label="连接时间"><span class="xiaozhi-status-value">[[ status.last_connected_at || '-' ]]</span></t-descriptions-item>
+                                    <t-descriptions-item label="重连次数"><span class="xiaozhi-status-value">[[ status.reconnect_attempts || 0 ]] 次</span></t-descriptions-item>
+                                    <t-descriptions-item label="可用工具"><span class="xiaozhi-status-value">[[ status.last_tool_count || 0 ]] 个</span></t-descriptions-item>
+                                    <t-descriptions-item label="最近断开原因"><span class="xiaozhi-status-value">[[ status.last_disconnected_reason || '-' ]]</span></t-descriptions-item>
+                                </t-descriptions>
+                                <t-alert v-if="status.last_disconnected_reason" class="xiaozhi-runtime-alert" theme="warning" :message="status.last_disconnected_reason"></t-alert>
+                                <div class="xiaozhi-form-actions" v-permission="'xiaozhi_mcp:manage'">
+                                    <t-button theme="default" :loading="testing" @click="testConnection"><template #icon><t-icon name="check-circle"></t-icon></template>测试连接</t-button>
+                                    <t-button theme="default" :loading="operating" @click="reconnect"><template #icon><t-icon name="refresh"></t-icon></template>重连</t-button>
+                                    <t-button theme="danger" :loading="operating" @click="disconnect"><template #icon><t-icon name="link-unlink"></t-icon></template>断开</t-button>
+                                </div>
+                            </template>
+                        </section>
+                    </div>
+                </div>
+            </t-tab-panel>
+            <t-tab-panel value="mcp" label="MCP 管理" :destroy-on-hide="false" v-permission="'xiaozhi_mcp:list'">
+                <div class="settings-tab-content">
+                    <div class="card-header-toolbar">
+                        <div class="card-header-toolbar-left"><span class="xiaozhi-muted">每条记录独立保存地址和鉴权 JSON</span></div>
+                        <div class="card-header-toolbar-right" v-permission="'xiaozhi_mcp:manage'"><t-button theme="primary" @click="openServerCreate"><template #icon><t-icon name="add"></t-icon></template>新增 MCP</t-button></div>
+                    </div>
+                    <t-skeleton v-if="serversLoading" :row-col="[6]" animation="gradient"></t-skeleton>
+                    <t-table v-else :data="externalServers" :columns="serverColumns" row-key="id" empty="暂无自定义 MCP" hover table-layout="fixed">
+                        <template #status="{ row }"><t-tag :theme="row.status === 1 ? 'success' : 'danger'" variant="light">[[ row.status === 1 ? '启用' : '停用' ]]</t-tag></template>
+                        <template #tools="{ row }"><span>[[ (row.tools_cache || []).length ]] 个</span></template>
+                        <template #test="{ row }"><t-tag v-if="row.last_test_status === 1" theme="success" variant="light">通过</t-tag><t-tag v-else-if="row.last_test_status === 2" theme="danger" variant="light">失败</t-tag><span v-else class="xiaozhi-muted">未测试</span></template>
+                        <template #operation="{ row }">
+                            <t-button theme="default" variant="text" size="small" :loading="row.testing" @click="testServer(row)">测试</t-button>
+                            <t-button theme="default" variant="text" size="small" :loading="row.refreshing" @click="refreshServerTools(row)">刷新工具</t-button>
+                            <t-button :theme="row.status === 1 ? 'warning' : 'primary'" variant="text" size="small" @click="toggleServer(row)">[[ row.status === 1 ? '停用' : '启用' ]]</t-button>
+                            <t-button theme="primary" variant="text" size="small" @click="openServerEdit(row)">编辑</t-button>
+                            <t-button theme="danger" variant="text" size="small" @click="deleteServer(row)">删除</t-button>
+                        </template>
+                    </t-table>
+                </div>
+            </t-tab-panel>
+            <t-tab-panel value="tools" label="工具预览" :destroy-on-hide="false">
+                <div class="settings-tab-content">
+                    <t-skeleton v-if="toolsLoading" :row-col="[1, 5]" animation="gradient"></t-skeleton>
+                    <template v-else>
+                        <t-alert v-if="toolsError" theme="error" :message="toolsError"></t-alert>
+                        <t-alert v-if="tools.over_limit" theme="error" message="工具清单超过小智容量限制，请停用部分 MCP 或减少缓存工具。"></t-alert>
+                        <t-alert v-if="pendingServerCount" class="xiaozhi-cache-alert" theme="info" :message="`${pendingServerCount} 个已启用 MCP 尚无工具缓存，请先在 MCP 管理中测试或刷新工具。`"></t-alert>
+                        <div class="xiaozhi-source-tags"><t-tag variant="light">外部 MCP [[ tools.source_stats.external || 0 ]]</t-tag><t-tag variant="light">容量 [[ tools.capacity_limit || '-' ]]</t-tag><t-tag variant="light">估算 [[ tools.estimated_tokens || 0 ]] Tokens</t-tag></div>
+                        <t-table class="xiaozhi-tool-table" row-key="name" :data="tools.list" :columns="toolColumns" empty="暂无已缓存的 MCP 工具" hover table-layout="fixed"></t-table>
+                    </template>
+                </div>
+            </t-tab-panel>
+        </t-tabs>
+    </t-card>
+
+    <t-dialog v-model:visible="serverVisible" :header="serverForm.id ? '编辑 MCP' : '新增 MCP'" :footer="false" :close-on-overlay-click="false">
+        <t-form v-if="serverVisible" ref="serverFormRef" :data="serverForm" :rules="serverRules" label-align="top" @submit="saveServer">
+            <t-form-item label="MCP 名称" name="name"><t-input v-model="serverForm.name" placeholder="例如：天气服务"></t-input></t-form-item>
+            <t-form-item label="JSON 配置" name="config_json">
+                <div class="json-editor-wrap"><div class="json-editor-lines" v-text="jsonLineNumbers"></div><t-textarea v-model="serverForm.config_json" class="json-editor-textarea" :autosize="{ minRows: 10, maxRows: 24 }" placeholder='{"mcpServers":{"weather":{"url":"https://example.com/mcp"}}}' @input="updateJsonLines"></t-textarea></div>
+            </t-form-item>
+            <t-form-item label="启用状态" name="status"><t-switch v-model="serverForm.status" :custom-value="[1, 2]"></t-switch></t-form-item>
+            <div class="xiaozhi-form-actions"><t-button theme="default" @click="serverVisible = false">取消</t-button><t-button theme="primary" type="submit" :loading="serverSaving"><template #icon><t-icon name="save"></t-icon></template>保存</t-button></div>
+        </t-form>
+    </t-dialog>
+</div>
+{% endblock %}
+{% block scripts %}
+{{ super() }}
+<script src="/static/js/pages/xiaozhi_mcp.js?v={{ config.app_version }}"></script>
+{% endblock %}

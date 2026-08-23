@@ -1,0 +1,314 @@
+/* 慧眼护农 V4 管理后台样式（拆分 3/4）：占位/搜索/表单网格/设置页布局 + Dashboard + 权限树 + 图片上传 + 农户列表/悬浮卡片 */
+/* 由 admin.css 等价拆分而来，模板按原顺序 <link> 顺次引入，整体等价单文件 */
+
+/* ========== 占位页面统一样式（功能开发中/溯源查询/数据大屏等） ========== */
+.placeholder-page { text-align: center; padding: 80px 20px; }
+.placeholder-page__icon { font-size: 64px; color: var(--app-brand-color); margin-bottom: 16px; }
+.placeholder-page__title { font-size: var(--app-font-size-xl); font-weight: 600; color: var(--app-text-primary); margin-bottom: 8px; }
+.placeholder-page__desc { font-size: var(--app-font-size-md); color: var(--app-text-placeholder); }
+
+/* ========== 搜索输入框统一宽度 ========== */
+.search-input { width: 240px; }
+.search-input--sm { width: 160px; }
+.search-input--md { width: 200px; }
+.filter-select { width: 160px; }
+
+/* ========== 表单网格布局（全局共享） ========== */
+/* 自适应列：一行最多 N 个（--2/--3/--4），宽度不足时自动换行；行/列间距遵循视觉规范（20px / 32px） */
+/* auto-fit + minmax(max(...)) 实现「上限 N 列 + 基础换行」，无需媒体查询，前端全局统一 */
+.form-grid {
+    display: grid;
+    gap: 20px 32px;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+.form-grid--2 { grid-template-columns: repeat(auto-fit, minmax(max(200px, calc((100% - 32px) / 2)), 1fr)); }
+.form-grid--3 { grid-template-columns: repeat(auto-fit, minmax(max(200px, calc((100% - 64px) / 3)), 1fr)); }
+.form-grid--4 { grid-template-columns: repeat(auto-fit, minmax(max(200px, calc((100% - 96px) / 4)), 1fr)); }
+.form-grid + .form-grid { margin-top: var(--app-spacing-md); }
+.form-grid .t-form__item {
+    display: flex;
+    align-items: flex-start;
+    margin-bottom: 0;
+}
+.form-grid .t-form__label {
+    width: 120px;
+    min-width: 120px;
+    flex-shrink: 0;
+    text-align: left;
+    padding-right: 12px;
+    /* 允许长标签自动换行，避免文字溢出遮挡右侧控件（如「管理员强制安全验证」） */
+    white-space: normal;
+    word-break: break-word;
+    line-height: 1.4;
+    padding-top: 6px;
+}
+/* 控件区自适应填满剩余空间，但限制最大宽度，避免单列/双列时输入框过宽不符合视觉规范 */
+.form-grid .t-form__controls {
+    flex: 1;
+    min-width: 0;
+    max-width: 320px;
+    margin-left: 0 !important;
+}
+/* 数字输入框/下拉框默认有固定宽度，多列时会溢出遮挡相邻标签；强制填满控件区并允许收窄 */
+.form-grid .t-form__controls-content { width: 100%; }
+.form-grid .t-input-number,
+.form-grid .t-select,
+.form-grid .t-select__wrap { width: 100%; min-width: 0; }
+.form-grid .t-radio-group { line-height: 32px; }
+
+/* ========== 表单分区标题（全局共享） ========== */
+.form-section-title {
+    font-size: var(--app-font-size-lg);
+    font-weight: 600;
+    color: var(--app-text-primary);
+    margin: 28px 0 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--app-border);
+}
+.form-section-title:first-child { margin-top: 0; }
+
+/* ========== 设置页通用布局（全局共享） ========== */
+.settings-tab-content { padding: 24px 32px; }
+.settings-form-actions {
+    margin-top: 32px;
+    padding-top: 16px;
+    border-top: 1px solid var(--app-border);
+}
+
+/* ========== 表单网格内输入框内容左对齐（全局规范） ========== */
+.form-grid .t-input__inner,
+.form-grid .t-textarea__inner,
+.form-grid .t-input-number input {
+    text-align: left;
+}
+.form-grid .t-select__input-inner {
+    text-align: left;
+}
+
+/* ========== 卡片内 Tab 内容区左右间距（全局规范） ========== */
+.t-tabs__content {
+    padding: 0 var(--app-spacing-md);
+}
+
+/* ========== Dashboard 控制台页面 ========== */
+.dashboard-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: var(--app-spacing-md);
+}
+.dashboard-stat-card {
+    background: var(--app-bg-container);
+    border-radius: var(--app-radius-md);
+    padding: var(--app-spacing-lg);
+    display: flex;
+    align-items: center;
+    gap: var(--app-spacing-md);
+    border: 1px solid var(--app-border);
+    position: relative;
+    transition: transform var(--app-duration-base) var(--app-ease-spring), box-shadow var(--app-duration-base) var(--app-ease-standard);
+}
+.dashboard-stat-card:hover { transform: translateY(-2px); box-shadow: var(--app-shadow-2); }
+.stat-card-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: var(--app-radius-md);
+    background: var(--app-brand-light);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--app-brand-color);
+    flex-shrink: 0;
+}
+.stat-card-value {
+    font-size: var(--app-font-size-xl);
+    font-weight: 600;
+    color: var(--app-text-primary);
+    line-height: 1.2;
+}
+.stat-card-label {
+    font-size: var(--app-font-size-sm);
+    color: var(--app-text-secondary);
+    margin-top: 2px;
+}
+.stat-card-sub {
+    position: absolute;
+    right: var(--app-spacing-lg);
+    bottom: var(--app-spacing-md);
+    font-size: var(--app-font-size-sm);
+    color: var(--app-text-placeholder);
+}
+
+/* ========== 权限树容器 ========== */
+/* 全宽包裹容器：避免 t-form 控件区 flex 布局把工具栏/提示/目录树挤在同一行 */
+.perm-field { width: 100%; }
+/* 权限操作工具条：切换按钮居左（中性次要样式），搜索框靠右 */
+.perm-toolbar {
+    display: flex; align-items: center; gap: var(--app-spacing-sm);
+    margin-bottom: var(--app-spacing-sm); flex-wrap: wrap;
+}
+.perm-toolbar__search { width: 180px; margin-left: auto; }
+
+/* ========== 权限树容器 ========== */
+.perm-tree-wrapper {
+    max-height: 320px;
+    overflow-y: auto;
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-sm);
+    padding: var(--app-spacing-sm);
+}
+
+/* ========== 图片上传组件 image-upload（全局统一：所有图片上传使用此样式） ========== */
+/* 触发框 + 预览框并排；下方尺寸/大小提示。对标 ZJMF 上传交互 */
+.image-uploader__boxes {
+    display: flex;
+    align-items: stretch;
+    gap: var(--app-spacing-md);
+}
+/* 触发框与预览框统一高度，视觉对齐 */
+.image-uploader__trigger,
+.image-uploader__preview {
+    height: 88px;
+    border-radius: var(--app-radius-md);
+    box-sizing: border-box;
+}
+/* 左侧：虚线「上传图片 +」触发框 */
+.image-uploader__trigger {
+    width: 88px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--app-spacing-xs);
+    border: 1px dashed var(--app-border);
+    background: var(--app-bg-container);
+    color: var(--app-text-secondary);
+    cursor: pointer;
+    transition: border-color var(--app-duration-base) var(--app-ease-standard),
+                color var(--app-duration-base) var(--app-ease-standard);
+}
+.image-uploader__trigger:hover {
+    border-color: var(--app-brand-color);
+    color: var(--app-brand-color);
+}
+.image-uploader__trigger.is-loading {
+    cursor: default;
+    pointer-events: none;
+}
+.image-uploader__plus { font-size: var(--app-font-size-xl); }
+.image-uploader__label { font-size: var(--app-font-size-sm); }
+/* 右侧：图片预览框，hover 显示删除遮罩 */
+.image-uploader__preview {
+    position: relative;
+    min-width: 88px;
+    max-width: 200px;
+    padding: var(--app-spacing-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--app-border);
+    background: var(--app-bg-card);
+    overflow: hidden;
+}
+.image-uploader__img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    display: block;
+}
+.image-uploader__mask {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: var(--app-font-size-xl);
+    color: var(--app-text-anti);
+    background: var(--app-mask);
+    opacity: 0;
+    cursor: pointer;
+    transition: opacity var(--app-duration-base) var(--app-ease-standard);
+}
+.image-uploader__preview:hover .image-uploader__mask { opacity: 1; }
+/* 下方提示文字（尺寸/大小要求） */
+.image-uploader__hint {
+    margin-top: var(--app-spacing-sm);
+    font-size: var(--app-font-size-sm);
+    color: var(--app-text-placeholder);
+}
+/* 隐藏原生 file input */
+.image-uploader__input { display: none; }
+
+/* ========== 农户列表 用户名交互样式 ========== */
+.farmer-name-link {
+    color: var(--app-brand-color);
+    cursor: pointer;
+    text-decoration: none;
+    border-bottom: 1px dashed transparent;
+    transition: border-color 0.2s;
+}
+.farmer-name-link:hover {
+    border-bottom-color: var(--app-brand-color);
+    text-decoration: none;
+}
+
+/* ========== 农户悬浮卡片弹窗 ========== */
+.farmer-popup-card {
+    width: 420px;
+    padding: var(--app-spacing-sm) var(--app-spacing-md);
+}
+.popup-header {
+    display: flex;
+    align-items: center;
+    gap: var(--app-spacing-sm);
+    padding-bottom: var(--app-spacing-md);
+    border-bottom: 1px solid var(--app-border);
+    margin-bottom: var(--app-spacing-md);
+}
+.popup-username {
+    font-size: var(--app-font-size-lg);
+    font-weight: 600;
+    color: var(--app-text-primary);
+}
+.popup-body {
+    display: flex;
+    gap: var(--app-spacing-xl);
+}
+.popup-col {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--app-spacing-sm);
+}
+.popup-row {
+    display: flex;
+    align-items: baseline;
+    gap: var(--app-spacing-xs);
+    line-height: 1.6;
+    font-size: var(--app-font-size-sm);
+}
+.popup-label {
+    color: var(--app-text-secondary);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.popup-label::after {
+    content: ':';
+    margin-right: 4px;
+}
+.popup-val {
+    color: var(--app-text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+}
+.popup-footer {
+    margin-top: var(--app-spacing-md);
+    padding-top: var(--app-spacing-md);
+    border-top: 1px solid var(--app-border);
+}
+.popup-footer-actions {
+    display: flex;
+    gap: var(--app-spacing-sm);
+}

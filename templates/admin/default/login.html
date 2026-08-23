@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理员登录 - 慧眼护农</title>
+    <link rel="icon" href="/static/img/favicon.png" type="image/png">
+    <style>[v-cloak]{display:none!important;}</style>
+    <!-- TDesign Vue Next CSS（本地 vendor，无外网依赖） -->
+    <link rel="stylesheet" href="/static/vendor/tdesign/tdesign.min.css">
+    <!-- 引入统一 Design Token -->
+    <link rel="stylesheet" href="/static/css/theme.css?v={{ config.app_version }}">
+    <!-- 后台样式（由 admin.css 等价拆分为 4 个文件，按原顺序依次引入） -->
+    <link rel="stylesheet" href="/static/css/admin-base.css?v={{ config.app_version }}">
+    <link rel="stylesheet" href="/static/css/admin-nav.css?v={{ config.app_version }}">
+    <link rel="stylesheet" href="/static/css/admin-forms.css?v={{ config.app_version }}">
+    <link rel="stylesheet" href="/static/css/admin-detail.css?v={{ config.app_version }}">
+    <style>
+        /* ========== 登录页 — 背景图 + 顶部栏 + 居中卡片 ========== */
+        html, body { height: 100%; overflow: hidden; }
+
+        .login-page {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            height: 100vh;
+            /* 背景图（从配置 API 动态加载）+ 渐变底色 */
+            background: var(--app-bg-page);
+            position: relative;
+        }
+        /* 背景图层（通过 JS 设置 background-image） */
+        .login-page__bg {
+            position: absolute;
+            inset: 0;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            z-index: 0;
+        }
+        /* 半透明遮罩（保证卡片可读性，同时让背景图清晰可见） */
+        .login-page__bg::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: var(--app-glass-bg);
+        }
+
+        /* ===== 顶部栏 ===== */
+        .login-topbar {
+            height: 56px;
+            display: flex;
+            align-items: center;
+            padding: 0 24px;
+            position: relative;
+            z-index: 2;
+        }
+        .login-topbar__logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .login-topbar__logo img {
+            height: 40px;
+            width: auto;
+            object-fit: contain;
+        }
+        .login-topbar__logo span {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--app-text-primary);
+            letter-spacing: 0.5px;
+        }
+
+        /* ===== 中央区域 ===== */
+        .login-center {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            padding-left: 10%;
+        }
+
+        /* 登录卡片（英雄区卡片，采用令牌高阶阴影） */
+        .login-card {
+            width: 420px;
+            padding: 40px 36px 32px;
+            background: var(--app-bg-card);
+            border-radius: var(--app-radius-lg);
+            box-shadow: var(--app-shadow-3);
+        }
+
+        .login-card__title {
+            font-size: 24px;
+            font-weight: 600;
+            color: var(--app-text-primary);
+            margin-bottom: 4px;
+        }
+        .login-card__subtitle {
+            font-size: 14px;
+            color: var(--app-text-placeholder);
+            margin-bottom: 32px;
+        }
+
+        /* 表单（消除默认 label 宽度） */
+        .login-form .t-form__item {
+            margin-bottom: 20px;
+        }
+        .login-form .t-form__label {
+            display: none !important;
+        }
+        .login-form .t-form__controls {
+            margin-left: 0 !important;
+        }
+
+        /* 登录按钮 */
+        .login-btn {
+            width: 100%;
+            height: 40px;
+            font-size: 15px;
+            font-weight: 500;
+            border-radius: var(--app-radius-md);
+            margin-top: 4px;
+        }
+
+        /* 辅助信息行 */
+        .login-helpers {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            font-size: 13px;
+        }
+        .login-helpers .t-checkbox__label {
+            color: var(--app-text-secondary);
+        }
+
+        /* 默认账号提示 */
+        .login-hint {
+            text-align: center;
+            color: var(--app-text-placeholder);
+            font-size: 12px;
+            margin-top: 20px;
+        }
+
+        /* ===== 底部 ===== */
+        .login-footer {
+            text-align: center;
+            padding: 16px;
+            font-size: 12px;
+            color: var(--app-text-placeholder);
+            position: relative;
+            z-index: 1;
+        }
+
+        /* ===== 响应式 ===== */
+        @media (max-width: 480px) {
+            .login-card { width: calc(100% - 32px); padding: 32px 24px 24px; }
+        }
+    </style>
+</head>
+<body>
+<div id="login-app" v-cloak class="login-page">
+
+    <!-- 顶部栏（仅 Logo，无文字） -->
+    <div class="login-topbar">
+        <div class="login-topbar__logo">
+            <img :src="siteLogo" alt="Logo">
+        </div>
+    </div>
+
+    <!-- 背景图层 -->
+    <div class="login-page__bg" :style="bgStyle"></div>
+
+    <!-- 居中登录卡片 -->
+    <div class="login-center">
+        <div class="login-card">
+            <h1 class="login-card__title">欢迎登录</h1>
+            <p class="login-card__subtitle">智慧农业业务管理平台</p>
+
+            <t-form class="login-form" label-width="0" :data="loginForm" :rules="rules" @submit="onLogin">
+                <t-form-item name="username">
+                    <t-input v-model="loginForm.username" size="large" placeholder="用户名 / 手机号 / 邮箱" clearable>
+                        <template #prefix-icon><t-icon name="user"/></template>
+                    </t-input>
+                </t-form-item>
+                <t-form-item name="password">
+                    <t-input v-model="loginForm.password" size="large" type="password" placeholder="请输入密码" clearable>
+                        <template #prefix-icon><t-icon name="lock-on"/></template>
+                    </t-input>
+                </t-form-item>
+
+                <div class="login-helpers">
+                    <t-checkbox>记住账号</t-checkbox>
+                </div>
+
+                <t-button theme="primary" class="login-btn" type="submit" :loading="loading">登录</t-button>
+            </t-form>
+
+            <p class="login-hint">默认账号: admin / 123456</p>
+        </div>
+    </div>
+
+    <!-- 底部版权 -->
+    <div class="login-footer">Copyright &copy; 2025-2026 慧眼护农. All Rights Reserved</div>
+</div>
+
+<!-- 前端依赖（全部本地 vendor，零构建，无海外 CDN） -->
+<script src="/static/vendor/vue/vue.global.prod.min.js"></script>
+<script src="/static/vendor/tdesign/tdesign.min.js"></script>
+<script src="/static/vendor/tdesign-icons/index.min.js"></script>
+<script src="/static/vendor/axios/axios.min.js"></script>
+<script src="/static/js/login.js?v={{ config.app_version }}"></script>
+</body>
+</html>

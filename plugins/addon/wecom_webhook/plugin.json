@@ -1,0 +1,28 @@
+{
+  "name": "wecom_webhook",
+  "title": "企业微信通知",
+  "version": "5.0.0",
+  "description": "企业微信群机器人管理员通知渠道，使用数据驱动模板卡片和动作级路由",
+  "author": "HuiYan Team",
+  "module": "addon",
+  "owner_id": "wecom_webhook",
+  "surface": "admin",
+  "enabled": true,
+  "default_order": 100,
+  "compatible_app_versions": [">=4.0.0"],
+  "dependencies": [],
+  "conflicts": [],
+  "permissions": ["wecom_webhook:config:view"],
+  "capabilities": ["notification.channel"],
+  "pages": [{"page_key": "plugin_wecom_webhook", "surface": "admin", "route": "/plugin/wecom_webhook/wecom_webhook", "template": "wecom_webhook.html", "permission": "wecom_webhook:config:view"}],
+  "resources": [],
+  "tasks": ["wecom_notice"],
+  "events": [],
+  "health": {"check": "plugin.wecom_webhook"},
+  "config": {
+    "wecom_webhook.webhook_url": "",
+    "wecom_webhook.enabled": "0",
+    "wecom_webhook.timeout_seconds": "10",
+    "wecom_webhook.retry_times": "3"
+  }
+}

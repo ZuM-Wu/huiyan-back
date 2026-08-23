@@ -1,0 +1,52 @@
+/**
+ * 系统设置页面专属样式
+ *
+ * 说明：表单网格（.form-grid）、分区标题（.form-section-title）、设置页布局
+ *       （.settings-tab-content / .settings-form-actions）等通用类已统一收敛到
+ *       admin.css（全局共享），本文件仅保留「系统设置页」独有、无法全局复用的样式，
+ *       避免全局样式重复定义与后续漂移（符合视觉规范：页面专属 CSS 只放页面独有规则）。
+ */
+
+/* ===== 访问设置：左侧垂直子 Tab 与右侧表单内容留出间距 ===== */
+.settings-tab-content .t-tabs__header.t-is-left {
+    margin-right: var(--app-spacing-lg);
+}
+
+/* 左侧垂直子 Tab 内容面板顶部间距 */
+.settings-tab-content .t-tabs .t-tabs__content {
+    padding-top: var(--app-spacing-md);
+}
+
+/* 子 Tab 面板内独立 form-item（不在 grid 内的）底部间距 */
+.settings-tab-content .t-tabs .t-tab-panel > .t-form > .t-form__item {
+    margin-bottom: var(--app-spacing-md);
+}
+
+/* form-grid 与紧跟的独立 form-item 之间间距 */
+.settings-tab-content .form-grid + .t-form__item {
+    margin-top: var(--app-spacing-sm);
+}
+
+/* 表单尾部提示信息块与上方内容间距 */
+.settings-tab-content .t-alert {
+    margin-top: var(--app-spacing-lg);
+}
+
+/* ===== 响应式：小屏收紧设置页内边距（列宽由 auto-fit 自适应，无需媒体查询干预） ===== */
+@media (max-width: 768px) {
+    .settings-tab-content { padding: var(--app-spacing-md); }
+}
+
+.upload-policy-group { margin-bottom: var(--app-spacing-xl); }
+.upload-policy-row { display: grid; grid-template-columns: minmax(180px, 1fr) 150px minmax(260px, 2fr);
+    gap: var(--app-spacing-md); align-items: center; padding: var(--app-spacing-md) 0;
+    border-bottom: 1px solid var(--app-border); }
+.upload-policy-title { display: flex; align-items: center; gap: var(--app-spacing-sm); font-weight: 600; }
+.upload-policy-desc { color: var(--app-text-secondary); font-size: 12px; margin-top: 4px; }
+.upload-policy-fixed { display: flex; flex-wrap: wrap; gap: var(--app-spacing-xs); }
+.upload-policy-row.is-error { outline: 1px solid var(--app-error); outline-offset: 4px; }
+@media (max-width: 768px) { .upload-policy-row { grid-template-columns: 1fr; } }
+.plugin-upload-policy__row { display: grid; grid-template-columns: minmax(120px, 1fr) 90px minmax(180px, 2fr);
+    gap: var(--app-spacing-sm); padding: var(--app-spacing-sm) 0; border-bottom: 1px solid var(--app-border); }
+.plugin-sync-table { width: 100%; }
+@media (max-width: 768px) { .plugin-sync-table { min-width: 720px; } }

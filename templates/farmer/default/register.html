@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>注册 · 慧眼护农 农户端</title>
+    <link rel="icon" href="/static/img/favicon.png" type="image/png">
+    <!-- 主题防闪烁：页面加载前从 localStorage 读取主题偏好 -->
+    <script>(function(){try{var t=localStorage.getItem('farmer_theme');if(t==='dark'){document.documentElement.setAttribute('data-theme','dark');}}catch(e){}})();</script>
+    <style>[v-cloak]{display:none!important;}</style>
+    <link rel="stylesheet" href="/static/vendor/tdesign/tdesign.min.css">
+    <link rel="stylesheet" href="/static/css/theme.css?v={{ config.app_version }}">
+    <link rel="stylesheet" href="{{ theme_static }}/css/app.css?v={{ config.app_version }}">
+    <!-- 页面级样式（含登录/注册页样式），须在 app.css 之后加载 -->
+    <link rel="stylesheet" href="{{ theme_static }}/css/app-pages.css?v={{ config.app_version }}">
+</head>
+<body class="farmer-login-body">
+<div id="farmer-register" v-cloak class="farmer-login-page">
+    <!-- 蓝色品牌卡片 -->
+    <div class="farmer-login-brand">
+        <div class="farmer-login-brand__stripes"></div>
+        <div class="farmer-login-brand__content">
+            <h1 class="farmer-login-brand__welcome">WELCOME</h1>
+            <p class="farmer-login-brand__title">[[ siteName ]] · 农户服务平台</p>
+            <p class="farmer-login-brand__desc">智慧农业管理，从这里开始</p>
+        </div>
+    </div>
+
+    <!-- 注册表单卡片 -->
+    <div class="farmer-login-form-card">
+        <h2 class="farmer-login-form__title">注册</h2>
+        <p class="farmer-login-form__subtitle">创建您的农户服务平台账号</p>
+
+        <t-form :data="regForm" :rules="rules" @submit="onRegisterSubmit" label-width="0" class="farmer-login-form">
+            <!-- 注册渠道 Tab（手机/邮箱，仅两者都开启时显示） -->
+            <div v-if="showPhoneReg && showEmailReg" class="farmer-login-tabs">
+                <span :class="['farmer-login-tabs__item', regTab==='phone' && 'active']"
+                      @click="regTab='phone'">手机注册</span>
+                <span :class="['farmer-login-tabs__item', regTab==='email' && 'active']"
+                      @click="regTab='email'">邮箱注册</span>
+            </div>
+
+            <!-- ===== 手机注册 ===== -->
+            <template v-if="regTab === 'phone'">
+                <t-form-item name="phone" :label-width="0" :status="phoneStatus" :tips="phoneTips">
+                    <t-input v-model="regForm.phone" placeholder="请输入手机号" clearable
+                             @blur="checkPhoneDuplicate">
+                        <template #prefix-icon><t-icon name="call"></t-icon></template>
+                    </t-input>
+                </t-form-item>
+                <t-form-item v-if="cfgPhoneRegisterVerify" name="verify_code" :label-width="0">
+                    <div class="farmer-code-input">
+                        <t-input v-model="regForm.verify_code" placeholder="请输入手机验证码" clearable>
+                            <template #prefix-icon><t-icon name="secured"></t-icon></template>
+                        </t-input>
+                        <t-button variant="outline"
+                                  :disabled="phoneCooldown > 0 || !regForm.phone || phoneStatus === 'error'"
+                                  @click="sendRegCode('sms')" class="farmer-code-btn">
+                            [[ phoneCooldown > 0 ? phoneCooldown + 's' : '获取验证码' ]]
+                        </t-button>
+                    </div>
+                </t-form-item>
+            </template>
+
+            <!-- ===== 邮箱注册 ===== -->
+            <template v-if="regTab === 'email'">
+                <t-form-item name="email" :label-width="0" :status="emailStatus" :tips="emailTips">
+                    <t-input v-model="regForm.email" placeholder="请输入邮箱" clearable
+                             @blur="checkEmailDuplicate">
+                        <template #prefix-icon><t-icon name="mail"></t-icon></template>
+                    </t-input>
+                </t-form-item>
+                <t-form-item v-if="cfgEmailRegisterVerify" name="verify_code" :label-width="0">
+                    <div class="farmer-code-input">
+                        <t-input v-model="regForm.verify_code" placeholder="请输入邮箱验证码" clearable>
+                            <template #prefix-icon><t-icon name="secured"></t-icon></template>
+                        </t-input>
+                        <t-button variant="outline"
+                                  :disabled="emailCooldown > 0 || !regForm.email || emailStatus === 'error'"
+                                  @click="sendRegCode('email')" class="farmer-code-btn">
+                            [[ emailCooldown > 0 ? emailCooldown + 's' : '获取验证码' ]]
+                        </t-button>
+                    </div>
+                </t-form-item>
+            </template>
+
+            <!-- 密码（所有渠道通用） -->
+            <t-form-item name="password" :label-width="0">
+                <t-input v-model="regForm.password" type="password" placeholder="设置登录密码" clearable>
+                    <template #prefix-icon><t-icon name="lock-on"></t-icon></template>
+                </t-input>
+            </t-form-item>
+
+            <!-- 协议同意复选框 -->
+            <div v-if="serviceUrl || privacyUrl" class="farmer-login-agreement">
+                <t-checkbox v-model="agreed">
+                    <span>我已阅读并同意</span>
+                    <a v-if="serviceUrl" :href="serviceUrl" target="_blank" @click.stop>《服务协议》</a>
+                    <span v-if="serviceUrl && privacyUrl">和</span>
+                    <a v-if="privacyUrl" :href="privacyUrl" target="_blank" @click.stop>《隐私协议》</a>
+                </t-checkbox>
+            </div>
+
+            <t-button theme="primary" block type="submit" :loading="loading"
+                      :disabled="loading || ((serviceUrl || privacyUrl) && !agreed)"
+                      class="farmer-login-btn">注册</t-button>
+        </t-form>
+
+        <p class="farmer-login-form__switch">
+            已有账号？<a href="/farmer/login">返回登录</a>
+        </p>
+    </div>
+</div>
+
+<script src="/static/vendor/vue/vue.global.prod.min.js"></script>
+<script src="/static/vendor/tdesign/tdesign.min.js"></script>
+<script src="/static/vendor/tdesign-icons/index.min.js"></script>
+<script src="/static/vendor/axios/axios.min.js"></script>
+<script src="{{ theme_static }}/js/farmer-app.js?v={{ config.app_version }}"></script>
+<script>
+HuiYanFarmer.createApp({
+    setup() {
+        var ref = Vue.ref;
+        var reactive = Vue.reactive;
+        var onMounted = Vue.onMounted;
+
+        var loading = ref(false);
+        var siteName = ref('慧眼护农');
+
+        /* ===== 注册渠道 Tab ===== */
+        var regTab = ref('phone');
+
+        /* ===== 配置驱动的 UI 显隐 ===== */
+        var showPhoneReg = ref(true);           // farmer_allow_phone_register
+        var showEmailReg = ref(true);           // farmer_allow_email_register
+        var cfgPhoneRegisterVerify = ref(true); // farmer_phone_register_verify
+        var cfgEmailRegisterVerify = ref(true); // farmer_email_register_verify
+
+        /* ===== 邮箱后缀限制配置 ===== */
+        var emailSuffixEnabled = ref(false);   // farmer_email_suffix_enabled
+        var emailSuffixes = ref('');           // farmer_email_suffixes（如 @qq.com,@gmail.com）
+        var emailSuffixList = ref([]);         // 解析后的后缀数组（小写）
+
+        /* ===== 协议链接 ===== */
+        var serviceUrl = ref('');
+        var privacyUrl = ref('');
+        var agreed = ref(false);
+
+        /* ===== 表单数据 ===== */
+        var regForm = reactive({ password: '', phone: '', email: '', verify_code: '' });
+
+        /* ===== 表单校验规则（TDesign Form rules 内联校验） ===== */
+        var rules = {
+            phone: [
+                { required: true, message: '请输入手机号', type: 'error' },
+                { pattern: /^1[3-9]\d{9}$/, message: '手机号格式不正确', type: 'error' }
+            ],
+            email: [
+                { required: true, message: '请输入邮箱', type: 'error' },
+                { email: true, message: '邮箱格式不正确', type: 'error' }
+            ],
+            verify_code: [
+                { required: true, message: '请输入验证码', type: 'error' }
+            ],
+            password: [
+                { required: true, message: '请设置登录密码', type: 'error' },
+                { min: 6, message: '密码至少6位', type: 'error' }
+            ]
+        };
+
+        /* ===== 实时查重状态 ===== */
+        var phoneStatus = ref('');
+        var phoneTips = ref('');
+        var emailStatus = ref('');
+        var emailTips = ref('');
+        var _phoneTimer = null;
+        var _emailTimer = null;
+
+        /* ===== 实时查重：手机号（防抖 500ms） ===== */
+        function checkPhoneDuplicate() {
+            clearTimeout(_phoneTimer);
+            var phone = (regForm.phone || '').trim();
+            if (!phone || !/^1[3-9]\d{9}$/.test(phone)) {
+                phoneStatus.value = '';
+                phoneTips.value = '';
+                return;
+            }
+            _phoneTimer = setTimeout(function() {
+                axios.get('/api/v1/check-account', { params: { phone: phone } })
+                    .then(function(res) {
+                        if (res.data && res.data.available === false) {
+                            phoneStatus.value = 'error';
+                            phoneTips.value = '该手机号已被注册';
+                        } else {
+                            phoneStatus.value = '';
+                            phoneTips.value = '';
+                        }
+                    })
+                    .catch(function() {
+                        phoneStatus.value = '';
+                        phoneTips.value = '';
+                    });
+            }, 500);
+        }
+
+        /* ===== 实时查重：邮箱（防抖 500ms） ===== */
+        function checkEmailDuplicate() {
+            clearTimeout(_emailTimer);
+            var email = (regForm.email || '').trim();
+            if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+                emailStatus.value = '';
+                emailTips.value = '';
+                return;
+            }
+            /* 邮箱后缀限制：开启且后缀不匹配时立即拦截，不发请求 */
+            if (emailSuffixEnabled.value && emailSuffixList.value.length > 0) {
+                var emailLower = email.toLowerCase();
+                var matched = emailSuffixList.value.some(function(sfx) {
+                    return emailLower.endsWith(sfx);
+                });
+                if (!matched) {
+                    emailStatus.value = 'error';
+                    emailTips.value = '邮箱后缀不被允许，仅支持：' + emailSuffixes.value;
+                    return;
+                }
+            }
+            _emailTimer = setTimeout(function() {
+                axios.get('/api/v1/check-account', { params: { email: email } })
+                    .then(function(res) {
+                        if (res.data && res.data.available === false) {
+                            emailStatus.value = 'error';
+                            emailTips.value = '该邮箱已被注册';
+                        } else {
+                            emailStatus.value = '';
+                            emailTips.value = '';
+                        }
+                    })
+                    .catch(function() {
+                        emailStatus.value = '';
+                        emailTips.value = '';
+                    });
+            }, 500);
+        }
+
+        /* ===== 验证码倒计时（手机/邮箱各独立） ===== */
+        var phoneCooldown = ref(0);
+        var emailCooldown = ref(0);
+
+        function startCountdown(refVal, seconds) {
+            refVal.value = seconds;
+            var timer = setInterval(function() {
+                refVal.value--;
+                if (refVal.value <= 0) clearInterval(timer);
+            }, 1000);
+        }
+
+        /* ===== 加载公开站点配置 ===== */
+        function loadSiteConfig() {
+            axios.get('/api/admin/v1/config/site').then(function (res) {
+                var list = (res.data && res.data.list) || [];
+                var map = {};
+                list.forEach(function (item) { map[item.key] = item.value; });
+                if (map.site_name) siteName.value = map.site_name;
+
+                /* 解析注册渠道配置 */
+                showPhoneReg.value = parseInt(map.farmer_allow_phone_register) !== 0;
+                showEmailReg.value = parseInt(map.farmer_allow_email_register) !== 0;
+                cfgPhoneRegisterVerify.value = parseInt(map.farmer_phone_register_verify) !== 0;
+                cfgEmailRegisterVerify.value = parseInt(map.farmer_email_register_verify) !== 0;
+
+                /* 解析邮箱后缀限制配置 */
+                emailSuffixEnabled.value = parseInt(map.farmer_email_suffix_enabled) === 1;
+                emailSuffixes.value = map.farmer_email_suffixes || '';
+                emailSuffixList.value = emailSuffixes.value
+                    .replace(/，/g, ',').split(',')
+                    .map(function(s) { return s.trim().toLowerCase(); })
+                    .filter(function(s) { return s; });
+
+                /* Tab 自动选择：仅一种渠道时强制设定 */
+                if (showPhoneReg.value && !showEmailReg.value) regTab.value = 'phone';
+                if (!showPhoneReg.value && showEmailReg.value) regTab.value = 'email';
+
+                /* 协议链接 */
+                serviceUrl.value = map.farmer_service_agreement_url || '';
+                privacyUrl.value = map.farmer_privacy_policy_url || '';
+            }).catch(function () { /* 使用默认值 */ });
+        }
+
+        /* ===== 发送注册验证码 ===== */
+        function sendRegCode(channel) {
+            var cooldownRef = channel === 'sms' ? phoneCooldown : emailCooldown;
+            if (cooldownRef.value > 0) return;
+            var target = channel === 'sms' ? regForm.phone : regForm.email;
+            if (!target) return;
+            axios.post('/api/v1/send-code', {
+                target: target, purpose: 'register', channel: channel
+            }).then(function(res) {
+                var d = res.data || {};
+                TDesign.MessagePlugin.success(d.message || '验证码已发送');
+                startCountdown(cooldownRef, d.interval || 60);
+            }).catch(function(err) {
+                var msg = (err.response && err.response.data && err.response.data.detail) || '发送失败';
+                TDesign.MessagePlugin.error(msg);
+            });
+        }
+
+        /* ===== 注册提交 ===== */
+        function onRegisterSubmit(params) {
+            if (params && params.e) params.e.preventDefault();
+            /* 校验未通过时错误已内联显示，直接中断 */
+            if (params && params.validateResult !== true && params.validateResult !== undefined) return;
+            /* 实时查重未通过时阻断 */
+            if (phoneStatus.value === 'error' || emailStatus.value === 'error') return;
+            /* 邮箱后缀限制：提交前再校一次（防用户未触发 blur） */
+            if (regTab.value === 'email' && emailSuffixEnabled.value && emailSuffixList.value.length > 0) {
+                var emailLower2 = (regForm.email || '').trim().toLowerCase();
+                var suffixMatched = emailSuffixList.value.some(function(sfx) {
+                    return emailLower2.endsWith(sfx);
+                });
+                if (!suffixMatched) {
+                    emailStatus.value = 'error';
+                    emailTips.value = '邮箱后缀不被允许，仅支持：' + emailSuffixes.value;
+                    return;
+                }
+            }
+            if (loading.value) return;
+            loading.value = true;
+
+            var payload = {
+                password: regForm.password,
+                phone: regTab.value === 'phone' ? regForm.phone : '',
+                email: regTab.value === 'email' ? regForm.email : '',
+                verify_code: regForm.verify_code
+            };
+
+            HuiYanFarmer.request.post('/register', payload)
+                .then(function (res) {
+                    var d = res.data && res.data.data ? res.data.data : res.data;
+                    if (d && d.token) {
+                        localStorage.setItem('farmer_token', d.token);
+                        TDesign.MessagePlugin.success('注册成功，正在进入...');
+                        setTimeout(function () { location.href = '/farmer/home'; }, 800);
+                    } else {
+                        TDesign.MessagePlugin.error((res.data && res.data.msg) || '注册失败');
+                    }
+                })
+                .catch(function (err) {
+                    var msg = (err.response && err.response.data && err.response.data.detail) || '注册失败，请稍后重试';
+                    TDesign.MessagePlugin.error(msg);
+                })
+                .finally(function () { loading.value = false; });
+        }
+
+        /* ===== 初始化 ===== */
+        onMounted(function () {
+            loadSiteConfig();
+        });
+
+        return {
+            loading: loading, siteName: siteName,
+            regTab: regTab,
+            showPhoneReg: showPhoneReg, showEmailReg: showEmailReg,
+            cfgPhoneRegisterVerify: cfgPhoneRegisterVerify, cfgEmailRegisterVerify: cfgEmailRegisterVerify,
+            serviceUrl: serviceUrl, privacyUrl: privacyUrl, agreed: agreed,
+            regForm: regForm, rules: rules,
+            phoneStatus: phoneStatus, phoneTips: phoneTips,
+            emailStatus: emailStatus, emailTips: emailTips,
+            checkPhoneDuplicate: checkPhoneDuplicate, checkEmailDuplicate: checkEmailDuplicate,
+            phoneCooldown: phoneCooldown, emailCooldown: emailCooldown,
+            sendRegCode: sendRegCode, onRegisterSubmit: onRegisterSubmit
+        };
+    }
+}, '#farmer-register');
+</script>
+</body>
+</html>

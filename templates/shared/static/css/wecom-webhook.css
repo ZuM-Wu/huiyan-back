@@ -1,0 +1,150 @@
+.wecom-webhook-page .wecom-field-wide {
+    grid-column: 1 / -1;
+}
+
+.wecom-webhook-page .wecom-table-panel {
+    min-width: 0;
+}
+
+.wecom-webhook-page .wecom-action-type-tabs {
+    margin-bottom: var(--app-spacing-md);
+}
+
+.wecom-webhook-page .wecom-action-type-tabs > .t-tabs__content {
+    display: none;
+}
+
+.wecom-webhook-page .wecom-action-name {
+    color: var(--app-text-primary);
+    font-weight: 500;
+}
+
+.wecom-webhook-page .wecom-template-preview {
+    overflow: hidden;
+    color: var(--app-text-secondary);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.wecom-action-dialog .wecom-action-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--app-spacing-sm);
+    margin-bottom: var(--app-spacing-md);
+    padding-bottom: var(--app-spacing-md);
+    border-bottom: 1px solid var(--app-border);
+    color: var(--app-text-secondary);
+    flex-wrap: wrap;
+}
+
+.wecom-action-dialog .wecom-action-summary__main {
+    display: flex;
+    align-items: baseline;
+    gap: var(--app-spacing-sm);
+    min-width: 0;
+}
+
+.wecom-action-dialog .wecom-action-summary strong {
+    color: var(--app-text-primary);
+    font-size: var(--app-font-size-lg);
+}
+
+.wecom-action-dialog .wecom-template-editor {
+    width: 100%;
+}
+
+.wecom-action-dialog .wecom-template-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: var(--app-spacing-md);
+    margin-bottom: var(--app-spacing-sm);
+}
+
+.wecom-action-dialog .wecom-template-title,
+.wecom-action-dialog .wecom-webhook-field__label {
+    color: var(--app-text-primary);
+    font-size: var(--app-font-size-md);
+    font-weight: 600;
+}
+
+.wecom-action-dialog .wecom-template-description,
+.wecom-action-dialog .wecom-webhook-field__description {
+    margin-top: var(--app-spacing-xs);
+    color: var(--app-text-secondary);
+    font-size: var(--app-font-size-sm);
+}
+
+.wecom-action-dialog .wecom-webhook-field__description {
+    margin-bottom: var(--app-spacing-sm);
+}
+
+.wecom-webhook-page .wecom-log-toolbar {
+    margin-bottom: var(--app-spacing-md);
+    padding-right: 0;
+    padding-left: 0;
+}
+
+.wecom-webhook-page .wecom-log-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--app-spacing-sm);
+}
+
+.wecom-action-dialog .wecom-action-advanced {
+    margin-top: var(--app-spacing-md);
+}
+
+.wecom-action-dialog .wecom-action-advanced .t-collapse-panel__content {
+    padding: var(--app-spacing-md);
+}
+
+.wecom-action-dialog-shell .t-dialog__body {
+    overflow-x: hidden;
+}
+
+.wecom-webhook-page .wecom-action-table .t-button {
+    min-width: 0;
+}
+
+@media (max-width: 768px) {
+    .wecom-webhook-page .wecom-log-toolbar {
+        align-items: stretch;
+        flex-direction: column-reverse;
+        gap: var(--app-spacing-sm);
+    }
+
+    .wecom-webhook-page .wecom-log-filters { width: 100%; }
+
+    .wecom-action-dialog .wecom-template-header,
+    .wecom-action-dialog .wecom-action-summary__main {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .wecom-action-dialog-shell {
+        max-height: calc(100vh - 48px);
+    }
+
+    .wecom-action-dialog-shell .t-dialog__body {
+        overflow-y: auto;
+    }
+
+    .wecom-webhook-page .wecom-action-table th:nth-child(2),
+    .wecom-webhook-page .wecom-action-table td:nth-child(2),
+    .wecom-webhook-page .wecom-action-table th:nth-child(3),
+    .wecom-webhook-page .wecom-action-table td:nth-child(3),
+    .wecom-webhook-page .wecom-action-table th:nth-child(5),
+    .wecom-webhook-page .wecom-action-table td:nth-child(5),
+    .wecom-webhook-page .wecom-log-table th:nth-child(1),
+    .wecom-webhook-page .wecom-log-table td:nth-child(1),
+    .wecom-webhook-page .wecom-log-table th:nth-child(3),
+    .wecom-webhook-page .wecom-log-table td:nth-child(3),
+    .wecom-webhook-page .wecom-log-table th:nth-child(6),
+    .wecom-webhook-page .wecom-log-table td:nth-child(6),
+    .wecom-webhook-page .wecom-log-table th:nth-child(7),
+    .wecom-webhook-page .wecom-log-table td:nth-child(7) {
+        display: none;
+    }
+}
