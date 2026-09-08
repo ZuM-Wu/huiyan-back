@@ -203,7 +203,9 @@ async def get_menu_tree(db: AsyncSession, plugin: str = "", nav_type: str = "adm
         else:
             query = query.where(Menu.plugin == "")
 
-    result = await db.execute(query.order_by(Menu.sort_order))
+    result = await db.execute(
+        query.order_by(Menu.sort_order, Menu.plugin, Menu.id)
+    )
     menus = result.scalars().all()
 
     # 构建树形结构

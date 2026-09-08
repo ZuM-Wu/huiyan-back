@@ -33,7 +33,7 @@
 
   布局：t-tabs 三页签 — App版本 / 开屏广告 / App公告。
   要点：
-  1. 继承核心 base.html；页面脚本内联在 block scripts（插件不挂 /static）
+  1. 继承插件公共页面壳；页面脚本由 manifest 本地资源声明加载
   2. 根节点 #page-app + v-cloak；Vue 分隔符 [[ ]]；t-* 组件禁止自闭合
   3. 按钮 v-permission 控显隐，权限码与 auth.py / router_admin 一一对应
   4. APK/广告图均为 multipart FormData 直传插件自有接口（不走通用 upload，FormData 由 axios 自动携带 boundary）
@@ -290,6 +290,4 @@
 {% block scripts %}
 {{ super() }}
 <script>window.__PAGE_DATA__ = { appVersion: '{{ config.app_version }}' };</script>
-<!-- 页面脚本外提至共享 js/pages（与 admin_notifier 同范式），降低模板行数 -->
-<script src="/static/js/pages/app_manage.js?v={{ config.app_version }}"></script>
 {% endblock %}

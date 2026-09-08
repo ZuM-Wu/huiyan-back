@@ -5,6 +5,7 @@
 from sqlalchemy import DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 from datetime import datetime
+from core.time_utils import china_now
 from core.db.base import Base
 
 
@@ -21,7 +22,7 @@ class Permission(Base):
     sort_order: Mapped[int] = mapped_column(Integer, default=0, comment="排序")
     plugin: Mapped[str] = mapped_column(String(64), default="", comment="所属插件,空=系统核心")
     description: Mapped[str] = mapped_column(String(256), default="", comment="描述")
-    create_time: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, comment="创建时间")
+    create_time: Mapped[datetime] = mapped_column(DateTime, default=china_now, comment="创建时间")
 
 
 class RolePermissionLink(Base):

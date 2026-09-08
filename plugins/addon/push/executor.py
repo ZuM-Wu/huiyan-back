@@ -2,6 +2,7 @@
 """推送中心执行器：目标快照、渠道投递、统计汇总。"""
 import logging
 from datetime import datetime
+from core.time_utils import china_now
 from typing import Any
 
 from sqlalchemy import select
@@ -23,7 +24,7 @@ async def execute_task(task_id: int) -> dict[str, int]:
         if not task or task.status != "Wait":
             return {"success": 0, "fail": 0, "total": 0}
         task.status = "Exec"
-        task.last_exec_time = datetime.now()
+        task.last_exec_time = china_now()
         await db.commit()
         task_data = {
             "content": task.content or "",
@@ -68,7 +69,7 @@ async def execute_task(task_id: int) -> dict[str, int]:
                     end_time = datetime.fromisoformat(end_time)
                 except ValueError:
                     end_time = None
-            if end_time and datetime.now() > end_time:
+            if end_time and china_now() > end_time:
                 task.status = "Expired"
             else:
                 task.status = "Finish" if cycle == "onetime" else "Wait"

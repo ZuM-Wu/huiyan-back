@@ -3,7 +3,7 @@
 包含认证记录表和认证渠道表
 """
 from datetime import datetime
-
+from core.time_utils import china_now
 from sqlalchemy import DateTime, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -32,7 +32,7 @@ class CertificationRecord(Base):
     reviewer_id: Mapped[int] = mapped_column(Integer, default=0, comment="审核管理员ID")
     reviewer_name: Mapped[str] = mapped_column(String(64), default="", comment="审核管理员名称")
     review_remark: Mapped[str] = mapped_column(String(512), default="", comment="审核备注")
-    create_time: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, comment="创建时间")
+    create_time: Mapped[datetime] = mapped_column(DateTime, default=china_now, comment="创建时间")
 
 
 class CertificationChannel(Base):
@@ -47,4 +47,4 @@ class CertificationChannel(Base):
     status: Mapped[int] = mapped_column(Integer, default=0, comment="状态: 0=禁用, 1=启用")
     config: Mapped[str | None] = mapped_column(Text, comment="配置参数JSON（AppID/AppSecret等）")
     sort_order: Mapped[int] = mapped_column(Integer, default=0, comment="排序")
-    create_time: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, comment="创建时间")
+    create_time: Mapped[datetime] = mapped_column(DateTime, default=china_now, comment="创建时间")

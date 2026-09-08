@@ -43,7 +43,7 @@ class Plugin(BasePlugin):
         super().__init__(db_session, config)
         self.name = PLUGIN_NAME
         self.title = "芝麻信用实名认证"
-        self.version = "1.0.0"
+        self.version = "1.0.1"
         self.description = "基于支付宝芝麻信用官方API的实名认证插件"
         self.module = "certification"
         self._config_manager = ConfigManager()
@@ -66,16 +66,9 @@ class Plugin(BasePlugin):
         return True
 
     async def uninstall(self) -> bool:
-        """卸载插件：清理配置"""
+        """卸载插件；配置、导航和权限由 PluginManager 统一清理。"""
         if not self.db:
             return False
-        from sqlalchemy import delete
-        from core.db.configuration import ConfigurationModel
-        await self.db.execute(
-            delete(ConfigurationModel).where(
-                ConfigurationModel.key.like(f"{PLUGIN_NAME}.%")
-            )
-        )
         logger.info("[zhima_credit] 插件卸载完成")
         return True
 

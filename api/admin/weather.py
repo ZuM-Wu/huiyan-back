@@ -12,7 +12,8 @@
 """
 import logging
 import importlib
-from datetime import datetime, date
+from datetime import date
+from core.time_utils import china_now
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
@@ -321,7 +322,7 @@ async def get_area_weather(area_id: int, _: None = Depends(check_admin)):
         alerts = (await db.execute(
             select(WeatherAlert).where(
                 WeatherAlert.area_id == area_id,
-                WeatherAlert.end_time >= datetime.now(),
+                WeatherAlert.end_time >= china_now(),
             ).order_by(desc(WeatherAlert.start_time)).limit(20)
         )).scalars().all()
     data["alerts"] = [

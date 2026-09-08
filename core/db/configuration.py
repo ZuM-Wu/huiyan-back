@@ -6,6 +6,7 @@
 from sqlalchemy import DateTime, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 from datetime import datetime
+from core.time_utils import china_now
 from core.db.base import Base
 
 
@@ -19,5 +20,5 @@ class ConfigurationModel(Base):
     value: Mapped[str] = mapped_column(Text, nullable=False, default="", comment="配置值")
     description: Mapped[str] = mapped_column(String(256), default="", comment="配置说明")
     group_name: Mapped[str] = mapped_column(String(64), default="basic", comment="配置分组：basic/security/access/plugin 等")
-    create_time: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, comment="创建时间")
-    update_time: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, onupdate=datetime.now, comment="更新时间")
+    create_time: Mapped[datetime] = mapped_column(DateTime, default=china_now, comment="创建时间")
+    update_time: Mapped[datetime] = mapped_column(DateTime, default=china_now, onupdate=china_now, comment="更新时间")

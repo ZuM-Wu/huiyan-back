@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+{% block title %}通知日志 - 慧眼护农{% endblock %}
+{% block head %}
+<style>
+/* 详情弹窗布局 */
+.notice-detail-meta {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--app-border);
+    font-size: 14px;
+    line-height: 1.8;
+}
+.notice-detail-section {
+    margin-top: 16px;
+}
+.notice-detail-section-title {
+    font-weight: 600;
+    margin-bottom: 8px;
+    font-size: 14px;
+    color: var(--app-text-secondary);
+}
+.notice-log-page .detail-html-preview,
+.notice-detail-body .detail-html-preview {
+    width: 100%;
+    min-height: 320px;
+    max-height: 480px;
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-md);
+    background: var(--app-bg-card);
+}
+.notice-detail-pre {
+    white-space: pre-wrap;
+    word-break: break-all;
+    max-height: 280px;
+    overflow: auto;
+    background: var(--app-bg-container);
+    color: var(--app-text-primary);
+    padding: 12px;
+    border-radius: var(--app-radius-md);
+    font-size: 13px;
+    line-height: 1.6;
+}
+.notice-log-toolbar {
+    display: flex;
+    align-items: center;
+    gap: var(--app-spacing-sm);
+    width: 100%;
+    flex-wrap: wrap;
+}
+.notice-log-toolbar .notice-log-summary {
+    margin-left: auto;
+    color: var(--app-text-secondary);
+    font-size: var(--app-font-size-sm);
+    white-space: nowrap;
+}
+.notice-log-cleanup {
+    display: flex;
+    justify-content: flex-end;
+    margin-left: auto;
+}
+@media (max-width: 720px) {
+    .notice-log-toolbar .notice-log-summary {
+        width: 100%;
+        margin-left: 0;
+    }
+    .notice-log-cleanup {
+        width: 100%;
+        justify-content: stretch;
+    }
+    .notice-log-cleanup .t-button { width: 100%; }
+}
+</style>
+{% endblock %}
+{% block content %}
+<div id="page-app" v-cloak class="admin-list-page notice-log-page">
+    <t-card title="通知日志" class="notice-log-card">
+        <t-tabs v-model="activeTab" placement="left" @change="onTabChange">
+            <t-tab-panel v-for="tab in tabList" :key="tab.value" :value="tab.value" :label="tab.label">
+                <!-- 站内信管理面板 -->
+                <template v-if="tab.value === 'inbox'">
+                    <div class="card-header-toolbar">
+                        <div class="notice-log-toolbar">
+                            <t-select v-model="inboxFilterType" placeholder="接收者类型" clearable style="width: 120px;" @change="fetchInbox">
+                                <t-option value="farmer" label="农户"></t-option>
+                                <t-option value="admin" label="管理员"></t-option>
+                            </t-select>
+                            <t-select v-model="inboxFilterRead" placeholder="状态" clearable style="width: 100px;" @change="fetchInbox">
+                                <t-option value="0" label="未读"></t-option>
+                                <t-option value="1" label="已读"></t-option>
+                            </t-select>
+                            <t-input v-model="inboxFilterKeyword" placeholder="标题关键词..." clearable style="width: 180px;" @change="fetchInbox"></t-input>
+                            <t-button theme="primary" @click="fetchInbox">查询</t-button>
+                            <t-popconfirm content="确认批量删除选中消息？" @confirm="bulkDeleteInbox">
+                                <t-button theme="danger" variant="outline" :disabled="inboxSelectedKeys.length === 0">批量删除</t-button>
+                            </t-popconfirm>
+                            <span class="notice-log-summary">
+                                共 [[ inboxStats.total || 0 ]] 条，未读 [[ inboxStats.unread || 0 ]] 条
+                            </span>
+                        </div>
+                    </div>
+                    <t-skeleton v-if="inboxLoading" :row-col="[6]" animation="gradient"></t-skeleton>
+                    <t-table v-else :data="inboxData" :columns="inboxColumns" :pagination="inboxPagination"
+                        row-key="id" hover select-on-row-click
+                        v-model:selected-row-keys="inboxSelectedKeys"
+                        @page-change="onInboxPageChange">
+                        <template #receiver="{ row }">
+                            [[ row.receiver_name || (row.receiver_type === 'farmer' ? '农户' : '管理员') + row.receiver_id ]]
+                        </template>
+                        <template #priority="{ row }">
+                            <t-tag v-if="row.priority === 1" theme="danger" variant="light" size="small">重要</t-tag>
+                            <t-tag v-else theme="default" variant="light" size="small">普通</t-tag>
+                        </template>
+                        <template #is_read="{ row }">
+                            <t-tag v-if="row.is_read === 1" theme="success" variant="light" size="small">已读</t-tag>
+                            <t-tag v-else theme="warning" variant="light" size="small">未读</t-tag>
+                        </template>
+                        <template #op="{ row }">
+                            <t-link theme="primary" @click="showInboxDetail(row)">详情</t-link>
+                            <t-popconfirm content="确认删除该消息？" @confirm="deleteInbox(row)">
+                                <t-link theme="danger" style="margin-left: 12px;">删除</t-link>
+                            </t-popconfirm>
+                        </template>
+                    </t-table>
+                </template>
+                <!-- 通知日志面板 -->
+                <template v-else>
+                    <div class="card-header-toolbar">
+                        <div class="notice-log-toolbar">
+                            <t-select v-model="filterStatus" placeholder="状态" clearable style="width: 100px;" @change="fetchData">
+                                <t-option value="1" label="成功"></t-option>
+                                <t-option value="0" label="失败"></t-option>
+                            </t-select>
+                            <t-input v-model="filterRecipient" placeholder="接收者搜索..." clearable style="width: 180px;" @change="fetchData"></t-input>
+                            <t-date-range-picker v-model="dateRange" style="width: 260px;" @change="fetchData"></t-date-range-picker>
+                            <t-button theme="primary" @click="fetchData">查询</t-button>
+                            <div class="notice-log-cleanup">
+                                <t-popconfirm content="确定要清理 90 天前的日志吗？" @confirm="cleanupLogs">
+                                    <t-button theme="danger" variant="outline">清理历史日志</t-button>
+                                </t-popconfirm>
+                            </div>
+                        </div>
+                    </div>
+                    <t-skeleton v-if="loading" :row-col="[6]" animation="gradient"></t-skeleton>
+                    <t-table v-else :data="tableData" :columns="columns" :pagination="pagination"
+                        row-key="id" hover @page-change="onPageChange">
+                        <template #channel="{ row }">
+                            <t-tag :theme="row.channel === 'sms' ? 'primary' : 'warning'" variant="light">
+                                [[ row.channel === 'sms' ? '短信' : '邮件' ]]
+                            </t-tag>
+                        </template>
+                        <template #status="{ row }">
+                            <t-tag :theme="row.status === 1 ? 'success' : 'danger'" variant="light">
+                                [[ row.status === 1 ? '成功' : '失败' ]]
+                            </t-tag>
+                        </template>
+                        <template #op="{ row }">
+                            <t-link theme="primary" @click="showDetail(row)">详情</t-link>
+                        </template>
+                    </t-table>
+                </template>
+            </t-tab-panel>
+        </t-tabs>
+    </t-card>
+
+    <!-- 详情弹窗 -->
+    <t-dialog v-model:visible="detailVisible" :header="detailType === 'inbox' ? '站内信详情' : '通知详情'" :footer="false" width="780px">
+        <!-- 站内信详情 -->
+        <div v-if="detailType === 'inbox' && detailRow" class="notice-detail-body">
+            <div class="notice-detail-meta">
+                <span><b>ID:</b> [[ detailRow.id ]]</span>
+                <span><b>接收者:</b> [[ detailRow.receiver_name || (detailRow.receiver_type === 'farmer' ? '农户' : '管理员') + detailRow.receiver_id ]]</span>
+                <span><b>优先级:</b> [[ detailRow.priority === 1 ? '重要' : '普通' ]]</span>
+                <span><b>状态:</b> [[ detailRow.is_read === 1 ? '已读' : '未读' ]]</span>
+                <span><b>发送时间:</b> [[ detailRow.create_time ]]</span>
+                <span><b>阅读时间:</b> [[ detailRow.read_time || '-' ]]</span>
+            </div>
+            <div class="notice-detail-section">
+                <div class="notice-detail-section-title">标题</div>
+                <div style="font-size: 15px; font-weight: 500;">[[ detailRow.title ]]</div>
+            </div>
+            <div v-if="detailRow.content" class="notice-detail-section">
+                <div class="notice-detail-section-title">内容</div>
+                <iframe v-if="isHtmlContent" class="detail-html-preview" :srcdoc="previewContent"></iframe>
+                <pre v-else class="notice-detail-pre">[[ previewContent ]]</pre>
+            </div>
+        </div>
+        <!-- 通知日志详情 -->
+        <div v-else-if="detailRow" class="notice-detail-body">
+            <div class="notice-detail-meta">
+                <span><b>ID:</b> [[ detailRow.id ]]</span>
+                <span><b>动作:</b> [[ detailRow.action_key ]]</span>
+                <span><b>渠道:</b> [[ detailRow.channel === 'sms' ? '短信' : '邮件' ]]</span>
+                <span><b>接收者:</b> [[ detailRow.recipient ]]</span>
+                <span><b>状态:</b> [[ detailRow.status === 1 ? '成功' : '失败' ]]</span>
+                <span><b>发送时间:</b> [[ detailRow.send_time || detailRow.create_time ]]</span>
+                <span v-if="detailRow.error_msg" style="grid-column:1/-1;color:var(--app-error);"><b>错误:</b> [[ detailRow.error_msg ]]</span>
+            </div>
+            <div v-if="detailRow.content" class="notice-detail-section">
+                <div class="notice-detail-section-title">内容预览</div>
+                <iframe v-if="isHtmlContent" class="detail-html-preview" :srcdoc="previewContent"></iframe>
+                <pre v-else class="notice-detail-pre">[[ previewContent ]]</pre>
+            </div>
+            <div v-if="detailRow.extra" class="notice-detail-section">
+                <div class="notice-detail-section-title">扩展信息</div>
+                <pre class="notice-detail-pre">[[ JSON.stringify(detailRow.extra, null, 2) ]]</pre>
+            </div>
+        </div>
+    </t-dialog>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="/static/js/pages/notice-log.js?v={{ config.app_version }}"></script>
+{% endblock %}

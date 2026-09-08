@@ -4,7 +4,7 @@
 记录所有通过 task_manager 注册的定时任务执行结果
 """
 from datetime import datetime
-
+from core.time_utils import china_now
 from sqlalchemy import BigInteger, DateTime, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -38,4 +38,4 @@ class TaskLog(Base):
     handle_note: Mapped[str] = mapped_column(String(256), default="", comment="处理备注")
     retry_count: Mapped[int] = mapped_column(Integer, default=0, comment="手动重试次数")
     is_manual: Mapped[int] = mapped_column(Integer, default=0, comment="是否手动触发: 0=定时 1=手动重试")
-    create_time: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, comment="创建时间")
+    create_time: Mapped[datetime] = mapped_column(DateTime, default=china_now, comment="创建时间")

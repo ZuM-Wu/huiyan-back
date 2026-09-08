@@ -9,7 +9,7 @@
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from datetime import datetime
+from core.time_utils import china_now
 
 from sqlalchemy import select, func, update
 
@@ -159,7 +159,7 @@ async def replay_event(event_id: int, request: Request):
             event_name=source.event_name, event_version=source.event_version,
             owner=source.owner, payload=source.payload,
             correlation_id=source.correlation_id or f"replay:{source.id}",
-            status="Pending", create_time=datetime.now(),
+            status="Pending", create_time=china_now(),
         )
         db.add(clone)
         await db.commit()
@@ -249,7 +249,7 @@ async def resume_task(task_id: int, request: Request):
     async with async_session_factory() as db:
         result = await db.execute(update(TaskQueue).where(
             TaskQueue.id == task_id, TaskQueue.status == "Paused",
-        ).values(status="Wait", next_run_at=datetime.now(), error_msg="", version=TaskQueue.version + 1))
+        ).values(status="Wait", next_run_at=china_now(), error_msg="", version=TaskQueue.version + 1))
         if not result.rowcount:
             raise HTTPException(status_code=409, detail="任务不存在或不是暂停状态")
         await db.commit()

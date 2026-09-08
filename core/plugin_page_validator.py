@@ -82,3 +82,47 @@ def validate_plugin_page_sources(plugin_root: Path, pages: list[dict]) -> None:
                 scanned.add(_safe_file(asset_root, asset))
     for path in scanned:
         _validate_source(path, path.read_text(encoding="utf-8"))
+
+
+def validate_plugin_manifest_pages(
+    plugin_root: Path,
+    manifest: dict,
+    pages: list[dict],
+) -> None:
+    """校验 manifest 页面、运行时页面声明和资源登记的一致性。"""
+    if "pages" not in manifest:
+        return
+    manifest_pages = manifest.get("pages") or []
+    by_key = {item.get("page_key"): item for item in manifest_pages if isinstance(item, dict)}
+    if len(by_key) != len(manifest_pages):
+        raise ValueError("插件 manifest 页面 page_key 无效或重复")
+    if set(by_key) != {page.get("key") for page in pages}:
+        raise ValueError("插件 manifest 页面与 get_pages() 不一致")
+
+    resource_paths = set()
+    for item in manifest.get("resources") or []:
+        path = item if isinstance(item, str) else item.get("path", "")
+        path = str(path).replace("\\", "/")
+        if path:
+            resource_paths.add(path)
+            _safe_file(plugin_root, path)
+
+    for page in pages:
+        item = by_key[page["key"]]
+        nav_type = page.get("nav_type", "admin")
+        expected_surface = "admin" if (page.get("audience") or nav_type) == "admin" else "farmer"
+        expected_template = page.get("template") or (
+            f"{page['path'].rstrip('/').split('/')[-1]}.html"
+        )
+        if item.get("surface") != expected_surface or item.get("route") != page.get("path"):
+            raise ValueError(f"插件页面 manifest 路由不一致: {page.get('key')}")
+        if item.get("template") != expected_template:
+            raise ValueError(f"插件页面 manifest 模板不一致: {page.get('key')}")
+        for field in ("styles", "scripts"):
+            page_assets = page.get(field) or []
+            manifest_assets = item.get(field) or []
+            if manifest_assets != page_assets:
+                raise ValueError(f"插件页面 manifest {field} 不一致: {page.get('key')}")
+            for asset in page_assets:
+                if f"static/{asset}" not in resource_paths:
+                    raise ValueError(f"插件页面资源未登记: {asset}")

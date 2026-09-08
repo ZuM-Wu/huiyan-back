@@ -11,7 +11,7 @@
 - 列表查询关联 Farmer 表获取农户用户名
 """
 import logging
-from datetime import datetime
+from core.time_utils import china_now
 from typing import Optional
 
 from sqlalchemy import select, func, or_
@@ -174,7 +174,7 @@ async def create_certification(
             certify_url=extra.get("certify_url", ""),
             status=0,
             channel=extra.get("channel", "manual"),
-            submit_time=datetime.now(),
+            submit_time=china_now(),
         )
         db.add(record)
         await db.commit()
@@ -214,7 +214,7 @@ async def review_certification(
             return False
 
         record.status = status
-        record.review_time = datetime.now()
+        record.review_time = china_now()
         record.reviewer_id = admin_id
         record.review_remark = review_remark
         if commit:

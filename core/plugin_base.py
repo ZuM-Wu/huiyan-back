@@ -31,6 +31,10 @@ class BasePlugin(ABC):
         """完成插件卸载及相关运行态、权限和配置清理。"""
         ...
 
+    async def can_uninstall(self) -> bool:
+        """在产生任何卸载副作用前确认插件是否允许卸载。"""
+        return True
+
     def get_event_subscriptions(self) -> List[EventSubscription]:
         return []
 
@@ -56,6 +60,10 @@ class BasePlugin(ABC):
         return True
 
     def get_config_schema(self) -> List[dict]:
+        return []
+
+    def get_hardware_providers(self) -> list:
+        """声明本插件的硬件来源与可选详情组件，默认无硬件能力。"""
         return []
 
     def get_mcp_tools(self) -> List[dict]:

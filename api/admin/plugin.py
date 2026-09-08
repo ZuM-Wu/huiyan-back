@@ -50,6 +50,19 @@ def _visible_in_discovery(plugin: dict, scope: str) -> bool:
         return False
     return scope == "all" or _visible_in_app_list(plugin)
 
+
+def _public_pending_update(plan: dict | None) -> dict | None:
+    """返回前端所需的待重启状态，不暴露本地包路径。"""
+    if not plan:
+        return None
+    return {
+        "status": plan.get("status"),
+        "operation_id": plan.get("operation_id", ""),
+        "current_version": plan.get("current_version", ""),
+        "target_version": plan.get("target_version", ""),
+        "restart_required": bool(plan.get("restart_required")),
+    }
+
 @router.get("/list")
 async def list_plugins(
     module: str = Query(None, description="模块筛选: addon/gateway/sms/mail/...，不传则默认排除 sms/mail/certification"),
@@ -122,6 +135,18 @@ async def discover_plugins(
             except ValueError:
                 version_state = "invalid"
                 logger.warning("插件 %s 版本号无效，无法比较版本状态", d["name"])
+        pending = await plugin_platform.get_update_status(d["name"]) if is_installed else None
+        valid_pending = bool(
+            pending and pending.get("status") == "awaiting_restart"
+            and pending.get("target_version") == disk_version
+            and pending.get("current_version") == installed_ver
+            and disk_version != installed_ver
+        )
+        if valid_pending:
+            upgrade_available = False
+            version_state = "awaiting_restart"
+        else:
+            pending = None
         result_list.append({
             "name": d["name"],
             "module": d["module"],
@@ -135,6 +160,7 @@ async def discover_plugins(
             "status": installed.get("status") if installed else None,
             "upgrade_available": upgrade_available,
             "version_state": version_state,
+            "pending_update": _public_pending_update(pending),
         })
     return ok({"total": len(result_list), "list": result_list})
 
@@ -233,7 +259,7 @@ async def upgrade_plugin(name: str, request: Request):
         raise HTTPException(status_code=409, detail={"code": "update_confirm_failed", "message": str(exc)}) from exc
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail={"code": "update_unavailable", "message": str(exc)}) from exc
-    return ok(confirmed, msg="插件更新计划已确认，等待停机重启应用")
+    return ok(_public_pending_update(confirmed), msg="插件更新计划已确认，等待停机重启应用")
 
 
 @platform_router.post("/{name}/updates/prepare", dependencies=[Depends(require_admin_permission("plugin:upgrade"))])
@@ -251,7 +277,9 @@ async def prepare_plugin_update(name: str, request: Request):
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail={"code": "update_prepare_failed", "message": str(exc)}) from exc
-    return ok(plan, msg="插件更新预检完成")
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail={"code": "update_unavailable", "message": str(exc)}) from exc
+    return ok(_public_pending_update(plan), msg="插件更新预检完成")
 
 
 @platform_router.post("/{name}/updates/confirm", dependencies=[Depends(require_admin_permission("plugin:upgrade"))])
@@ -272,7 +300,7 @@ async def confirm_plugin_update(name: str, request: Request):
         raise HTTPException(status_code=409, detail={"code": "update_confirm_failed", "message": str(exc)}) from exc
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail={"code": "update_locked", "message": str(exc)}) from exc
-    return ok(plan, msg="插件更新已确认，等待停机重启应用")
+    return ok(_public_pending_update(plan), msg="插件更新已确认，等待停机重启应用")
 
 
 @platform_router.post("/{name}/updates/rollback", dependencies=[Depends(require_admin_permission("plugin:upgrade"))])
@@ -284,7 +312,7 @@ async def rollback_plugin_update(name: str, request: Request):
         plan = await plugin_platform.rollback_update(name, operation_id, request=request)
     except (ValueError, RuntimeError) as exc:
         raise HTTPException(status_code=409, detail={"code": "rollback_failed", "message": str(exc)}) from exc
-    return ok(plan, msg="插件回滚计划已生成")
+    return ok(_public_pending_update(plan), msg="插件更新计划已取消")
 
 
 @platform_router.get("/{name}/runtime", dependencies=[Depends(check_admin)])
@@ -311,6 +339,15 @@ async def get_plugin_config(name: str, request: Request, _: None = Depends(check
     pm, _mgr = _managers(request)
     schema = pm.get_config_schema(name)
     upload_schema = pm.get_upload_policy_schema(name)
+
+    if name in {"hardware_jjr", "hardware_huiyan"}:
+        # 旧插件配置弹窗也遵循相同凭据边界，避免从旧入口读取明文。
+        from core.hardware_management import read_hardware_config
+        await require_admin_permission("plugin:config")(request)
+        safe = await read_hardware_config(name)
+        current = {item["key"]: safe.get(item["key"], "") for item in schema}
+        return ok({"schema": schema, "current": current, "credential_configured": safe["credential_configured"],
+                   "upload_policies": [], "upload_settings_url": "/admin/system?tab=upload"})
 
     # 读取当前配置值（通过 config_service 管理自己的会话）
     current = {}
@@ -344,6 +381,18 @@ async def save_plugin_config(
     request: Request,
 ):
     """保存插件配置"""
+    if name in {"hardware_jjr", "hardware_huiyan"}:
+        from core.hardware_management import HardwareConfigUpdate, save_hardware_config
+        token_key = "owner_token" if name == "hardware_jjr" else "platform_token"
+        allowed = {token_key, "base_url"} if name == "hardware_jjr" else {token_key}
+        if set(data.config) - allowed:
+            raise HTTPException(422, "包含不允许修改的物联网配置字段")
+        values = {"credential": str(data.config.get(token_key) or "")}
+        if "base_url" in data.config:
+            values["base_url"] = str(data.config["base_url"])
+        await save_hardware_config(name, HardwareConfigUpdate(**values))
+        await active_log("更新物联网插件配置", "hardware_plugin_config")
+        return ok(msg="配置已保存")
     pm, _mgr = _managers(request)
     migrated_keys = {
         legacy_key

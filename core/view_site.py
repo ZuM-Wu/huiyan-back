@@ -15,18 +15,18 @@
 
 主题回退:
     - 若 site_theme 指向的主题目录不存在 / 缺 base.html / 缺 theme.json，
-      theme_manager 自动回退 default；此处无需额外处理。
+      theme_manager 自动回退官网端面默认主题；此处无需额外处理。
 """
 import json
 import logging
 
 from fastapi import APIRouter, FastAPI, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
+from core.config_service import get_config
 from core.db.base import async_session_factory
 from core.config_manager import ConfigManager
 from core.theme_manager import theme_manager
-from core.auth.jwt_handler import verify_jwt
 
 logger = logging.getLogger(__name__)
 
@@ -59,26 +59,7 @@ class SiteViewController:
         # ---- 根路径：根据官网主题可见性配置决定渲染官网首页或跳转 ----
         @app.get("/", response_class=HTMLResponse)
         async def site_index(request: Request):
-            # 检查官网主题可见性配置
-            cm = ConfigManager()
-            async with async_session_factory() as db:
-                visible = await cm.get("site_theme_visible", db)
-
-            # 如果官网主题被禁用，根据登录状态跳转到农户首页或登录页
-            if visible == "false":
-                # 检查是否已登录（通过 farmer token）
-                token = request.cookies.get("farmer_token")
-                if token:
-                    # 验证 token 有效性
-                    payload = verify_jwt(token, is_admin=False)
-                    if payload:
-                        # 已登录，跳转到农户首页
-                        return RedirectResponse(url="/farmer/home", status_code=302)
-                # 未登录或 token 无效，跳转到农户登录页
-                return RedirectResponse(url="/farmer/login", status_code=302)
-
-            # 官网主题启用，渲染官网首页
-            return await self._render_home(request)
+            return await self._site_index_response(request)
 
         # ---- 公开配置 API（前端 AJAX 或 SSR 备用）----
         router = APIRouter(prefix="/api/site/v1", tags=["官网"])
@@ -102,6 +83,18 @@ class SiteViewController:
             }
 
         app.include_router(router)
+
+    async def _site_index_response(self, request: Request):
+        """按持久化开关生成根路径响应，并阻止浏览器缓存旧入口状态。"""
+        visible = await get_config("site_theme_visible")
+        response: Response
+        if visible == "false":
+            response = RedirectResponse(url="/farmer/home", status_code=302)
+        else:
+            response = await self._render_home(request)
+        response.headers["Cache-Control"] = "no-store, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+        return response
 
     # ------------------------------------------------------------------
     # 渲染

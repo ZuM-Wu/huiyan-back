@@ -8,6 +8,7 @@ import logging
 import random
 import time
 from datetime import datetime, timedelta
+from core.time_utils import china_now
 from typing import Any, cast
 
 from sqlalchemy import delete, or_, select, update
@@ -81,8 +82,8 @@ async def submit_task(
         task_data=json.dumps(task_data, ensure_ascii=False, sort_keys=True),
         description=description or declaration.title,
         run_at=run_at,
-        next_run_at=run_at or datetime.now(),
-        create_time=datetime.now(),
+        next_run_at=run_at or china_now(),
+        create_time=china_now(),
     )
     async with async_session_factory() as db:
         db.add(task)
@@ -207,14 +208,14 @@ class TaskQueueWorker:
                         event_id=row.id,
                     )
                 row.status = "Dispatched"
-                row.dispatched_at = datetime.now()
+                row.dispatched_at = china_now()
             if rows:
                 await db.commit()
         return bool(rows)
 
     async def _process_batch(self) -> bool:
         batch_size = int(await _get_config("task_queue_batch_size", 10))
-        now = datetime.now()
+        now = china_now()
         async with async_session_factory() as db:
             rows = (await db.execute(select(TaskQueue).where(
                 TaskQueue.status == "Wait",
@@ -256,13 +257,13 @@ class TaskQueueWorker:
                 TaskQueue.status == "Wait",
             ).values(
                 version=task.version + 1, status="Exec", attempt=attempt,
-                retry=attempt, start_time=datetime.now(), locked_at=datetime.now(),
+                retry=attempt, start_time=china_now(), locked_at=china_now(),
             )))
             await db.commit()
         return bool(result.rowcount)
 
     async def _execute(self, task: TaskQueue, declaration: TaskDefinition, attempt: int) -> None:
-        started_at = datetime.now()
+        started_at = china_now()
         start = time.perf_counter()
         error = ""
         try:
@@ -304,10 +305,10 @@ class TaskQueueWorker:
         next_run = None
         if status == "Wait":
             delay = retry_delay_seconds(attempt) if declaration.backoff else 0
-            next_run = datetime.now() + timedelta(seconds=delay)
+            next_run = china_now() + timedelta(seconds=delay)
         async with async_session_factory() as db:
             await db.execute(update(TaskQueue).where(TaskQueue.id == task.id).values(
-                status=status, error_msg=error, finish_time=datetime.now(),
+                status=status, error_msg=error, finish_time=china_now(),
                 next_run_at=next_run, locked_at=None,
             ))
             db.add(TaskLog(
@@ -316,7 +317,7 @@ class TaskQueueWorker:
                 task_name=declaration.name, task_desc=task.description or declaration.title,
                 task_type=declaration.owner, status="success" if status == "Finish" else "failed",
                 error_msg=error or None, duration_ms=duration_ms,
-                start_time=started_at, end_time=datetime.now(), create_time=datetime.now(),
+                start_time=started_at, end_time=china_now(), create_time=china_now(),
             ))
             await db.commit()
 
@@ -347,7 +348,7 @@ class TaskQueueWorker:
             ).values(
                 status="Wait", version=TaskQueue.version + 1,
                 error_msg=_INTERRUPTED_TASK_REASON, locked_at=None,
-                start_time=None, finish_time=None, next_run_at=datetime.now(),
+                start_time=None, finish_time=None, next_run_at=china_now(),
             )))
             await db.commit()
         return int(result.rowcount or 0)

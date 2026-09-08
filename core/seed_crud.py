@@ -37,12 +37,13 @@ async def seed_crud_permissions(db):
     farmer_pid = await _page_perm_id("page:farmer")
     cert_pid = await _page_perm_id("page:certification")
     area_pid = await _page_perm_id("page:production_area")
+    production_group_pid = await _page_perm_id("page:production")
     # 地块管理已并入产区详情页，无独立菜单/page 权限；地块 CRUD 权限挂到产区列表页下
     plot_pid = area_pid
     batch_pid = await _page_perm_id("page:planting_batch")
     notice_pid = await _page_perm_id("page:notice")
     weather_pid = await _page_perm_id("page:weather")
-    ai_chat_pid = await _page_perm_id("page:ai_chat")
+    hardware_pid = await _page_perm_id("page:hardware_device")
     ai_setting_pid = await _page_perm_id("page:ai_setting")
     inbox_pid = await _page_perm_id("page:inbox")
 
@@ -105,8 +106,7 @@ async def seed_crud_permissions(db):
         ("weather:view",    "天气-查看",      weather_pid, 0),
         ("weather:config",  "天气-配置管理",   weather_pid, 1),
         # ---- AI 助手 ----
-        ("ai:chat",         "AI-对话",        ai_chat_pid, 0),
-        ("ai:setting",      "AI-设置",        ai_setting_pid, 0),
+        ("ai:setting",      "AI-资源工作台",        ai_setting_pid, 0),
         # ---- 站内信管理 ----
         ("inbox:list",      "站内信-查看",    inbox_pid, 0),
         ("inbox:delete",    "站内信-删除",    inbox_pid, 1),
@@ -138,6 +138,11 @@ async def seed_crud_permissions(db):
         ("oss:switch", "对象存储-切换", "page:system", 2),
         ("theme:activate", "主题-启用", "page:theme", 1),
         ("upload:settings", "上传-配置", "page:system", 3),
+        ("hardware:list", "硬件-查看", "page:hardware_device", 0),
+        ("hardware:sync", "硬件-同步", "page:hardware_device", 1),
+        ("hardware:update", "硬件-图片设置", "page:hardware_device", 2),
+        ("hardware:bind", "硬件-地块绑定", "page:hardware_device", 3),
+        ("hardware:data", "硬件-监测数据", "page:hardware_device", 4),
     ]
     for code, title, page_code, sort_order in sensitive_perms:
         parent_id = await _page_perm_id(page_code)
@@ -164,6 +169,23 @@ async def seed_crud_permissions(db):
             inserted += 1
 
     logger.info("[CRUD权限种子] 新增 %d 个权限码（幂等更新已有）", inserted)
+
+    # 新增硬件页继承“产区管理”分组的存量角色授权，再由下方逻辑继承操作权限。
+    production_role_ids = (await db.execute(
+        select(RolePermissionLink.role_id).where(
+            RolePermissionLink.permission_id == production_group_pid
+        )
+    )).scalars().all()
+    hardware_role_ids = set((await db.execute(
+        select(RolePermissionLink.role_id).where(
+            RolePermissionLink.permission_id == hardware_pid,
+            RolePermissionLink.role_id.in_(production_role_ids or [-1]),
+        )
+    )).scalars().all())
+    for role_id in production_role_ids:
+        if role_id not in hardware_role_ids:
+            db.add(RolePermissionLink(role_id=role_id, permission_id=hardware_pid))
+    await db.flush()
 
     # 新增操作权限按父页面权限自动继承，避免升级后存量角色突然失去既有能力。
     for code, _title, page_code, _sort_order in sensitive_perms:
@@ -209,3 +231,15 @@ async def seed_crud_permissions(db):
     if stale_rule_menus:
         await db.execute(delete(Menu).where(Menu.id.in_(stale_rule_menus)))
         logger.info("[CRUD权限种子] 清理已废弃 API规则菜单 %d 条", len(stale_rule_menus))
+
+    stale_ai_chat = (await db.execute(
+        select(Permission.id).where(Permission.code.in_([
+            "page:ai_chat", "ai:chat"
+        ]))
+    )).scalars().all()
+    if stale_ai_chat:
+        await db.execute(delete(RolePermissionLink).where(
+            RolePermissionLink.permission_id.in_(stale_ai_chat)
+        ))
+        await db.execute(delete(Permission).where(Permission.id.in_(stale_ai_chat)))
+        logger.info("[CRUD权限种子] 清理旧 AI 对话权限节点 %d 个", len(stale_ai_chat))

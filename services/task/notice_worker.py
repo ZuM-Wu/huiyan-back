@@ -7,7 +7,7 @@ import asyncio
 import importlib
 import logging
 import time
-from datetime import datetime
+from core.time_utils import china_now
 from typing import Any, Dict, Optional, Tuple
 
 from sqlalchemy import select, update
@@ -92,7 +92,7 @@ async def _update_log(log_id: int, success: bool, message: str,
                 update(NoticeLog).where(NoticeLog.id == log_id).values(
                     status=1 if success else 0,
                     error_msg="" if success else message,
-                    send_time=datetime.now(),
+                    send_time=china_now(),
                     extra=extra,
                 )
             )
@@ -236,7 +236,7 @@ async def send_test_notice(payload: Dict[str, Any], timeout: float = 10.0) -> Di
             "original_content": content,
             "subject": payload.get("subject", ""),
         },
-        create_time=datetime.now(),
+        create_time=china_now(),
     )
     async with async_session_factory() as db:
         db.add(log)

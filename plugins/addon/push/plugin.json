@@ -1,7 +1,7 @@
 {
   "name": "push",
   "title": "手动推送",
-  "version": "3.0.0",
+  "version": "1.0.1",
   "description": "推送中心：统一管理站内信、短信、邮件推送，支持目标筛选、预览、调度和投递日志",
   "author": "HuiYan Team",
   "module": "addon",
@@ -9,16 +9,16 @@
   "surface": "admin",
   "enabled": true,
   "default_order": 100,
-  "compatible_app_versions": [">=4.0.0"],
+  "compatible_app_versions": [">=3.4.0"],
   "dependencies": [],
   "conflicts": [],
   "permissions": ["push:list", "push:create"],
   "capabilities": ["notification.push"],
   "pages": [
-    {"page_key": "plugin_push_list", "surface": "admin", "route": "/plugin/push/notice-push", "template": "notice-push.html", "permission": "push:list"},
-    {"page_key": "plugin_push_form", "surface": "admin", "route": "/plugin/push/push-task-form", "template": "push-task-form.html", "permission": "push:create", "hidden": true}
+    {"page_key": "plugin_push_list", "surface": "admin", "route": "/admin/plugin/push/notice-push", "template": "notice-push.html", "permission": "push:list"},
+    {"page_key": "plugin_push_form", "surface": "admin", "route": "/admin/plugin/push/push-task-form", "template": "push-task-form.html", "permission": "push:create", "hidden": true, "scripts": ["push-task-form.js"]}
   ],
-  "resources": [],
+  "resources": ["static/push-task-form.js"],
   "tasks": ["push_execute"],
   "events": [],
   "health": {"check": "plugin.push"},

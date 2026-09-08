@@ -36,7 +36,7 @@ async def save_uploaded_image(
     file: UploadFile,
     *,
     source: str = "admin",
-    admin_id: int = None,
+    admin_id: int | None = None,
     directory: str = "common",
     use_storage_url: bool = True,
 ) -> dict:

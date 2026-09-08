@@ -55,6 +55,12 @@ async def _run_weather_alert_notify(task_data: dict):
     await weather_alert_notify_job()
 
 
+async def _run_hardware_realtime_pull(task_data: dict):
+    """执行硬件实时数据自动获取。"""
+    from services.task.hardware_realtime_worker import hardware_realtime_pull_job
+    await hardware_realtime_pull_job()
+
+
 async def _handle_clean_repeat_cache(task_data: dict):
     await _run_clean_repeat_cache(task_data)
 
@@ -94,6 +100,11 @@ async def _handle_weather_alert_notify(task_data: dict):
     await _run_weather_alert_notify(task_data)
 
 
+async def _handle_hardware_realtime_pull(task_data: dict):
+    """队列 handler：硬件实时数据自动获取。"""
+    await _run_hardware_realtime_pull(task_data)
+
+
 # 队列类型 -> handler 注册表
 _PERIODIC_HANDLERS = [
     ("clean_repeat_cache", "清理过期防重复缓存", "system", _handle_clean_repeat_cache),
@@ -104,6 +115,7 @@ _PERIODIC_HANDLERS = [
     ("weather_daily_finalize", "天气日终定格", "weather", _handle_weather_daily_finalize),
     ("weather_clean", "天气历史数据清理", "weather", _handle_weather_clean),
     ("weather_alert_notify", "气象预警通知补推", "weather", _handle_weather_alert_notify),
+    ("hardware_realtime_pull", "硬件实时数据自动获取", "hardware", _handle_hardware_realtime_pull),
 ]
 
 

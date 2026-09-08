@@ -9,7 +9,7 @@ Key 引用其本人在现有权限体系中的权限（管理员走 RBAC，农�
 - prefix 存明文前 8 位，用于存量无明文密钥的回退展示
 """
 from datetime import datetime
-
+from core.time_utils import china_now
 from sqlalchemy import DateTime, Index, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -36,4 +36,4 @@ class ApiKeyModel(Base):
     prefix: Mapped[str] = mapped_column(String(16), nullable=False, default="", comment="明文前8位（存量密钥回退展示用）")
     status: Mapped[int] = mapped_column(Integer, nullable=False, default=1, comment="状态: 1=启用, 2=已吊销")
     last_used_time: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, comment="最后使用时间（鉴权命中时节流回写）")
-    create_time: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, comment="创建时间")
+    create_time: Mapped[datetime] = mapped_column(DateTime, default=china_now, comment="创建时间")

@@ -3,6 +3,9 @@
 12步启动流程
 """
 
+# 下方模型导入用于注册 SQLAlchemy metadata，模块本身不直接引用。
+# ruff: noqa: F401
+
 import logging
 
 from sqlalchemy import select, text
@@ -19,17 +22,26 @@ import core.db.menu           # hy_menu
 import core.db.nav            # hy_nav（页面注册表）
 import core.db.widget          # hy_admin_widget（挂件配置表）
 import core.db.production_area  # hy_production_area/hy_plot/hy_planting_batch
+import core.db.hardware_device  # hy_hardware_device（物联设备本地镜像）
 import core.db.weather           # hy_weather_data/hy_weather_daily/hy_weather_area_binding/hy_weather_alert
-import core.db.verify_code       # hy_verify_code（验证码表）
-import core.db.task_queue        # hy_task_queue（任务队列表）
-import core.db.task_log          # hy_task_log（任务执行日志表）
-import core.db.event_outbox      # hy_event_outbox（可靠事件Outbox）
-import core.db.file_log          # hy_file_log（文件存储日志表）
-import core.db.api_key           # hy_api_key（个人API密钥表，MCP鉴权）
-import core.db.ai                # noqa: F401  hy_ai_*（AI对话会话/消息/技能/外部MCP服务器）
+from core.db import verify_code as _verify_code_models  # hy_verify_code（验证码表）
+from core.db import task_queue as _task_queue_models  # hy_task_queue（任务队列表）
+from core.db import task_log as _task_log_models  # hy_task_log（任务执行日志表）
+from core.db import event_outbox as _event_outbox_models  # hy_event_outbox（可靠事件Outbox）
+from core.db import file_log as _file_log_models  # hy_file_log（文件存储日志表）
+from core.db import api_key as _api_key_models  # hy_api_key（个人API密钥表，MCP鉴权）
+from core.db import ai_resources as _ai_resource_models  # AgentScope ModelCard/连接池扩展表
+from core.db import plugin_update_plan as _plugin_update_plan_model  # hy_plugin_update_plan（插件更新计划）
+
 from core.config import settings
 from core.plugin_manager import PluginManager
 from core.api_router import APIRouterManager
+
+_MODEL_MODULES = (
+    _event_outbox_models, _file_log_models, _api_key_models,
+    _ai_resource_models, _plugin_update_plan_model, _task_log_models, _task_queue_models,
+    _verify_code_models,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -155,7 +167,7 @@ async def startup(app):  # noqa: PLR0915  12步启动流程语句数超限，属
     12. 输出启动摘要日志
     """
     logger.info("=" * 60)
-    logger.info("  慧眼护农 V4 启动中...")
+    logger.info("  慧眼护农 3.4.0 启动中...")
     logger.info("=" * 60)
 
     # 降级组件追踪列表：各启动步骤 except 时追加组件名，启动结束后挂载到 app.state
@@ -181,6 +193,8 @@ async def startup(app):  # noqa: PLR0915  12步启动流程语句数超限，属
         await conn.run_sync(Base.metadata.create_all)
     # 2.5 字段迁移（幂等）
     await _run_field_migrations()
+    from core.hardware_catalog import assert_hardware_schema_ready
+    await assert_hardware_schema_ready()
     logger.info("[ 2/12] 数据库表已就绪 (MySQL 8.0)")
 
     # 3. 种子数据（仅实际创建种子管理员时才提示初始密码，避免常规启动日志泄露凭据线索）
@@ -231,6 +245,7 @@ async def startup(app):  # noqa: PLR0915  12步启动流程语句数超限，属
         async with async_session_factory() as db:
             result = await db.execute(
                 select(PluginModel.name, PluginModel.module, PluginModel.status)
+                .order_by(PluginModel.module, PluginModel.name, PluginModel.id)
             )
             all_plugins = [(r[0], r[1], r[2]) for r in result.all()]
         enabled_plugins = [(n, m) for n, m, s in all_plugins if s == 1]
@@ -263,6 +278,7 @@ async def startup(app):  # noqa: PLR0915  12步启动流程语句数超限，属
 
     # 8. 恢复插件显式能力；数据库旧 Hook 元数据不再参与运行时注册。
     _restore_plugin_capabilities(pm, valid_enabled, degraded)
+    await _sync_agent_tool_policies(degraded)
 
     # 9. 注册核心通知事件订阅者。
     _register_core_notice_hooks(degraded)
@@ -319,6 +335,24 @@ def _restore_plugin_capabilities(
     return restored
 
 
+async def _sync_agent_tool_policies(degraded: list[str]) -> None:
+    """在全部运行时工具恢复后统一登记缺失策略。"""
+    try:
+        from services.agentscope.tools import (
+            list_agent_tool_declarations,
+            sync_tool_policies,
+        )
+
+        declarations = list_agent_tool_declarations()
+        async with async_session_factory() as db:
+            await sync_tool_policies(db, declarations)
+            await db.commit()
+        logger.info("[ 8/12] AgentScope 工具策略已同步: %s 项", len(declarations))
+    except Exception as exc:
+        logger.warning("[启动容错] AgentScope 工具策略同步失败: %s", exc)
+        degraded.append("agentscope_tool_policies")
+
+
 async def _init_scheduler_and_widgets(app, degraded: list[str]):
     """启动任务调度器 + 注册内置挂件"""
     from core.platform.health import platform_health
@@ -341,6 +375,28 @@ async def _init_scheduler_and_widgets(app, degraded: list[str]):
     except Exception as e:
         logging.warning(f"[启动容错] 天气定时任务注册失败: {e}")
         degraded.append("weather_tasks")
+
+    # 11.555 硬件实时数据调度只负责定时入队，网络请求由任务队列 Worker 执行。
+    try:
+        from services.task.hardware_realtime_worker import (
+            register_hardware_realtime_schedule,
+        )
+        await register_hardware_realtime_schedule()
+        logger.info("[11.555] 硬件实时数据自动获取已注册")
+    except Exception as e:
+        logging.warning(f"[启动容错] 硬件实时数据调度注册失败: {e}")
+        degraded.append("hardware_realtime_tasks")
+
+    # 11.56 AI 连接检测只负责定时入队，网络请求由任务队列 Worker 执行。
+    try:
+        from services.task.ai_connection_worker import (
+            register_ai_connection_health_schedule,
+        )
+        await register_ai_connection_health_schedule()
+        logger.info("[11.56] AI 供应商连接自动检测已注册（每 5 分钟）")
+    except Exception as e:
+        logging.warning(f"[启动容错] AI 连接自动检测注册失败: {e}")
+        degraded.append("ai_connection_health")
 
     # 11.6 注册仪表盘挂件（待办事项 + 天气模块产区积温）
     try:
@@ -369,7 +425,7 @@ async def _init_scheduler_and_widgets(app, degraded: list[str]):
 
 async def shutdown():
     """应用关闭"""
-    logger.info("慧眼护农 V4 正在关闭...")
+    logger.info("慧眼护农 3.4.0 正在关闭...")
     # 发布系统关闭瞬时事件，插件据此清理长连接等资源。
     try:
         from core.events import event_bus
@@ -382,14 +438,14 @@ async def shutdown():
         from services.task.task_manager import task_manager
         task_manager.shutdown()
     except Exception:
-        pass
+        logger.exception("[关闭容错] 任务调度器停止失败")
 
     # 停止任务队列 Worker
     try:
         from services.task.queue_worker import queue_worker
         await queue_worker.stop()
     except Exception:
-        pass
+        logger.exception("[关闭容错] 任务队列 Worker 停止失败")
 
     await engine.dispose()
     logger.info("数据库连接已释放")

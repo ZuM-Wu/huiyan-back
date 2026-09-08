@@ -161,26 +161,30 @@
             // 根据当前路径设置菜单高亮 + 展开父菜单（合并到已有展开态，不重置）
             const setActiveByPath = (pathOverride) => {
                 const path = pathOverride || window.location.pathname;
+                let matchedName = '';
+                let matchedParent = '';
+                let matchedLength = -1;
+                const consider = (item, parent) => {
+                    const itemPath = item.path || item.url || '';
+                    if (!itemPath || !(path === itemPath || path.startsWith(itemPath + '/'))) return;
+                    if (itemPath.length <= matchedLength) return;
+                    matchedName = item.name || item.id;
+                    matchedParent = parent || '';
+                    matchedLength = itemPath.length;
+                };
                 activeMenu.value = '';
                 routeExpandedMenu.value = '';
                 for (const item of menuTree.value) {
                     if (item.children && item.children.length) {
                         for (const child of item.children) {
-                            const childPath = child.path || child.url || '';
-                            if (childPath && path.indexOf(childPath) !== -1) {
-                                activeMenu.value = child.name || child.id;
-                                routeExpandedMenu.value = item.name || item.id;
-                                return;
-                            }
+                            consider(child, item.name || item.id);
                         }
                     } else {
-                        const itemPath = item.path || item.url || '';
-                        if (itemPath && path.indexOf(itemPath) !== -1) {
-                            activeMenu.value = item.name || item.id;
-                            return;
-                        }
+                        consider(item, '');
                     }
                 }
+                activeMenu.value = matchedName;
+                routeExpandedMenu.value = matchedParent;
             };
 
             // 从接口拉取最新菜单并刷新缓存（stale-while-revalidate 的 revalidate 环节）

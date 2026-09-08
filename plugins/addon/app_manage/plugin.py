@@ -17,8 +17,6 @@ App管理插件主类
 import logging
 from pathlib import Path
 
-from sqlalchemy import delete
-
 from core.config_manager import ConfigManager
 from core.plugin_manager import BasePlugin
 
@@ -41,7 +39,7 @@ class Plugin(BasePlugin):
         super().__init__(db_session, config)
         self.name = PLUGIN_NAME
         self.title = "App管理"
-        self.version = "2.0.0"
+        self.version = "1.0.1"
         self.description = "农户端App的版本更新、开屏广告与App公告管理，含App端免登录公开接口"
         self.module = "addon"
         self._config_manager = ConfigManager()
@@ -88,9 +86,9 @@ class Plugin(BasePlugin):
         卸载插件（五步逆操作）：
         1. 删除数据表（执行 migrations/uninstall.sql）
         2. 按 owner 注销全部运行时能力 — PluginManager 处理
-        3. 级联删除权限 — PluginManager 调用 unregister_plugin_permissions() 处理
-        4. 清理配置（删除所有 app_manage. 前缀配置）
-        5. 删除后台菜单 + 删除公开API缓存键 + 清空 upload/app_manage/ 物理文件，返回 True
+        3. 级联删除权限、配置、导航和菜单 — PluginManager 处理
+        4. 删除公开 API 缓存键和清空 upload/app_manage/ 物理文件
+        5. 注销运行时能力 — PluginManager 处理，返回 True
         """
         if not self.db:
             return False
@@ -99,17 +97,8 @@ class Plugin(BasePlugin):
         await self._run_sql_file("uninstall.sql")
 
         # 2. 运行时能力注销由 PluginManager 处理
-        # 3. 级联删除权限（PluginManager 处理）
-
-        # 4. 清理配置
-        from core.db.configuration import ConfigurationModel
-        await self.db.execute(
-            delete(ConfigurationModel).where(ConfigurationModel.key.like(f"{PLUGIN_NAME}.%"))
-        )
-
-        # 5. 删除后台菜单 + 清缓存 + 清空物理文件
-        from core.db.menu import Menu
-        await self.db.execute(delete(Menu).where(Menu.plugin == PLUGIN_NAME))
+        # 3. 权限、配置、导航和菜单由 PluginManager 统一清理。
+        # 4. 清缓存 + 清空物理文件；运行时能力由 PluginManager 注销。
         # 事务由框架层 PluginManager 统一管理，插件不自行 commit
         await self._clear_public_cache()
         self._cleanup_upload_dir()
@@ -144,6 +133,7 @@ class Plugin(BasePlugin):
                 "icon": "mobile",
                 "nav_type": "admin",
                 "template": "app_manage.html", "audience": "admin",
+                "scripts": ["app_manage.js"],
                 "permission": "app_manage:list",
                 "api_base": "/api/admin/v1/app-manage",
             },

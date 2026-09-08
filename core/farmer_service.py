@@ -5,6 +5,7 @@
 """
 import logging
 from datetime import datetime
+from core.time_utils import china_now
 from typing import Any
 
 from sqlalchemy import select, update, func, desc, and_, or_
@@ -484,7 +485,7 @@ async def update_farmer_password(farmer_id: int, password_hash: str) -> bool:
 async def create_farmer_login_record(farmer_id: int, ip: str) -> None:
     """创建农户登录记录"""
     async with async_session_factory() as db:
-        record = FarmerLogin(farmer_id=farmer_id, last_login_ip=ip, last_action_time=datetime.now())
+        record = FarmerLogin(farmer_id=farmer_id, last_login_ip=ip, last_action_time=china_now())
         db.add(record)
         await db.commit()
 
@@ -494,7 +495,7 @@ async def update_farmer_login_info(farmer_id: int, ip: str) -> None:
     async with async_session_factory() as db:
         await db.execute(
             update(Farmer).where(Farmer.id == farmer_id).values(
-                last_login_ip=ip, last_action_time=datetime.now()
+                last_login_ip=ip, last_action_time=china_now()
             )
         )
         await db.commit()

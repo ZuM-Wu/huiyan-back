@@ -10,7 +10,7 @@
     from core.weather_query_service import list_weather_alerts
 """
 import logging
-from datetime import datetime
+from core.time_utils import china_now
 from typing import Optional
 
 from sqlalchemy import select, func, and_
@@ -32,7 +32,7 @@ _LEVEL_SYNONYMS = {
 
 def _alert_to_dict(alert: WeatherAlert, area_name: str = "") -> dict:
     """将 WeatherAlert ORM 实例转为纯字典，并计算生效状态"""
-    now = datetime.now()
+    now = china_now()
     is_active = alert.end_time is None or alert.end_time >= now
     return {
         "id": alert.id,

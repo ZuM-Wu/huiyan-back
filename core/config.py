@@ -1,5 +1,5 @@
 """
-慧眼护农 V4 核心配置模块
+慧眼护农 3.4.0 核心配置模块
 
 使用 pydantic-settings 从 .env 文件和环境变量中加载配置，
 提供 Settings 全局单例供其他模块使用。
@@ -37,8 +37,12 @@ class Settings(BaseSettings):
     # 开发环境需查看 SQL 时在 .env 中设置 DB_ECHO=true
     DB_ECHO: bool = False
 
+    # 应用日志配置：默认保持 stderr 输出，可选落盘到 UTF-8 滚动文件。
+    LOG_FILE: str = ""
+    LOG_LEVEL: str = "INFO"
+
     # 应用版本（用于静态资源版本号治理，模板中用 config.app_version 小写访问）
-    app_version: str = "3.4.5"
+    app_version: str = "3.4.0"
 
     # 插件目录（相对名称，消费方须用 BASE_DIR / PLUGINS_DIR 拼绝对路径）
     PLUGINS_DIR: str = "plugins"
@@ -47,11 +51,19 @@ class Settings(BaseSettings):
     # 开发环境默认 "*"，生产环境应设置为具体域名，如 "https://example.com,https://admin.example.com"
     CORS_ORIGINS: str = "*"
 
+    # 仅供停机迁移读取的旧 JJR 配置；运行期协议只读取 hardware_jjr 插件配置。
+    FARMBOT_BASE_URL: str = "https://farmbot-jjr.jjr.vip"
+    FARMBOT_OWNER_TOKEN: str = ""
+
     # MCP 服务开关（默认关闭；开发环境在 .env 中设置 MCP_ENABLED=true 开启）
     MCP_ENABLED: bool = False
 
     # MCP 服务挂载路径（挂载到 FastAPI 主应用下的子路径）
     MCP_MOUNT_PATH: str = "/mcp"
+
+    # MCP 三类能力共用的账户级滑动窗口频控。
+    MCP_RATE_LIMIT_REQUESTS: int = 120
+    MCP_RATE_LIMIT_WINDOW_SECONDS: int = 60
 
     # 锚定到项目根目录的绝对路径：避免启动工作目录不同导致 .env 加载不到
     model_config = SettingsConfigDict(

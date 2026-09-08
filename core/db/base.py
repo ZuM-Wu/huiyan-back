@@ -10,6 +10,7 @@ from contextlib import asynccontextmanager
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
 from core.config import settings
+from core.time_utils import CHINA_DB_TIME_ZONE
 
 
 class Base(DeclarativeBase):
@@ -25,6 +26,10 @@ engine = create_async_engine(
     max_overflow=10,
     pool_recycle=3600,
     pool_pre_ping=True,  # 连接前 ping 检测，防止使用已断开的连接
+    connect_args={
+        # 每条连接显式固定中国时区，避免部署主机或 MySQL 全局配置改变业务时间。
+        "init_command": f"SET time_zone = '{CHINA_DB_TIME_ZONE}'",
+    },
 )
 
 # 异步会话工厂

@@ -12,6 +12,7 @@
 """
 import logging
 from datetime import datetime, timedelta
+from core.time_utils import china_now
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select, func, and_
@@ -41,7 +42,7 @@ def _build_filters(area_id, level, alert_type, active, start_date, end_date):
     返回: SQLAlchemy 条件表达式列表
     """
     from core.db.weather import WeatherAlert
-    now = datetime.now()
+    now = china_now()
     filters = []
     if area_id is not None:
         filters.append(WeatherAlert.area_id == area_id)
@@ -109,7 +110,7 @@ async def list_alerts(
             .offset((page - 1) * limit).limit(limit)
         )).all()
 
-    now = datetime.now()
+    now = china_now()
     result_list = []
     for alert, area_name in rows:
         # 生效状态由后端统一判定，前端直接渲染标签

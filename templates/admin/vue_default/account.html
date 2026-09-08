@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+{% block title %}账户设置 - 慧眼护农{% endblock %}
+{% block content %}
+<div id="page-app" v-cloak class="system-settings-page">
+    <t-card class="t-card--scrollable" title="账户设置">
+        <t-tabs v-model="activeTab" theme="normal">
+
+            <!-- ========== Tab 1: 基本信息 ========== -->
+            <!-- 面板常驻 DOM（destroy-on-hide 默认 true 会销毁非激活面板）：
+                 避免 apikey 表格反复重建触发全局 :has(.t-table) padding 翻转与 loading 重排；
+                 数据已在 onMounted 一次性预载，无懒加载依赖 -->
+            <t-tab-panel value="info" label="基本信息" :destroy-on-hide="false">
+                <div class="settings-tab-content">
+                    <t-form :data="infoForm" @submit="saveInfo">
+                        <div class="form-section-title">个人资料</div>
+                        <div class="form-grid form-grid--2">
+                            <t-form-item label="用户名">
+                                <t-input :value="infoForm.username" disabled placeholder="用户名不可修改"/>
+                            </t-form-item>
+                            <t-form-item label="昵称">
+                                <t-input v-model="infoForm.nickname" placeholder="请输入昵称"/>
+                            </t-form-item>
+                            <t-form-item label="邮箱">
+                                <t-input v-model="infoForm.email" placeholder="请输入邮箱"/>
+                            </t-form-item>
+                            <t-form-item label="手机号">
+                                <t-input v-model="infoForm.phone" placeholder="请输入手机号"/>
+                            </t-form-item>
+                        </div>
+
+                        <div class="form-section-title">账户信息</div>
+                        <div class="form-grid form-grid--2">
+                            <t-form-item label="最后登录 IP">
+                                <t-input :value="infoForm.last_login_ip" disabled/>
+                            </t-form-item>
+                            <t-form-item label="注册时间">
+                                <t-input :value="infoForm.create_time" disabled/>
+                            </t-form-item>
+                        </div>
+
+                        <div class="settings-form-actions">
+                            <t-button theme="primary" type="submit" :loading="savingInfo">保存修改</t-button>
+                        </div>
+                    </t-form>
+                </div>
+            </t-tab-panel>
+
+            <!-- ========== Tab 2: 修改密码 ========== -->
+            <t-tab-panel value="password" label="修改密码" :destroy-on-hide="false">
+                <div class="settings-tab-content">
+                    <t-form ref="pwdFormRef" :data="pwdForm" :rules="pwdRules" @submit="savePassword">
+                        <div class="form-section-title">修改密码</div>
+                        <div class="form-grid form-grid--2">
+                            <t-form-item label="当前密码" name="old_password">
+                                <t-input v-model="pwdForm.old_password" type="password" placeholder="请输入当前密码"/>
+                            </t-form-item>
+                            <t-form-item label=" "></t-form-item>
+                            <t-form-item label="新密码" name="new_password">
+                                <t-input v-model="pwdForm.new_password" type="password" placeholder="请输入新密码（至少6位）"/>
+                            </t-form-item>
+                            <t-form-item label="确认新密码" name="confirm_password">
+                                <t-input v-model="pwdForm.confirm_password" type="password" placeholder="请再次输入新密码"/>
+                            </t-form-item>
+                        </div>
+
+                        <div class="settings-form-actions">
+                            <t-button theme="primary" type="submit" :loading="savingPwd">修改密码</t-button>
+                        </div>
+                    </t-form>
+                </div>
+            </t-tab-panel>
+
+            <!-- ========== Tab 3: API 密钥（MCP 接入） ========== -->
+            <t-tab-panel value="apikey" label="API 密钥" :destroy-on-hide="false">
+                <div class="settings-tab-content">
+                    <div class="form-section-title">API 密钥（MCP 接入）</div>
+                    <!-- 自定义组件禁止自闭合写法：in-DOM 模板下会吞掉后续兄弟节点导致布局重叠 -->
+                    <t-alert theme="info" class="mb16" :close="true"
+                             message="密钥用于 MCP 客户端接入本系统，权限与您的账户一致，可随时在列表中查看与复制。"></t-alert>
+                    <div class="mb16">
+                        <t-button theme="primary" @click="openCreateKey">新建密钥</t-button>
+                    </div>
+                    <t-table row-key="id" :data="apiKeys" :columns="apiKeyColumns"
+                             :loading="loadingKeys" size="medium" cell-empty-content="-" hover>
+                        <template #key="{ row }">
+                            <!-- 密钥明文可视化：flex 布局保证复制链接始终可见，存量无明文密钥回退显示前缀占位 -->
+                            <div v-if="row.key" class="api-key-cell">
+                                <span class="api-key-cell__text" :title="row.key">[[ row.key ]]</span>
+                                <t-link theme="primary" hover="color"
+                                        @click="copyText(row.key, '密钥')">复制</t-link>
+                            </div>
+                            <template v-else>[[ row.prefix ]]****</template>
+                        </template>
+                        <template #status="{ row }">
+                            <t-tag :theme="row.status === 1 ? 'success' : 'danger'" variant="light" size="small">
+                                [[ row.status === 1 ? '启用中' : '已吊销' ]]
+                            </t-tag>
+                        </template>
+                        <template #op="{ row }">
+                            <!-- 操作列规范（视觉规范 14.2）：t-space + 文字按钮；详情复用创建成功弹窗，存量无明文密钥不显示 -->
+                            <t-space :size="8">
+                                <t-button v-if="row.key" variant="text" size="small" theme="primary"
+                                          @click="openKeyDetail(row)">详情</t-button>
+                                <t-popconfirm content="吊销后该密钥立即失效且不可恢复，确认吊销？"
+                                              theme="danger" @confirm="revokeKey(row)">
+                                    <t-button variant="text" size="small" theme="danger"
+                                              :disabled="row.status === 2">吊销</t-button>
+                                </t-popconfirm>
+                            </t-space>
+                        </template>
+                    </t-table>
+                </div>
+            </t-tab-panel>
+
+        </t-tabs>
+    </t-card>
+
+    <!-- 新建密钥弹窗 -->
+    <t-dialog v-model:visible="createKeyVisible" header="新建 API 密钥" width="480px"
+              :confirm-btn="{ content: '创建', theme: 'primary', loading: creatingKey }"
+              @confirm="createKey" @close="createKeyVisible = false">
+        <t-form :data="keyForm" label-align="top" @submit.prevent>
+            <t-form-item label="密钥备注名" name="name"
+                         :status="keyNameError ? 'error' : undefined" :tips="keyNameError">
+                <t-input v-model="keyForm.name" placeholder="如：我的 AI 助手（最长 64 字）" :maxlength="64"
+                         @input="keyNameError = ''"/>
+            </t-form-item>
+        </t-form>
+    </t-dialog>
+
+    <!-- 创建成功/密钥详情弹窗（展示明文与 MCP 接入配置，标题随入口动态切换） -->
+    <t-dialog v-model:visible="keyResultVisible" :header="keyResultTitle" width="640px"
+              :cancel-btn="null" confirm-btn="关闭"
+              @confirm="keyResultVisible = false" @close="keyResultVisible = false">
+        <div class="form-section-title">密钥明文</div>
+        <t-input :value="newKeyPlain" readonly class="mb8">
+            <template #suffix>
+                <t-link theme="primary" hover="color" @click="copyText(newKeyPlain, '密钥')">复制</t-link>
+            </template>
+        </t-input>
+        <div class="form-section-title mt16">MCP 客户端配置（mcpServers）</div>
+        <t-textarea :value="newKeyMcpJson" readonly :autosize="{ minRows: 8, maxRows: 12 }"></t-textarea>
+        <div class="mt8">
+            <t-button theme="default" @click="copyText(newKeyMcpJson, '配置')">复制配置</t-button>
+        </div>
+    </t-dialog>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="/static/js/pages/account.js?v={{ config.app_version }}"></script>
+{% endblock %}

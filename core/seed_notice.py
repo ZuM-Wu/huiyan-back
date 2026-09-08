@@ -118,9 +118,11 @@ async def _seed_verify_code_sms_templates(db):
 
     for action_key, tpl_info in _VERIFY_CODE_TEMPLATES.items():
         # 检查是否已有该 action_key 对应的模板
+        # 历史版本未对 action_key 建唯一约束，存量库可能存在重复预置模板；
+        # 读取首条即可保持幂等关联，不能因升级种子而阻断整个应用启动。
         existing_tpl = (await db.execute(
             select(SmsTemplate).where(SmsTemplate.action_key == action_key)
-        )).scalar_one_or_none()
+        )).scalars().first()
 
         if not existing_tpl:
             # 创建系统预置模板：interface 留空表示发送时使用通知动作配置的 SMS 插件
@@ -146,7 +148,7 @@ async def _seed_verify_code_sms_templates(db):
         # 关联到对应动作（仅当动作尚未手动配置模板时）
         action = (await db.execute(
             select(NoticeAction).where(NoticeAction.action_key == action_key)
-        )).scalar_one_or_none()
+        )).scalars().first()
         if action and action.sms_template_id == 0:
             action.sms_enabled = True
             action.sms_template_id = tpl_id

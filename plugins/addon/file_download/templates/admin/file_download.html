@@ -5,7 +5,7 @@
 
   布局：左栏文件夹列表（全部文件 + 各夹计数 + 管理操作），右侧文件表格。
   要点：
-  1. 继承核心 base.html；页面脚本内联在 block scripts（插件不挂 /static）
+  1. 继承插件公共页面壳；页面脚本由 manifest 本地资源声明加载
   2. 根节点 #page-app + v-cloak；Vue 分隔符 [[ ]]；t-* 组件禁止自闭合
   3. 按钮 v-permission 控显隐，权限码与 auth.py / router_admin 一一对应
   4. 下载走 request blob 方式（附带 JWT），文件名取 Content-Disposition
@@ -163,5 +163,4 @@
 {% block scripts %}
 {{ super() }}
 <!-- 页面脚本外提至共享 js/pages（与 admin_notifier 同范式），降低模板行数 -->
-<script src="/static/js/pages/file_download.js?v={{ config.app_version }}"></script>
 {% endblock %}

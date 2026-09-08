@@ -1,0 +1,188 @@
+{% extends "base.html" %}
+{% block title %}硬件管理 - 慧眼护农{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="/static/css/hardware-device.css?v={{ config.app_version }}">
+{% endblock %}
+{% block content %}
+<div id="page-app" v-cloak class="admin-list-page hardware-page">
+    <t-card title="硬件管理">
+        <t-tabs v-model="pageTab" :destroy-on-hide="false" class="hardware-page-tabs"
+            @change="onPageTabChange">
+            <t-tab-panel value="devices" label="设备管理">
+                <div class="hardware-toolbar">
+                    <div class="hardware-filters">
+                        <t-input v-model="filters.keyword" clearable placeholder="设备名称或编号"
+                            class="hardware-search" @enter="search"></t-input>
+                        <t-select v-model="filters.providerId" class="hardware-filter" :options="providerOptions" clearable placeholder="全部来源" @change="search"></t-select>
+                    <t-select v-model="filters.deviceType" clearable placeholder="设备类型"
+                            class="hardware-filter" :options="deviceTypeOptions" @change="search"></t-select>
+                        <t-select v-model="filters.bindingStatus" clearable placeholder="绑定状态"
+                            class="hardware-filter" :options="bindingOptions" @change="search"></t-select>
+                        <t-select v-model="filters.available" clearable placeholder="平台状态"
+                            class="hardware-filter" :options="availableOptions" @change="search"></t-select>
+                        <t-button theme="primary" variant="outline" @click="search">查询</t-button>
+                    </div>
+                    <t-button theme="primary" :loading="syncing" @click="syncDevices">
+                        <template #icon><t-icon name="refresh"></t-icon></template>同步设备
+                    </t-button>
+                </div>
+
+                <t-alert v-if="syncError" theme="warning" :message="syncError"></t-alert>
+                <t-table :data="deviceList" :columns="columns" :loading="loading"
+                    :pagination="pagination" row-key="id" hover @page-change="onPageChange">
+                    <template #device="{ row }">
+                        <div class="hardware-device-cell">
+                            <img v-if="row.image_url" :src="row.image_url" alt="设备图片" class="hardware-device-thumb">
+                            <div v-else class="hardware-device-fallback"><t-icon :name="deviceIcon(row.device_type)"></t-icon></div>
+                            <div class="hardware-device-meta">
+                                <div class="hardware-device-name">[[ row.nickname || row.device_type_label || '未命名设备' ]]</div>
+                                <div class="hardware-device-code">[[ row.device_name ]]</div>
+                            </div>
+                        </div>
+                    </template>
+                    <template #type="{ row }"><t-tag variant="light">[[ row.device_type_label || row.device_type ]]</t-tag></template>
+                    <template #available="{ row }">
+                        <t-tag :theme="row.available && row.provider_available ? 'success' : 'danger'" variant="light">
+                            [[ !row.provider_available ? '来源停用' : (row.available ? '可用' : '不可用') ]]
+                        </t-tag>
+                    </template>
+                    <template #binding="{ row }">
+                        <div v-if="row.plot_id" class="hardware-binding-text">[[ row.area_name ]]<span>[[ row.plot_name ]]</span></div>
+                        <t-tag v-else theme="default" variant="light">未绑定</t-tag>
+                    </template>
+                    <template #last_sync_time="{ row }">
+                        <span class="hardware-time">[[ formatChinaTime(row.last_sync_time) ]]</span>
+                    </template>
+                    <template #operation="{ row }">
+                        <t-button theme="primary" variant="text" size="small" @click="openDetail(row)">管理</t-button>
+                    </template>
+                </t-table>
+            </t-tab-panel>
+            <t-tab-panel value="settings" label="调度设置">
+                <t-alert v-if="settingsError" theme="warning" :message="settingsError">
+                    <template #operation><t-button @click="fetchAutoFetchSettings">重试</t-button></template>
+                </t-alert>
+                <t-form class="hardware-settings-form" label-width="140px">
+                    <t-form-item label="自动采集">
+                        <t-switch v-model="autoFetchSettings.enabled"></t-switch>
+                    </t-form-item>
+                    <t-form-item label="采集周期">
+                        <div class="hardware-interval-field">
+                            <t-input-number v-model="autoFetchSettings.intervalSeconds"
+                                :min="1" :max="86400" :decimal-places="0"></t-input-number>
+                            <span>秒</span>
+                        </div>
+                    </t-form-item>
+                    <t-form-item>
+                        <t-button theme="primary" :loading="settingsSaving" :disabled="settingsLoading || !!settingsError"
+                            @click="saveAutoFetchSettings">保存设置</t-button>
+                    </t-form-item>
+                </t-form>
+            </t-tab-panel>
+        </t-tabs>
+    </t-card>
+
+    <t-drawer v-model:visible="drawerVisible" class="hardware-drawer" size="820px"
+        :header="drawerTitle" :footer="false" :close-btn="true" @close="closeDrawer">
+        <t-descriptions v-if="currentDevice" class="hardware-detail-summary" :column="3" bordered size="small">
+            <t-descriptions-item label="设备编号">[[ currentDevice.device_name ]]</t-descriptions-item>
+            <t-descriptions-item label="设备类型">[[ currentDevice.device_type_label || currentDevice.device_type ]]</t-descriptions-item>
+            <t-descriptions-item label="平台状态">[[ currentDevice.available && currentDevice.provider_available ? '可用' : '不可用' ]]</t-descriptions-item>
+        </t-descriptions>
+        <t-tabs v-model="detailTab" :destroy-on-hide="false">
+            <t-tab-panel value="current" label="设备数据">
+                <t-loading :loading="detailLoading">
+                    <t-alert v-if="detailError" theme="warning" :message="detailError"></t-alert>
+                    <t-button v-if="detailError" variant="text" @click="retryDetail">重新加载详情</t-button>
+                    <component v-if="drawerVisible && detailComponent" :is="detailComponent" :key="detailKey"
+                        :device="detailDevice" :context="detailContext"></component>
+                </t-loading>
+            </t-tab-panel>
+            <t-tab-panel value="basic" label="基本设置">
+                <t-form class="hardware-form" label-width="100px">
+                    <t-form-item label="设备图片">
+                        <image-upload v-model="appearance.imageUrl" hint="用于地图水滴标记"></image-upload>
+                    </t-form-item>
+                    <t-form-item><t-button theme="primary" @click="saveAppearance">保存图片</t-button></t-form-item>
+                    <t-form-item label="产区">
+                        <t-select v-model="binding.areaId" :options="areaOptions" placeholder="选择产区" @change="onAreaChange"></t-select>
+                    </t-form-item>
+                    <t-form-item label="地块">
+                        <t-select v-model="binding.plotId" :options="plotOptions" placeholder="选择地块" :disabled="!binding.areaId"></t-select>
+                    </t-form-item>
+                    <t-form-item>
+                        <div class="hardware-form-actions">
+                            <t-button theme="primary" :disabled="!binding.plotId" @click="saveBinding">保存绑定</t-button>
+                            <t-button v-if="currentDevice && currentDevice.plot_id" theme="danger" variant="outline"
+                                @click="removeBinding">解除绑定</t-button>
+                        </div>
+                    </t-form-item>
+                </t-form>
+            </t-tab-panel>
+        </t-tabs>
+    </t-drawer>
+
+    <t-dialog v-model:visible="quickDetectDialogVisible" header="快捷检测结果"
+        width="1040px" :footer="false" :close-on-overlay-click="false"
+        @close="closeQuickDetect">
+        <t-alert :theme="quickDetectStatusTheme" :message="quickDetectStatusMessage"
+            class="hardware-detect-status"></t-alert>
+        <t-loading v-if="quickDetectWorking && !quickDetectRecord" loading
+            text="模型正在处理当前图片" class="hardware-detect-loading"></t-loading>
+        <template v-if="quickDetectRecord">
+            <t-descriptions :column="4" bordered size="small" class="hardware-detect-summary">
+                <t-descriptions-item label="地块">[[ quickDetectRecord.area_name ]] / [[ quickDetectRecord.plot_name ]]</t-descriptions-item>
+                <t-descriptions-item label="模型">[[ quickDetectRecord.model_name ]] [[ quickDetectRecord.model_version ]]</t-descriptions-item>
+                <t-descriptions-item label="目标数量">[[ quickDetectRecord.detection_count ]]</t-descriptions-item>
+                <t-descriptions-item label="最高置信度">[[ formatDetectConfidence(quickDetectRecord.max_confidence) ]]</t-descriptions-item>
+                <t-descriptions-item label="图片标识">[[ quickDetectRecord.image_identifier || '未提供' ]]</t-descriptions-item>
+                <t-descriptions-item label="识别时间" :span="3">[[ quickDetectRecord.recognized_at ]]</t-descriptions-item>
+            </t-descriptions>
+            <div class="hardware-detect-result">
+                <div class="hardware-detect-image-pane">
+                    <t-image-viewer :images="[quickDetectRecord.image_url]">
+                        <template #trigger="{ open }">
+                            <div class="hardware-detect-image-stage" @click="open">
+                                <img :src="quickDetectRecord.image_url" alt="快捷检测原图"
+                                    class="hardware-detect-image">
+                                <div v-for="box in quickDetectBoxes" :key="box.key"
+                                    class="hardware-detect-box" :style="box.style">
+                                    <span>[[ box.label ]] [[ formatDetectConfidence(box.confidence) ]]</span>
+                                </div>
+                            </div>
+                        </template>
+                    </t-image-viewer>
+                </div>
+                <div class="hardware-detect-detail-pane">
+                    <div v-if="quickDetectRows.length" class="hardware-detect-detail-list">
+                        <section v-for="row in quickDetectRows" :key="row._rowKey"
+                            class="hardware-detect-detail-item">
+                            <div class="hardware-detect-detail-field">
+                                <span>目标</span>
+                                <strong>[[ row.label ]]</strong>
+                            </div>
+                            <div class="hardware-detect-detail-field">
+                                <span>置信度</span>
+                                <strong>[[ formatDetectConfidence(row.confidence) ]]</strong>
+                            </div>
+                            <div class="hardware-detect-detail-field">
+                                <span>坐标 [x1, y1, x2, y2]</span>
+                                <strong class="hardware-detect-coordinate">[[ formatDetectBbox(row.bbox) ]]</strong>
+                            </div>
+                        </section>
+                    </div>
+                    <div v-else class="hardware-detect-empty">
+                        当前图片未识别到目标
+                    </div>
+                </div>
+            </div>
+        </template>
+    </t-dialog>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="/static/vendor/echarts/echarts.min.js"></script>
+<script src="/static/js/pages/hardware-quick-detect.js?v={{ config.app_version }}"></script>
+<script src="/static/js/components/hardware-detail.js?v={{ config.app_version }}"></script>
+<script src="/static/js/pages/hardware-device.js?v={{ config.app_version }}"></script>
+{% endblock %}

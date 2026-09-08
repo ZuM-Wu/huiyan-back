@@ -84,7 +84,7 @@ class FarmerViewController:
         """使用农户端主题 Jinja2 环境渲染模板
 
         支持临时预览：URL 携带 `?__theme=xxx` 时临时使用指定主题渲染
-        （非法值自动回退 default），不改变系统当前启用主题。
+        （非法值自动回退农户端默认主题），不改变系统当前启用主题。
         """
         preview = request.query_params.get("__theme")
         env = theme_manager.get_env("farmer", preview=preview)

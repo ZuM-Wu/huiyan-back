@@ -16,6 +16,7 @@ import importlib
 import json
 import logging
 from datetime import datetime, date, timedelta, timezone
+from core.time_utils import china_now
 
 from sqlalchemy import select
 
@@ -164,7 +165,7 @@ class WeatherService:
         if not force:
             cached = await cache_manager.get(_cache_key(area_id))
             if cached and cached.get("fetched_at"):
-                age = (datetime.now()
+                age = (china_now()
                        - datetime.fromisoformat(cached["fetched_at"])).total_seconds()
                 if age < settings["interval_minutes"] * 60:
                     return cached["data"]
@@ -241,7 +242,7 @@ class WeatherService:
                                            dto.get("msg", "未知错误"))
 
         # ---- 快照 upsert（每产区一行） ----
-        now = datetime.now()
+        now = china_now()
         if not snapshot:
             snapshot = WeatherData(area_id=area.id)
             db.add(snapshot)
@@ -274,7 +275,7 @@ class WeatherService:
             rows = (await db.execute(
                 select(WeatherAlert).where(
                     WeatherAlert.area_id == area_id,
-                    WeatherAlert.end_time >= datetime.now(),
+                    WeatherAlert.end_time >= china_now(),
                 ).order_by(WeatherAlert.start_time.desc()).limit(limit)
             )).scalars().all()
         return [{

@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+{% block title %}官网主题控制器 - 慧眼护农{% endblock %}
+{% block content %}
+<div id="page-app" v-cloak class="site-controller">
+    <!-- 页面标题已废弃：侧边栏已标识当前页，内容区不再显示标题 -->
+    <t-card class="t-card--scrollable" title="站点配置">
+        <t-tabs v-model="activeTab" theme="normal">
+
+            <!-- ========== Tab 1: 导航配置 ========== -->
+            <t-tab-panel value="nav" label="导航配置">
+                <div class="settings-tab-content">
+                    <div class="card-header-toolbar">
+                        <div class="card-header-toolbar-left">
+                            <t-button theme="primary" @click="openNavDialog(-1)">新增导航</t-button>
+                        </div>
+                    </div>
+                    <t-table :data="navList" :columns="navColumns"
+                        row-key="label" empty="暂无导航项" hover>
+                        <template #visible="{ row, rowIndex }">
+                            <t-radio-group v-model="row.visible" @change="onNavToggle(rowIndex, row)">
+                                <t-radio :value="1">展示</t-radio>
+                                <t-radio :value="0">隐藏</t-radio>
+                            </t-radio-group>
+                        </template>
+                        <template #action="{ row, rowIndex }">
+                            <t-space :size="4">
+                                <t-link theme="primary" hover="color" @click="openNavDialog(rowIndex)">编辑</t-link>
+                                <t-popconfirm content="确定删除此导航项？" @confirm="deleteNav(rowIndex)">
+                                    <t-link theme="danger" hover="color">删除</t-link>
+                                </t-popconfirm>
+                            </t-space>
+                        </template>
+                    </t-table>
+                </div>
+            </t-tab-panel>
+
+            <!-- ========== Tab 2: 页脚配置 ========== -->
+            <t-tab-panel value="footer" label="页脚配置">
+                <div class="settings-tab-content">
+                    <div class="card-header-toolbar">
+                        <div class="card-header-toolbar-left">
+                            <t-button theme="primary" @click="openFooterDialog(-1)">新增分组</t-button>
+                        </div>
+                    </div>
+                    <div class="sc-footer-list">
+                        <t-empty v-if="footerList.length === 0" description="暂无页脚分组"></t-empty>
+                        <t-card v-for="(group, gi) in footerList" :key="gi" class="sc-footer-group"
+                            :bordered="true">
+                            <template #header>
+                                <div class="sc-footer-group__head">
+                                    <span class="sc-footer-group__title">[[ group.title ]]</span>
+                                    <t-space :size="4">
+                                        <t-button variant="text" theme="primary"
+                                            @click="openFooterLinkDialog(gi, -1)">新增链接</t-button>
+                                        <t-button variant="text" theme="default"
+                                            @click="openFooterDialog(gi)">编辑分组</t-button>
+                                        <t-popconfirm content="确定删除此分组及其全部链接？" @confirm="deleteFooterGroup(gi)">
+                                            <t-button variant="text" theme="danger">删除</t-button>
+                                        </t-popconfirm>
+                                    </t-space>
+                                </div>
+                            </template>
+                            <t-table :data="group.links || []" :columns="footerLinkColumns"
+                                row-key="label" empty="暂无链接" hover>
+                                <template #linkAction="{ row, rowIndex }">
+                                    <t-space :size="4">
+                                        <t-link theme="primary" hover="color"
+                                            @click="openFooterLinkDialog(gi, rowIndex)">编辑</t-link>
+                                        <t-popconfirm content="确定删除此链接？" @confirm="deleteFooterLink(gi, rowIndex)">
+                                            <t-link theme="danger" hover="color">删除</t-link>
+                                        </t-popconfirm>
+                                    </t-space>
+                                </template>
+                            </t-table>
+                        </t-card>
+                    </div>
+                </div>
+            </t-tab-panel>
+
+            <!-- ========== Tab 3: Banner 配置 ========== -->
+            <t-tab-panel value="banner" label="Banner 配置">
+                <div class="settings-tab-content">
+                    <t-form :data="bannerForm" label-align="left" label-width="100px">
+                        <div class="form-grid form-grid--2">
+                            <t-form-item label="标题">
+                                <t-input v-model="bannerForm.title" placeholder="请输入 Banner 标题"></t-input>
+                            </t-form-item>
+                            <t-form-item label="副标题">
+                                <t-input v-model="bannerForm.subtitle" placeholder="请输入 Banner 副标题"></t-input>
+                            </t-form-item>
+                        </div>
+                        <div class="form-grid">
+                            <t-form-item label="背景">
+                                <t-input v-model="bannerForm.background"
+                                    placeholder="背景图 URL / CSS 渐变值（留空使用默认渐变）"></t-input>
+                            </t-form-item>
+                        </div>
+                        <div class="settings-form-actions">
+                            <t-button theme="primary" :loading="saving" @click="saveBanner">保存</t-button>
+                        </div>
+                    </t-form>
+                </div>
+            </t-tab-panel>
+
+            <!-- ========== Tab 4: 站点简介 ========== -->
+            <t-tab-panel value="intro" label="站点简介">
+                <div class="settings-tab-content">
+                    <t-form label-align="top">
+                        <t-form-item label="功能简介文案">
+                            <t-textarea v-model="introText" :autosize="{ minRows: 8, maxRows: 20 }"
+                                placeholder="支持纯文本 / Markdown 子集"></t-textarea>
+                        </t-form-item>
+                        <div class="settings-form-actions">
+                            <t-button theme="primary" :loading="saving" @click="saveIntro">保存</t-button>
+                        </div>
+                    </t-form>
+                </div>
+            </t-tab-panel>
+
+        </t-tabs>
+    </t-card>
+
+    <!-- ===== 导航编辑弹窗 ===== -->
+    <t-dialog v-model:visible="navDialogVisible" :header="navEditIndex >= 0 ? '编辑导航' : '新增导航'"
+        :confirm-btn="{ loading: navSaving }" @confirm="submitNav">
+        <!-- 视觉规范 9.9：必填校验用 Form rules 内联提示（显示在输入框下方），禁止 MessagePlugin 弹出 -->
+        <t-form ref="navFormRef" :data="navForm" :rules="navRules" label-align="left" label-width="80px">
+            <t-form-item label="名称" name="label">
+                <t-input v-model="navForm.label" placeholder="请输入导航名称"></t-input>
+            </t-form-item>
+            <t-form-item label="链接" name="href">
+                <t-input v-model="navForm.href" placeholder="请输入链接地址（如 / 或 #features）"></t-input>
+            </t-form-item>
+            <t-form-item label="打开方式">
+                <t-radio-group v-model="navForm.target">
+                    <t-radio value="_self">当前窗口</t-radio>
+                    <t-radio value="_blank">新窗口</t-radio>
+                </t-radio-group>
+            </t-form-item>
+            <t-form-item label="是否展示">
+                <t-radio-group v-model="navForm.visible">
+                    <t-radio :value="1">展示</t-radio>
+                    <t-radio :value="0">隐藏</t-radio>
+                </t-radio-group>
+            </t-form-item>
+        </t-form>
+    </t-dialog>
+
+    <!-- ===== 页脚分组编辑弹窗 ===== -->
+    <t-dialog v-model:visible="footerDialogVisible"
+        :header="footerEditIndex >= 0 ? '编辑分组' : '新增分组'"
+        :confirm-btn="{ loading: footerSaving }" @confirm="submitFooterGroup">
+        <t-form ref="footerFormRef" :data="footerForm" :rules="footerRules" label-align="left" label-width="80px">
+            <t-form-item label="分组标题" name="title">
+                <t-input v-model="footerForm.title" placeholder="请输入分组标题"></t-input>
+            </t-form-item>
+        </t-form>
+    </t-dialog>
+
+    <!-- ===== 页脚链接编辑弹窗 ===== -->
+    <t-dialog v-model:visible="linkDialogVisible"
+        :header="linkEditIndex >= 0 ? '编辑链接' : '新增链接'"
+        :confirm-btn="{ loading: linkSaving }" @confirm="submitFooterLink">
+        <t-form ref="linkFormRef" :data="linkForm" :rules="linkRules" label-align="left" label-width="80px">
+            <t-form-item label="名称" name="label">
+                <t-input v-model="linkForm.label" placeholder="请输入链接名称"></t-input>
+            </t-form-item>
+            <t-form-item label="地址" name="href">
+                <t-input v-model="linkForm.href" placeholder="请输入链接地址"></t-input>
+            </t-form-item>
+        </t-form>
+    </t-dialog>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="/static/js/pages/site-controller.js?v={{ config.app_version }}"></script>
+{% endblock %}

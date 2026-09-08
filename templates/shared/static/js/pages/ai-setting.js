@@ -1,427 +1,121 @@
-/**
- * AI 设置页 — 三 Tab 结构（对标通知模块设置页）
- *
- * Tab1 接口列表: llm 驱动插件 安装/卸载/配置/测试/启停/激活
- * Tab2 对话参数: 全局 ai.* 参数表单
- * Tab3 MCP 能力: 管理员 + 农户端外部 MCP 服务器 CRUD/连通测试
- */
+/** AI 资源设置页；四类资源共用后端与 AgentScope 请求门面。 */
 (function () {
-HuiYan.createPage({
-    setup() {
-        const { ref, reactive, onMounted, watch, nextTick } = Vue;
-        const { MessagePlugin, DialogPlugin } = TDesign;
+    var EmptyState = { name: 'AiEmptyState', props: { description: { type: String, default: '暂无数据' } }, template: '<div class="ai-empty__content" role="status"><t-icon name="file" size="24"></t-icon><span>[[ description ]]</span></div>' };
 
-        // 封装 DialogPlugin.confirm 为 Promise（TDesign 原生是回调式）
-        function confirmAsync(options) {
-            return new Promise(function (resolve) {
-                var instance = DialogPlugin.confirm({
-                    header: options.header,
-                    body: options.body,
-                    onConfirm: function () { instance.destroy(); resolve(true); },
-                    onClose: function () { instance.destroy(); resolve(false); },
-                    onCancel: function () { instance.destroy(); resolve(false); }
-                });
-            });
-        }
+    HuiYan.createPage({
+        components: { 't-empty': EmptyState },
+        setup: function () {
+            var ref = Vue.ref, reactive = Vue.reactive, onMounted = Vue.onMounted, onBeforeUnmount = Vue.onBeforeUnmount;
+            var MessagePlugin = TDesign.MessagePlugin, DialogPlugin = TDesign.DialogPlugin;
+            var tab = ref('connections'), loading = ref(false), error = ref('');
+            var presets = ref([]), connections = ref([]), cards = ref([]), mcps = ref([]), skills = ref([]);
+            var agents = ref([]), sessions = ref([]), selectedAgent = ref(''), selectedSession = ref('');
+            var selectedSkill = ref(null), availableModels = ref([]);
+            var showConnection = ref(false), showCard = ref(false), showMcp = ref(false), showSkillInstall = ref(false);
+            var editingConnection = ref(null), editingCard = ref(null), editingMcp = ref(null);
+            var skillInput = ref(null), skillUploading = ref(false), skillInstalling = ref(false);
+            var connectionForm = reactive({ preset_key: 'deepseek', vendor: 'DeepSeek', vendor_name: 'DeepSeek', provider: 'deepseek_credential', protocol: 'openai_chat_completions', name: '', api_key: '', base_url: '', status: 1 });
+            var cardForm = reactive({ connection_id: null, provider: '', model_name: '', label: '', input_types: [], output_types: [], context_size: 32768, output_size: 4096, support_tools: false, support_reasoning: false, parameter_schema: '{}', status: 1 });
+            var mcpForm = reactive({ kind: 'custom', name: '', display_name: '', description: '', url: '', headers: '', api_key: '', clear_headers: false, enabled: true });
+            var connectionColumns = [{ colKey: 'name', title: '连接名称', minWidth: 150 }, { colKey: 'vendor', title: '厂商', width: 130 }, { colKey: 'protocol', title: '协议', width: 180 }, { colKey: 'base_url', title: 'Base URL', minWidth: 260 }, { colKey: 'status', title: '状态', width: 90 }, { colKey: 'last_test_status', title: '自动检测', width: 130 }, { colKey: 'operation', title: '操作', width: 280, fixed: 'right' }];
+            var cardColumns = [{ colKey: 'connection', title: '来源连接', minWidth: 160 }, { colKey: 'label', title: '展示名称', minWidth: 170 }, { colKey: 'model_name', title: '模型 ID', minWidth: 180 }, { colKey: 'context_size', title: '上下文', width: 110 }, { colKey: 'capabilities', title: '能力', minWidth: 220 }, { colKey: 'status', title: '状态', width: 90 }, { colKey: 'operation', title: '操作', width: 150, fixed: 'right' }];
+            var mcpColumns = [{ colKey: 'display_name', title: 'MCP 名称', minWidth: 180 }, { colKey: 'url', title: '地址', minWidth: 260 }, { colKey: 'description', title: '描述', minWidth: 220 }, { colKey: 'enabled', title: '状态', width: 90 }, { colKey: 'operation', title: '操作', width: 220, fixed: 'right' }];
+            var skillColumns = [{ colKey: 'name', title: 'Skill 名称', minWidth: 180 }, { colKey: 'description', title: '描述', minWidth: 260 }, { colKey: 'enabled', title: '状态', width: 90 }, { colKey: 'operation', title: '操作', width: 190 }];
 
-        // MCP 子 Tab 状态：管理员 / 农户端竖向切换
-        const mcpActiveTab = ref('admin');
-
-        // 主 Tab 状态：URL ?tab= 双向同步（刷新不丢 Tab）
-        const activeTab = ref(HuiYan.getUrlTab('interfaces', ['interfaces', 'params', 'mcp']));
-        watch(activeTab, function (val) { HuiYan.syncUrlTab(val); });
-
-        /* ============================================================
-         * Tab1: 接口列表（llm 驱动插件）
-         * ============================================================ */
-        const pluginList = ref([]);
-        const pluginLoading = ref(false);
-        const pluginColumns = [
-            { colKey: 'title', title: '插件名称', minWidth: 160 },
-            { colKey: 'description', title: '描述', ellipsis: true },
-            { colKey: 'version', title: '版本', width: 90 },
-            { colKey: 'status', title: '状态', width: 110 },
-            { colKey: 'active', title: '激活', width: 110 },
-            { colKey: 'operation', title: '操作', width: 360, fixed: 'right' },
-        ];
-
-        async function fetchPlugins() {
-            pluginLoading.value = true;
-            try {
-                const res = await request.get('/ai/setting/interfaces');
-                pluginList.value = (res.data.data || {}).list || [];
-            } finally {
-                pluginLoading.value = false;
+            function body(response) { var value = response && response.data; if (value && value.status !== undefined && Object.prototype.hasOwnProperty.call(value, 'data')) return value.data; return value === undefined ? response : value; }
+            function call(method, path, data, config) { return request[method].call(request, path, data, config).then(body); }
+            function scope(method, path, data, config) { return request.agentScope[method].call(request.agentScope, path, data, config).then(body); }
+            function resource(method, path, data, config) { return call(method, '/ai-resources' + path, data, config); }
+            function fail(err, fallback) { var detail = err && err.response && err.response.data && (err.response.data.detail || err.response.data.msg); MessagePlugin.error(detail || fallback); }
+            function list(value, key) { if (Array.isArray(value)) return value; return (value && value[key]) || (value && value.items) || []; }
+            function agentId(row) { return row && (row.id || (row.data && row.data.id) || (row.agent && row.agent.id)); }
+            function agentName(row) { return (row && row.data && row.data.name) || (row && row.name) || '未命名 Agent'; }
+            function sessionRecord(row) { return (row && row.session) || row || {}; }
+            function sessionId(row) { return sessionRecord(row).id || ''; }
+            function sessionName(row) { return sessionRecord(row).config && sessionRecord(row).config.name || sessionId(row) || '未命名 Session'; }
+            function connectionName(id) { var row = connections.value.find(function (item) { return item.id === id; }); return row ? (row.name || row.vendor) : '未知连接'; }
+            function connectionCount(key) { return connections.value.filter(function (item) { return item.preset_key === key; }).length; }
+            function connectionHealth(key) {
+                var rows = connections.value.filter(function (item) { return item.preset_key === key && item.status === 1; });
+                if (!rows.length) return { theme: 'default', text: '暂无启用连接' };
+                var failed = rows.filter(function (item) { return item.last_test_status === 2; }).length;
+                if (failed) return { theme: 'danger', text: failed + ' 个连接异常' };
+                if (rows.every(function (item) { return item.last_test_status === 1; })) return { theme: 'success', text: '全部正常' };
+                return { theme: 'warning', text: '等待首次检测' };
             }
-        }
+            function testTime(row) { return row.last_test_at ? String(row.last_test_at).replace('T', ' ').slice(0, 16) : '尚未检测'; }
+            function protocolLabel(value) { if (value === 'openai_chat_completions') return 'OpenAI Chat Completions'; if (value === 'openai_responses') return 'OpenAI Responses'; return value || '未设置'; }
+            function selectedConnectionPreset() { return presets.value.find(function (item) { return item.preset_key === connectionForm.preset_key; }) || null; }
+            function connectionProtocolOptions() { var selected = selectedConnectionPreset(); return selected && selected.supported_protocols || []; }
+            function connectionProtocolLocked() { var selected = selectedConnectionPreset(); return Boolean(editingConnection.value || !selected || selected.protocol_locked); }
+            function selectConnectionProtocol(value) { var option = connectionProtocolOptions().find(function (item) { return item.value === value; }); if (option) connectionForm.provider = option.provider; }
 
-        async function installPlugin(row) {
-            try {
-                await request.post('/plugin/install/' + row.name);
-                MessagePlugin.success('插件安装成功');
-                fetchPlugins();
-            } catch (e) {
-                MessagePlugin.error(e.response?.data?.detail || '安装失败');
+            async function loadAll() {
+                loading.value = true; error.value = '';
+                try { var result = await Promise.all([resource('get', '/connection-presets'), resource('get', '/connections'), resource('get', '/model-cards'), resource('get', '/mcps'), resource('get', '/skills')]); presets.value = list(result[0], 'list'); connections.value = list(result[1], 'list'); cards.value = list(result[2], 'list'); mcps.value = list(result[3], 'list'); skills.value = list(result[4], 'list'); }
+                catch (err) { error.value = '资源读取失败，请刷新重试'; fail(err, error.value); }
+                finally { loading.value = false; }
             }
-        }
-
-        async function uninstallPlugin(row) {
-            var yes = await confirmAsync({ header: '确认卸载', body: '确定卸载插件「' + row.title + '」吗？配置数据不会丢失。' });
-            if (!yes) return;
-            try {
-                await request.post('/plugin/uninstall/' + row.name);
-                MessagePlugin.success('已卸载');
-                fetchPlugins();
-            } catch (e) {
-                MessagePlugin.error(e.response?.data?.detail || '卸载失败');
+            async function loadConnectionHealth() {
+                try { connections.value = list(await resource('get', '/connections'), 'list'); }
+                catch (err) { /* 页面定时刷新失败时保留最近一次可用状态。 */ }
             }
-        }
-
-        async function upgradePlugin(row) {
-            var yes = await confirmAsync({
-                header: '确认升级',
-                body: '将插件「' + row.title + '」从 ' + row.installed_version
-                    + ' 升级到 ' + row.version + '，是否继续？'
-            });
-            if (!yes) return;
-            try {
-                await request.post('/plugin/upgrade/' + row.name);
-                MessagePlugin.success('插件升级成功');
-                fetchPlugins();
-                fetchModels();
-                fetchVisionModels();
-            } catch (e) {
-                var detail = e.response?.data?.detail;
-                MessagePlugin.error(detail?.message || detail || '升级失败');
-            }
-        }
-
-        async function togglePlugin(row, status) {
-            try {
-                await request.put('/ai/setting/interfaces/' + row.name + '/status', { status: status });
-                MessagePlugin.success(status === 1 ? '已启用' : '已禁用');
-                fetchPlugins();
-            } catch (e) {
-                MessagePlugin.error(e.response?.data?.detail || '操作失败');
-            }
-        }
-
-        async function testPlugin(row) {
-            MessagePlugin.info('正在测试连接...');
-            try {
-                const res = await request.post('/ai/setting/interfaces/' + row.name + '/test');
-                var td = res.data.data || {};
-                if (td.success) {
-                    MessagePlugin.success(td.message || '连接成功');
-                } else {
-                    MessagePlugin.warning('连接失败: ' + (td.message || '未知错误'));
-                }
-            } catch (e) {
-                MessagePlugin.error('测试失败');
-            }
-        }
-
-        // 激活 = 写全局参数 ai.active_interface（对话默认走该驱动）
-        async function activatePlugin(row) {
-            try {
-                await request.put('/ai/setting/params', {
-                    active_interface: row.name
-                });
-                MessagePlugin.success('已激活接口「' + row.title + '」');
-                fetchPlugins();
-                fetchModels();
-            } catch (e) {
-                MessagePlugin.error(e.response?.data?.detail || '激活失败');
-            }
-        }
-
-        /* ===== 配置弹窗（schema 驱动渲染） ===== */
-        const configVisible = ref(false);
-        const configSaving = ref(false);
-        const configPluginTitle = ref('');
-        const configPluginName = ref('');
-        const configSchema = ref([]);
-        const configForm = reactive({});
-
-        function openConfig(row) {
-            configPluginTitle.value = row.title;
-            configPluginName.value = row.name;
-            configSchema.value = row.config_schema || [];
-            Object.keys(configForm).forEach(function (k) { delete configForm[k]; });
-            configSchema.value.forEach(function (f) {
-                configForm[f.key] = (row.config || {})[f.key] ?? f.default ?? '';
-            });
-            configVisible.value = true;
-        }
-
-        async function saveConfig() {
-            configSaving.value = true;
-            try {
-                await request.put('/ai/setting/interfaces/' + configPluginName.value + '/config',
-                    { config: Object.assign({}, configForm) });
-                MessagePlugin.success('配置已保存');
-                configVisible.value = false;
-                fetchPlugins();
-            } catch (e) {
-                MessagePlugin.error(e.response?.data?.detail || '保存失败');
-            } finally {
-                configSaving.value = false;
-            }
-        }
-
-        /* ============================================================
-         * Tab2: 对话参数
-         * ============================================================ */
-        const paramsForm = reactive({
-            default_model: '', vision_model: 'glm-4.6v-flash',
-            max_tool_rounds: 5, context_limit: 20, farmer_enabled: false,
-            system_tools_enabled: false,
-            reasoning_effort: 'high',
-            system_prompt: '', temperature: 0.7, max_tokens: 0,
-        });
-        const paramsSaving = ref(false);
-        const models = ref([]);
-        const modelsLoading = ref(false);
-        const visionModels = ref([]);
-        const visionModelsLoading = ref(false);
-
-        async function fetchParams() {
-            try {
-                const res = await request.get('/ai/setting/params');
-                const d = res.data.data || {};
-                paramsForm.default_model = d.default_model || '';
-                paramsForm.vision_model = d.vision_model || 'glm-4.6v-flash';
-                paramsForm.max_tool_rounds = d.max_tool_rounds || 5;
-                paramsForm.context_limit = d.context_limit || 20;
-                paramsForm.farmer_enabled = !!d.farmer_enabled;
-                paramsForm.system_tools_enabled = !!d.system_tools_enabled;
-                paramsForm.reasoning_effort = d.reasoning_effort || 'high';
-                paramsForm.system_prompt = d.system_prompt || '';
-                paramsForm.temperature = d.temperature !== undefined ? d.temperature : 0.7;
-                paramsForm.max_tokens = d.max_tokens !== undefined ? d.max_tokens : 0;
-            } catch (e) { /* 静默 */ }
-        }
-
-        async function fetchModels() {
-            modelsLoading.value = true;
-            try {
-                const res = await request.get('/ai/setting/models');
-                models.value = (res.data.data || {}).list || [];
-                if (!models.value.some(function (item) {
-                    return item.name === paramsForm.default_model;
-                })) {
-                    paramsForm.default_model = '';
-                }
-            } catch (e) {
-                models.value = [];
-                paramsForm.default_model = '';
-            } finally {
-                modelsLoading.value = false;
-            }
-        }
-
-        async function fetchVisionModels() {
-            visionModelsLoading.value = true;
-            try {
-                const res = await request.get('/ai/setting/models', {
-                    params: { interface: 'vision_glm' }
-                });
-                const list = (res.data.data || {}).list || [];
-                visionModels.value = list.filter(function (item) {
-                    return item.support_vision === true;
-                });
-                if (!visionModels.value.some(function (item) {
-                    return item.name === paramsForm.vision_model;
-                })) {
-                    paramsForm.vision_model = '';
-                }
-            } catch (e) {
-                visionModels.value = [];
-                paramsForm.vision_model = '';
-            } finally {
-                visionModelsLoading.value = false;
-            }
-        }
-
-        async function saveParams() {
-            paramsSaving.value = true;
-            try {
-                await request.put('/ai/setting/params', {
-                    default_model: paramsForm.default_model,
-                    vision_model: paramsForm.vision_model,
-                    max_tool_rounds: paramsForm.max_tool_rounds,
-                    context_limit: paramsForm.context_limit,
-                    farmer_enabled: paramsForm.farmer_enabled,
-                    system_tools_enabled: paramsForm.system_tools_enabled,
-                    reasoning_effort: paramsForm.reasoning_effort,
-                    system_prompt: paramsForm.system_prompt,
-                    temperature: paramsForm.temperature,
-                    max_tokens: paramsForm.max_tokens,
-                });
-                MessagePlugin.success('参数已保存');
-            } catch (e) {
-                MessagePlugin.error(e.response?.data?.detail || '保存失败');
-            } finally {
-                paramsSaving.value = false;
-            }
-        }
-
-        /* ============================================================
-         * Tab3: MCP 能力（外部 MCP 服务器 CRUD）
-         * 管理员与农户端共用工厂函数，仅 URL 前缀与提示文案不同
-         * ============================================================ */
-        const serverColumns = [
-            { colKey: 'name', title: '名称', minWidth: 140 },
-            { colKey: 'url', title: '服务地址', ellipsis: true },
-            { colKey: 'status', title: '状态', width: 90 },
-            { colKey: 'create_time', title: '添加时间', width: 180 },
-            { colKey: 'operation', title: '操作', width: 180, fixed: 'right' },
-        ];
-        const serverToolColumns = [
-            { colKey: 'name', title: '工具名称', minWidth: 200 },
-            { colKey: 'description', title: '描述', ellipsis: true },
-        ];
-
-        /* 服务器 CRUD 工厂：baseUrl 为接口路径前缀，label 为提示文案前缀 */
-        function createServerCrud(baseUrl, label) {
-            const list = ref([]);
-            const loading = ref(false);
-            const expandedIds = ref([]);
-            const toolsLoading = reactive({});
-            const visible = ref(false);
-            const saving = ref(false);
-            const form = reactive({ id: 0, name: '', config_json: '', status: 1 });
-            const jsonLines = ref('1');
-
-            function updateLines() {
-                var text = form.config_json || '';
-                var n = text.split('\n').length;
-                jsonLines.value = Array.from({length: n}, function(_, i) { return i + 1; }).join('\n');
-            }
-            async function fetchList() {
-                loading.value = true;
+            function handleTabChange() { return undefined; }
+            async function loadSkillAgents() { try { agents.value = list(await scope('get', '/agent/'), 'agents'); if (agents.value[0]) { selectedAgent.value = agentId(agents.value[0]); await loadSkillSessions(); } } catch (err) { fail(err, 'Agent 读取失败'); } }
+            async function loadSkillSessions() { if (!selectedAgent.value) { sessions.value = []; selectedSession.value = ''; return; } try { sessions.value = list(await scope('get', '/sessions/', { params: { agent_id: selectedAgent.value } }), 'sessions'); selectedSession.value = sessions.value[0] ? sessionId(sessions.value[0]) : ''; } catch (err) { sessions.value = []; selectedSession.value = ''; fail(err, 'Session 读取失败'); } }
+            function openConnection(preset, row) { editingConnection.value = row || null; var selected = preset || presets.value.find(function (item) { return item.preset_key === (row && row.preset_key); }) || presets.value[0]; var custom = selected && selected.preset_key === 'custom_openai'; Object.assign(connectionForm, { preset_key: row ? row.preset_key : (selected ? selected.preset_key : 'custom_openai'), vendor: row ? row.vendor : (selected ? selected.vendor : '自定义供应商'), vendor_name: row ? (row.vendor_name || row.vendor) : (custom ? '' : (selected ? selected.vendor : '')), provider: row ? row.provider : (selected ? selected.provider : 'openai_credential'), protocol: row ? row.protocol : (selected ? selected.protocol : 'openai_chat_completions'), name: row ? row.name : '', api_key: '', base_url: row ? row.base_url : (selected ? selected.base_url : ''), status: row ? row.status : 1 }); showConnection.value = true; }
+            function selectConnectionPreset(value) { var selected = presets.value.find(function (item) { return item.preset_key === value; }); if (!selected || editingConnection.value) return; Object.assign(connectionForm, { vendor: selected.vendor, vendor_name: selected.preset_key === 'custom_openai' ? '' : selected.vendor, provider: selected.provider, protocol: selected.protocol, base_url: selected.base_url || '' }); }
+            function editConnection(row) { openConnection(null, row); }
+            async function saveConnection() { try { var data = { name: connectionForm.name, base_url: connectionForm.base_url, status: connectionForm.status }; if (connectionForm.api_key) data.api_key = connectionForm.api_key; if (!editingConnection.value) { data.preset_key = connectionForm.preset_key; data.provider = connectionForm.provider; data.protocol = connectionForm.protocol; data.vendor_name = connectionForm.vendor_name; } await resource(editingConnection.value ? 'patch' : 'post', '/connections' + (editingConnection.value ? '/' + editingConnection.value.id : ''), data); showConnection.value = false; MessagePlugin.success('供应商连接已保存'); await loadAll(); } catch (err) { fail(err, '供应商连接保存失败'); } }
+            async function connectionAction(path, method, message, data) {
                 try {
-                    const res = await request.get(baseUrl);
-                    list.value = (res.data.data || {}).list || [];
-                } finally { loading.value = false; }
+                    var result = await resource(method, path, data);
+                    await loadAll();
+                    if (path.indexOf('/test') !== -1 && result && result.success === false) {
+                        MessagePlugin.error(result.message || message + '失败');
+                        return;
+                    }
+                    MessagePlugin.success(message + '成功');
+                } catch (err) { fail(err, message + '失败'); }
             }
-            function openCreate() {
-                visible.value = true;
-                nextTick(function () {
-                    Object.assign(form, { id: 0, name: '', config_json: '', status: 1 });
-                    updateLines();
-                });
+            function resetAvailableModels() { availableModels.value = []; cardForm.model_name = ''; cardForm.label = ''; }
+            async function refreshCardModels() { if (!cardForm.connection_id) { MessagePlugin.warning('请先选择来源连接'); return; } try { var result = await resource('post', '/connections/' + cardForm.connection_id + '/models/refresh'); availableModels.value = result.models || []; MessagePlugin.success('模型列表已刷新'); } catch (err) { availableModels.value = []; fail(err, '模型刷新失败'); } }
+            function selectCardModel(value) { var model = availableModels.value.find(function (item) { return item.model_name === value; }); if (!model) return; Object.assign(cardForm, { label: model.label || model.model_name, input_types: model.input_types || [], output_types: model.output_types || [], context_size: model.context_size || 32768, output_size: model.output_size || 4096, support_tools: !!model.support_tools, support_reasoning: !!model.support_reasoning, parameter_schema: JSON.stringify(model.parameter_schema || {}, null, 2) }); }
+            function openCard() { if (!connections.value.length) { MessagePlugin.warning('请先建立供应商连接'); return; } editingCard.value = null; availableModels.value = []; Object.assign(cardForm, { connection_id: null, provider: '', model_name: '', label: '', input_types: [], output_types: [], context_size: 32768, output_size: 4096, support_tools: false, support_reasoning: false, parameter_schema: '{}', status: 1 }); showCard.value = true; }
+            function editCard(row) { editingCard.value = row; availableModels.value = [{ model_name: row.model_name, label: row.label || row.model_name }]; Object.assign(cardForm, row, { input_types: row.input_types || [], output_types: row.output_types || [], parameter_schema: JSON.stringify(row.parameter_schema || {}, null, 2) }); showCard.value = true; }
+            function cardPayload() {
+                var data = { label: cardForm.label, input_types: cardForm.input_types || [], output_types: cardForm.output_types || [], context_size: cardForm.context_size, output_size: cardForm.output_size, support_tools: cardForm.support_tools, support_reasoning: cardForm.support_reasoning, parameter_schema: JSON.parse(cardForm.parameter_schema || '{}'), status: cardForm.status };
+                if (!editingCard.value) { data.connection_id = cardForm.connection_id; data.model_name = cardForm.model_name; }
+                return data;
             }
-            function openEdit(row) {
-                visible.value = true;
-                nextTick(function () {
-                    Object.assign(form, { id: row.id, name: row.name,
-                        config_json: row.config_json || '', status: row.status });
-                    updateLines();
-                });
-            }
-            async function save() {
-                if (!form.name.trim()) { MessagePlugin.warning('请填写服务器名称'); return; }
-                saving.value = true;
-                const payload = { name: form.name, config_json: form.config_json, status: form.status };
+            async function saveCard() { try { var data = cardPayload(); await resource(editingCard.value ? 'patch' : 'post', '/model-cards' + (editingCard.value ? '/' + editingCard.value.id : ''), data); showCard.value = false; MessagePlugin.success('ModelCard 已保存'); await loadAll(); } catch (err) { if (err instanceof SyntaxError) MessagePlugin.warning('参数 Schema 必须是 JSON 对象'); else fail(err, 'ModelCard 保存失败'); } }
+            function editMcp(row) { editingMcp.value = row; Object.assign(mcpForm, { kind: row.name === 'huiyan_system_mcp' ? 'system' : 'custom', name: row.name, display_name: row.display_name || '', description: row.description || '', url: row.url || '', headers: '', api_key: '', clear_headers: false, enabled: row.enabled !== false }); showMcp.value = true; }
+            function openMcp(kind) { editingMcp.value = null; var system = kind === 'system'; Object.assign(mcpForm, { kind: system ? 'system' : 'custom', name: system ? 'huiyan_system_mcp' : '', display_name: system ? '慧眼护农系统 MCP' : '', description: system ? '慧眼护农农业主链 Tools、Resources 与 Prompts' : '', url: system ? window.location.origin.replace(/\/$/, '') + '/mcp/' : '', headers: '', api_key: '', clear_headers: false, enabled: true }); showMcp.value = true; }
+            async function saveMcp() {
                 try {
-                    if (form.id) { await request.put(baseUrl + '/' + form.id, payload); }
-                    else { await request.post(baseUrl, payload); }
-                    MessagePlugin.success(label + '服务器已保存');
-                    visible.value = false;
-                    fetchList();
-                } catch (e) {
-                    MessagePlugin.error(e.response?.data?.detail || '保存失败');
-                } finally { saving.value = false; }
+                    var data = { display_name: mcpForm.display_name, description: mcpForm.description, url: mcpForm.url, enabled: mcpForm.enabled };
+                    var apiKey = mcpForm.api_key.trim();
+                    if (mcpForm.kind === 'system' && !editingMcp.value && !apiKey) { MessagePlugin.warning('请输入个人 API Key'); return; }
+                    if (apiKey) data.headers = { Authorization: 'Bearer ' + apiKey };
+                    else if (editingMcp.value && mcpForm.clear_headers) data.headers = {};
+                    else if (mcpForm.kind === 'custom' && mcpForm.headers.trim()) data.headers = JSON.parse(mcpForm.headers);
+                    else if (!editingMcp.value) data.headers = {};
+                    if (!editingMcp.value) data.name = mcpForm.name;
+                    await resource(editingMcp.value ? 'patch' : 'post', '/mcps' + (editingMcp.value ? '/' + editingMcp.value.id : ''), data);
+                    showMcp.value = false; MessagePlugin.success('MCP 已保存'); await loadAll();
+                } catch (err) { if (err instanceof SyntaxError) MessagePlugin.warning('Headers 必须是 JSON 对象'); else fail(err, 'MCP 保存失败'); }
             }
-            async function del(row) {
-                var yes = await confirmAsync({ header: '删除服务器',
-                    body: '确定删除' + label + ' MCP 服务器「' + row.name + '」吗？' });
-                if (!yes) return;
-                try {
-                    await request.delete(baseUrl + '/' + row.id);
-                    MessagePlugin.success(label + '服务器已删除');
-                    fetchList();
-                } catch (e) {
-                    MessagePlugin.error(e.response?.data?.detail || '删除失败');
-                }
-            }
-            async function test(row) {
-                MessagePlugin.info('正在测试连通性...');
-                try {
-                    const res = await request.post(baseUrl + '/' + row.id + '/test');
-                    var td = res.data.data || {};
-                    if (td.success) { MessagePlugin.success(td.message || '连接成功'); fetchList(); }
-                    else { MessagePlugin.warning(td.message || '连接失败'); }
-                } catch (e) { MessagePlugin.error('测试请求失败'); }
-            }
-            async function onExpand(expandedKeys, context) {
-                expandedIds.value = expandedKeys;
-                var row = context.currentRowData;
-                if (context.expanded && row && !(row.tools_cache && row.tools_cache.length)) {
-                    toolsLoading[row.id] = true;
-                    try {
-                        const res = await request.get(baseUrl + '/' + row.id + '/tools');
-                        var data = res.data.data || {};
-                        if (data.list && data.list.length) { row.tools_cache = data.list; }
-                    } catch (e) { /* 静默 */ } finally { toolsLoading[row.id] = false; }
-                }
-            }
-            return { list, loading, expandedIds, toolsLoading, visible, saving, form,
-                     jsonLines, updateLines, fetchList, openCreate, openEdit, save, del, test, onExpand };
+            function remove(path, label) { var instance = DialogPlugin.confirm({ header: '确认删除', body: '删除后不可恢复，是否继续？', onConfirm: async function () { instance.destroy(); try { await resource('delete', path); MessagePlugin.success(label + '已删除'); await loadAll(); } catch (err) { fail(err, label + '删除失败'); } }, onCancel: function () { instance.destroy(); } }); }
+            function handleSkillFiles(files) { if (files && files.length) uploadSkill(Array.prototype.map.call(files, function (item) { return item.raw || item; })); }
+            async function uploadSkill(files) { var form = new FormData(); form.append('manifest', JSON.stringify({ entries: files.map(function (file) { return { path: file.webkitRelativePath || file.name, size: file.size }; }) })); files.forEach(function (file) { form.append('files', file, file.webkitRelativePath || file.name); }); skillUploading.value = true; try { await resource('post', '/skills/upload', form, { skipAutoError: true }); MessagePlugin.success('公共 Skill 已上传'); await loadAll(); } catch (err) { fail(err, 'Skill 上传失败'); } finally { skillUploading.value = false; if (skillInput.value) skillInput.value.value = ''; } }
+            function openSkillInstall(row) { selectedSkill.value = row; selectedAgent.value = ''; selectedSession.value = ''; sessions.value = []; showSkillInstall.value = true; loadSkillAgents(); }
+            async function installSkill() { if (!selectedSkill.value || !selectedAgent.value || !selectedSession.value) { MessagePlugin.warning('请选择 Agent 和 Session'); return; } skillInstalling.value = true; try { await resource('post', '/skills/' + encodeURIComponent(selectedSkill.value.id) + '/install', { agent_id: selectedAgent.value, session_id: selectedSession.value }); showSkillInstall.value = false; MessagePlugin.success('Skill 已安装到会话'); } catch (err) { fail(err, 'Skill 安装失败'); } finally { skillInstalling.value = false; } }
+            async function removeSharedSkill(id) { try { await resource('delete', '/skills/' + encodeURIComponent(id)); MessagePlugin.success('公共 Skill 已删除'); await loadAll(); } catch (err) { fail(err, 'Skill 删除失败'); } }
+
+            var healthTimer = null;
+            onMounted(function () { loadAll(); healthTimer = window.setInterval(loadConnectionHealth, 60000); });
+            onBeforeUnmount(function () { if (healthTimer) window.clearInterval(healthTimer); });
+            return { tab, loading, error, presets, connections, cards, mcps, skills, agents, sessions, selectedAgent, selectedSession, availableModels, selectedSkill, connectionColumns, cardColumns, mcpColumns, skillColumns, showConnection, showCard, showMcp, showSkillInstall, editingConnection, editingCard, editingMcp, connectionForm, cardForm, mcpForm, skillInput, skillUploading, skillInstalling, loadAll, handleTabChange, loadSkillAgents, loadSkillSessions, selectConnectionPreset, selectConnectionProtocol, connectionProtocolOptions, connectionProtocolLocked, openConnection, editConnection, saveConnection, connectionAction, connectionCount, connectionHealth, testTime, connectionName, protocolLabel, resetAvailableModels, refreshCardModels, selectCardModel, openCard, editMcp, saveMcp, openMcp, editCard, saveCard, remove, handleSkillFiles, openSkillInstall, installSkill, removeSharedSkill, agentId, agentName, sessionId, sessionName };
         }
-
-        const adminCrud = createServerCrud('/ai/setting/mcp-servers', '');
-        const farmerCrud = createServerCrud('/ai/setting/mcp-servers-farmer', '农户端');
-
-        async function loadParamsAndModels() {
-            // 先读取参数，再用实际可用模型校正旧的默认值，避免并发响应覆盖清空结果。
-            await fetchParams();
-            await fetchModels();
-            await fetchVisionModels();
-        }
-
-        onMounted(function () {
-            fetchPlugins();
-            loadParamsAndModels();
-            adminCrud.fetchList();
-            farmerCrud.fetchList();
-        });
-
-        return {
-            activeTab,
-            // Tab1
-            pluginList, pluginLoading, pluginColumns,
-            installPlugin, uninstallPlugin, upgradePlugin,
-            togglePlugin, testPlugin, activatePlugin,
-            configVisible, configSaving, configPluginTitle, configSchema, configForm,
-            openConfig, saveConfig,
-            // Tab2
-            paramsForm, paramsSaving, models, modelsLoading,
-            visionModels, visionModelsLoading, saveParams,
-            // Tab3 - MCP 子 Tab
-            mcpActiveTab,
-            // Tab3 - 管理员
-            jsonLineNumbers: adminCrud.jsonLines, updateJsonLines: adminCrud.updateLines,
-            serverList: adminCrud.list, serverLoading: adminCrud.loading,
-            expandedServerIds: adminCrud.expandedIds, serverToolsLoading: adminCrud.toolsLoading,
-            onServerExpand: adminCrud.onExpand,
-            serverVisible: adminCrud.visible, serverSaving: adminCrud.saving, serverForm: adminCrud.form,
-            openServerCreate: adminCrud.openCreate, openServerEdit: adminCrud.openEdit,
-            saveServer: adminCrud.save, deleteServer: adminCrud.del, testServer: adminCrud.test,
-            // Tab3 - 农户端
-            farmerJsonLineNumbers: farmerCrud.jsonLines, updateFarmerJsonLines: farmerCrud.updateLines,
-            farmerServerList: farmerCrud.list, farmerServerLoading: farmerCrud.loading,
-            expandedFarmerServerIds: farmerCrud.expandedIds, farmerServerToolsLoading: farmerCrud.toolsLoading,
-            onFarmerServerExpand: farmerCrud.onExpand,
-            farmerServerVisible: farmerCrud.visible, farmerServerSaving: farmerCrud.saving,
-            farmerServerForm: farmerCrud.form,
-            openFarmerServerCreate: farmerCrud.openCreate, openFarmerServerEdit: farmerCrud.openEdit,
-            saveFarmerServer: farmerCrud.save, deleteFarmerServer: farmerCrud.del,
-            testFarmerServer: farmerCrud.test,
-            // 共享列定义
-            serverColumns, serverToolColumns,
-        };
-    }
-});
+    });
 })();

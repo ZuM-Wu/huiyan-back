@@ -6,6 +6,7 @@
 """
 import logging
 from datetime import datetime, timedelta
+from core.time_utils import china_now
 from typing import Any, cast
 
 from sqlalchemy import select, func, or_, and_, delete
@@ -329,7 +330,7 @@ async def get_notice_log(log_id: int) -> dict | None:
 
 async def notice_log_stats(days: int) -> dict:
     """通知发送统计 — 按渠道汇总成功/失败次数"""
-    since = datetime.now() - timedelta(days=days)
+    since = china_now() - timedelta(days=days)
     async with async_session_factory() as db:
         result = await db.execute(
             select(
@@ -353,7 +354,7 @@ async def notice_log_stats(days: int) -> dict:
 
 async def cleanup_notice_logs(before_days: int) -> int:
     """删除 N 天前的通知日志，返回删除条数"""
-    cutoff = datetime.now() - timedelta(days=before_days)
+    cutoff = china_now() - timedelta(days=before_days)
     async with async_session_factory() as db:
         result = cast(CursorResult[Any], await db.execute(
             delete(NoticeLog).where(NoticeLog.create_time < cutoff)

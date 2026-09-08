@@ -11,6 +11,33 @@ const request = axios.create({
     headers: { 'Content-Type': 'application/json' }
 });
 
+// AgentScope 公共客户端：与后台管理 API 共用 JWT 和 FormData 处理，但使用独立
+// 的 /api/ai 根路径，页面不得自行创建 Axios 实例或拼接基础地址。
+const agentScopeRequest = axios.create({
+    baseURL: '/api/ai',
+    timeout: 120000,
+    headers: { 'Content-Type': 'application/json' }
+});
+
+agentScopeRequest.interceptors.request.use(function (config) {
+    var token = localStorage.getItem('admin_token');
+    if (token) config.headers.Authorization = 'Bearer ' + token;
+    if (config.data instanceof FormData && config.headers) {
+        if (typeof config.headers.setContentType === 'function') config.headers.setContentType(null);
+        else delete config.headers['Content-Type'];
+    }
+    return config;
+});
+agentScopeRequest.interceptors.response.use(function (response) { return response; }, function (error) {
+    if (error.response && error.response.status === 401) {
+        localStorage.removeItem('admin_token');
+        localStorage.removeItem('admin_user');
+        window.location.href = '/admin/login';
+    }
+    return Promise.reject(error);
+});
+request.agentScope = agentScopeRequest;
+
 // 统一响应信封解包；受控列表页不再同时兼容裸响应和信封响应。
 request.unwrapData = function (response) {
     return response && response.data ? response.data.data : null;
@@ -52,6 +79,10 @@ request.interceptors.response.use(function (response) {
     }
     return response;
 }, function (error) {
+    // 静默探测和页面自行处理错误的请求，不由公共拦截器重复弹出提示。
+    if (error.config && error.config.skipAutoError) {
+        return Promise.reject(error);
+    }
     if (error.response) {
         var status = error.response.status;
         // 后端全局异常处理器统一返回 {status, msg}，优先透传后端提示

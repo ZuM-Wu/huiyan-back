@@ -11,7 +11,7 @@
 已移至 core/task/task_monitor.py，不在本插件职责范围内。
 """
 import logging
-from datetime import datetime
+from core.time_utils import china_now
 from typing import List
 
 from sqlalchemy import select
@@ -96,7 +96,7 @@ class AlertService:
         from core.notice_sender import notice_sender
 
         # 尝试从数据库加载邮件模板，找不到则回退到内联构造
-        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        now_str = china_now().strftime("%Y-%m-%d %H:%M:%S")
         subject, content = await self._load_email_template(
             task_name, task_desc, error_msg, now_str,
         )

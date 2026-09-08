@@ -12,10 +12,10 @@
 主题解析优先级（由调用方传入 preview 预览值）:
     1. 预览参数（仅管理员，临时预览）
     2. 系统配置 {module}_theme（管理员在主题设置页设定）
-    3. 兜底 default
+    3. 兜底当前端面的默认主题（后台为 vue_default）
 
 回退策略: 采用 Jinja2 ChoiceLoader 做「模板级回退」，当前主题缺某个
-模板时自动落到 default 主题的同名文件；主题只需覆盖差异页面。
+模板时自动落到当前端面默认主题的同名文件；主题只需覆盖差异页面。
 """
 
 import json
@@ -39,8 +39,13 @@ THEME_MODULE_LABELS = {
     "admin":  "后台管理端主题",
     "farmer": "农户端主题",
 }
-# 兜底主题标识（始终视为可用）
+# 兼容历史公共默认主题标识；不同端面允许拥有独立默认主题。
 DEFAULT_THEME = "default"
+DEFAULT_THEME_BY_MODULE = {
+    "site": "default",
+    "admin": "vue_default",
+    "farmer": "default",
+}
 
 
 class ThemeManager:
@@ -51,9 +56,17 @@ class ThemeManager:
         self.templates_root = self.base_dir / "templates"
         self.plugins_dir = self.base_dir / "plugins"
         # 各模块当前启用主题（启动时从配置载入，主题设置页切换时更新）
-        self._active = {module: DEFAULT_THEME for module in THEME_MODULES}
+        self._active = {
+            module: DEFAULT_THEME_BY_MODULE.get(module, DEFAULT_THEME)
+            for module in THEME_MODULES
+        }
         # Jinja2 环境缓存：key=(module, theme)
         self._envs = {}
+
+    @staticmethod
+    def default_theme(module: str) -> str:
+        """返回指定端面的默认主题，避免后台主题改版影响官网和农户端。"""
+        return DEFAULT_THEME_BY_MODULE.get(module, DEFAULT_THEME)
 
     # ------------------------------------------------------------------
     # 活动主题（内存缓存，避免每次页面请求查库）
@@ -64,12 +77,12 @@ class ThemeManager:
         cm = ConfigManager()
         for module in THEME_MODULES:
             value = await cm.get(f"{module}_theme", db)
-            self._active[module] = self.resolve(module, value or DEFAULT_THEME)
+            self._active[module] = self.resolve(module, value or self.default_theme(module))
         logger.info("[主题] 当前启用: %s", self._active)
 
     def get_active(self, module: str) -> str:
         """获取模块当前启用主题（已解析、保证可用）"""
-        return self._active.get(module, DEFAULT_THEME)
+        return self._active.get(module, self.default_theme(module))
 
     def set_active(self, module: str, theme: str) -> str:
         """
@@ -102,10 +115,10 @@ class ThemeManager:
         return self._read_manifest(module, theme) is not None
 
     def resolve(self, module: str, theme: Optional[str]) -> str:
-        """解析主题：可用则返回自身，否则回退 default"""
+        """解析主题：可用则返回自身，否则回退当前端面的默认主题。"""
         if theme and self.theme_exists(module, theme):
             return theme
-        return DEFAULT_THEME
+        return self.default_theme(module)
 
     def _read_manifest(self, module: str, theme: str) -> Optional[dict]:
         """读取并校验 theme.json；非法返回 None"""
@@ -130,7 +143,7 @@ class ThemeManager:
         data.setdefault("component_tokens", {})
         data.setdefault("dependencies", [])
         data.setdefault("conflicts", [])
-        data.setdefault("fallback_theme", DEFAULT_THEME)
+        data.setdefault("fallback_theme", self.default_theme(module))
         data.setdefault("compatible_app_versions", [data.get("min_app_version", "")])
         if not isinstance(data.get("template_overrides"), list):
             data["template_overrides"] = []
@@ -193,7 +206,7 @@ class ThemeManager:
         参数:
             module:  模块标识（site / admin / farmer）
             preview: 预览主题标识（仅临时预览用）。传入后按解析优先级
-                     临时使用该主题渲染，非法值自动回退 default；
+                     临时使用该主题渲染，非法值自动回退当前端面的默认主题；
                      不影响系统配置与当前启用主题。
         """
         if preview:
@@ -206,16 +219,17 @@ class ThemeManager:
         return self._envs[key]
 
     def _build_env(self, module: str, theme: str) -> Environment:
-        """构建 ChoiceLoader 环境：当前主题 -> default -> 插件模板目录"""
+        """构建 ChoiceLoader 环境：当前主题 -> 端面默认主题 -> 插件模板目录"""
         search_dirs: List[str] = []
+        fallback_theme = self.default_theme(module)
 
-        # 1. 当前主题目录（非 default 时优先）
-        if theme != DEFAULT_THEME:
+        # 1. 当前主题目录（非端面默认主题时优先）
+        if theme != fallback_theme:
             td = self.theme_dir(module, theme)
             if td.is_dir():
                 search_dirs.append(str(td))
-        # 2. default 主题目录（兜底）
-        dd = self.theme_dir(module, DEFAULT_THEME)
+        # 2. 端面默认主题目录（兜底）
+        dd = self.theme_dir(module, fallback_theme)
         if dd.is_dir():
             search_dirs.append(str(dd))
 
@@ -244,10 +258,11 @@ class ThemeManager:
                 dirs.append(str(tpl))
             return dirs
         base = plugin_dir / "templates" / "farmer"
-        if theme != DEFAULT_THEME and (base / theme).is_dir():
+        fallback_theme = self.default_theme(module)
+        if theme != fallback_theme and (base / theme).is_dir():
             dirs.append(str(base / theme))
-        if (base / DEFAULT_THEME).is_dir():
-            dirs.append(str(base / DEFAULT_THEME))
+        if (base / fallback_theme).is_dir():
+            dirs.append(str(base / fallback_theme))
         return dirs
 
     def _plugin_template_loaders(self, module: str, theme: str) -> dict[str, BaseLoader]:

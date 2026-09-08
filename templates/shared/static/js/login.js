@@ -7,7 +7,7 @@
     var { createApp, ref, computed, onMounted, reactive } = Vue;
     var { MessagePlugin } = TDesign;
 
-    var app = createApp({
+    var pageOptions = {
         setup: function () {
             // ========== 登录表单状态 ==========
             var loading = ref(false);
@@ -115,10 +115,16 @@
 
             return { loading, loginForm, rules, onLogin, siteLogo, bgStyle };
         }
-    });
+    };
 
-    // 使用 [[ ]] 作为模板插值，避免与 Jinja2 冲突
-    app.config.compilerOptions.delimiters = ['[[', ']]'];
-    app.use(TDesign);
-    app.mount('#login-app');
+    // 复用统一页面引导，确保登录页也使用本地图标桥接和 TDesign 初始化约定。
+    if (window.HuiYan && window.HuiYan.createPage) {
+        window.HuiYan.createPage(pageOptions, '#login-app');
+    } else {
+        // 兼容未加载 hy-app.js 的历史壳页面。
+        var app = createApp(pageOptions);
+        app.config.compilerOptions.delimiters = ['[[', ']]'];
+        app.use(TDesign);
+        app.mount('#login-app');
+    }
 })();

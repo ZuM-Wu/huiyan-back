@@ -38,6 +38,49 @@
 
     // 当前页面 Vue 应用实例引用（用于 SPA 切换时销毁旧实例）
     var _pageApps = [];
+    var _localIconMap = null;
+
+    /**
+     * 用本地 TDesign Icons Vue 组件承接 t-icon，避免 Icon 组件加载在线 SVG symbol 脚本。
+     * TDesign Icons 的 IIFE 产物导出的是 XxxIcon 组件，而不是 iconfont symbol，
+     * 因此在应用级将 name（kebab-case）映射为对应的本地组件。
+     */
+    function registerLocalIcon(app) {
+        var iconLib = window.TDesignIconVueNext;
+        if (!iconLib || !iconLib.manifest || !Vue.h) { return; }
+        if (!_localIconMap) {
+            _localIconMap = {};
+            iconLib.manifest.forEach(function (item) {
+                if (item && item.stem && item.icon && iconLib[item.icon + 'Icon']) {
+                    _localIconMap[item.stem] = iconLib[item.icon + 'Icon'];
+                }
+            });
+        }
+        app.component('t-icon', {
+            name: 'HuiYanLocalTIcon',
+            props: {
+                name: { type: String, default: '' },
+                size: { type: [String, Number], default: undefined },
+                loadDefaultIcons: { type: Boolean, default: false },
+                onClick: { type: Function, default: undefined },
+            },
+            setup: function (props, context) {
+                return function () {
+                    var icon = _localIconMap[props.name] || _localIconMap[String(props.name).toLowerCase()];
+                    if (!icon) {
+                        return Vue.h('span', Object.assign({}, context.attrs, {
+                            class: ['t-icon', 't-icon-' + (props.name || 'unknown'), context.attrs.class],
+                            'aria-hidden': 'true',
+                        }));
+                    }
+                    var attrs = Object.assign({}, context.attrs);
+                    if (props.size !== undefined) { attrs.size = props.size; }
+                    if (props.onClick) { attrs.onClick = props.onClick; }
+                    return Vue.h(icon, attrs);
+                };
+            },
+        });
+    }
 
     /**
      * 创建并挂载一个页面级 Vue 应用
@@ -61,9 +104,20 @@
         // 统一 Vue 分隔符为 [[ ]]，避免与 Jinja2 的 {{ }} 冲突
         app.config.compilerOptions.delimiters = ['[[', ']]'];
 
+        // TDesign Icon 默认会挂载在线 iconfont 脚本；项目只允许本地资源，统一关闭该回退。
+        if (window.TDesign && window.TDesign.Icon && window.TDesign.Icon.props
+            && window.TDesign.Icon.props.loadDefaultIcons) {
+            window.TDesign.Icon.props.loadDefaultIcons.default = false;
+        }
+
         // 注册 TDesign 组件库
         if (typeof TDesign !== 'undefined') {
             app.use(TDesign);
+        }
+        // 注册本地图标组件，避免 TDesign 在未找到图标插件时回退到远程 iconfont。
+        if (window.TDesignIconVueNext) {
+            app.use(window.TDesignIconVueNext);
+            registerLocalIcon(app);
         }
 
         // 注册 TDesign Chat 组件库（仅 AI 对话页引入 tdesign-chat.iife.js 后存在）
@@ -95,6 +149,7 @@
 
         // 跟踪页面级应用（侧边栏/顶栏不跟踪，只有 #page-app 追踪）
         if (selector === '#page-app') {
+            app.__huiYanActive = true;
             _pageApps.push(app);
         }
         return app;
@@ -105,6 +160,8 @@
      */
     function destroyPageApps() {
         _pageApps.forEach(function (app) {
+            // 先标记失效，再触发 Vue 卸载钩子；页面异步任务可据此停止更新旧 DOM。
+            app.__huiYanActive = false;
             try { app.unmount(); } catch (e) { /* 忽略 */ }
         });
         _pageApps = [];

@@ -6,31 +6,19 @@
 - 管理员维护二级分类（大类>子类）与知识条目（发生原因/解决方案/典型图片），
   典型图片复用系统通用图片上传接口
 - 农户在农户端浏览知识条目并可对某条内容提交勘误建议，管理员审核采纳/驳回
-- 接入 MCP：搜索/详情/分类树（audience=both）+ 新建/批量新建条目（audience=admin），
-  供后续 AI 农业分析调用
+- 当前不声明 MCP 工具，后续统一规划工具边界后再接入
 
 生命周期遵循五步 install / uninstall 契约（参照 file_download 插件）：
 - install：建表（migrations/install.sql，含分类种子）+ 写默认配置（幂等）
 - uninstall：删表 + 清配置 + 删菜单
 
 注意：事务由框架层 PluginManager 统一管理，install/uninstall 内禁止 db.commit()。
-- MCP handler 为模块级函数（mcp_tools.py），不携带 self
 """
 import logging
 from pathlib import Path
 
-from sqlalchemy import delete
-
 from core.config_manager import ConfigManager
 from core.plugin_manager import BasePlugin
-from plugins.addon.knowledge.mcp_tools import (
-    knowledge_batch_create,
-    knowledge_categories,
-    knowledge_create,
-    knowledge_detail,
-    knowledge_search,
-    knowledge_update,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -47,8 +35,8 @@ class Plugin(BasePlugin):
         super().__init__(db_session, config)
         self.name = PLUGIN_NAME
         self.title = "农业知识库"
-        self.version = "2.0.0"
-        self.description = "管理员维护农业知识分类与条目，农户浏览与勘误，接入 MCP 供 AI 农业分析"
+        self.version = "1.0.1"
+        self.description = "管理员维护农业知识分类与条目，农户浏览并提交勘误"
         self.module = "addon"
         self._config_manager = ConfigManager()
 
@@ -94,9 +82,9 @@ class Plugin(BasePlugin):
         卸载插件（五步逆操作）：
         1. 删除数据表（执行 migrations/uninstall.sql）
         2. 按 owner 注销全部运行时能力 — PluginManager 处理
-        3. 级联删除权限 — PluginManager 调用 unregister_plugin_permissions() 处理
-        4. 清理配置（删除所有 knowledge. 前缀配置）
-        5. 删除后台菜单，返回 True
+        3. 级联删除权限、配置、导航和菜单 — PluginManager 处理
+        4. 注销运行时能力 — PluginManager 处理
+        5. 返回 True
         """
         if not self.db:
             return False
@@ -105,17 +93,7 @@ class Plugin(BasePlugin):
         await self._run_sql_file("uninstall.sql")
 
         # 2. 运行时能力注销由 PluginManager 处理
-        # 3. 级联删除权限（PluginManager 处理）
-
-        # 4. 清理配置
-        from core.db.configuration import ConfigurationModel
-        await self.db.execute(
-            delete(ConfigurationModel).where(ConfigurationModel.key.like(f"{PLUGIN_NAME}.%"))
-        )
-
-        # 5. 删除后台菜单（事务由框架层统一管理，插件不自行 commit）
-        from core.db.menu import Menu
-        await self.db.execute(delete(Menu).where(Menu.plugin == PLUGIN_NAME))
+        # 3-5. 权限、配置、导航、菜单和运行时能力由 PluginManager 统一清理。
 
         logger.info("[knowledge] 插件卸载完成")
         return True
@@ -150,6 +128,7 @@ class Plugin(BasePlugin):
                 "icon": "books",
                 "nav_type": "admin",
                 "template": "knowledge.html", "audience": "admin",
+                "scripts": ["knowledge.js"],
                 "permission": "knowledge:list",
                 "api_base": "/api/admin/v1/knowledge",
             },
@@ -160,6 +139,7 @@ class Plugin(BasePlugin):
                 "icon": "edit",
                 "nav_type": "admin",
                 "template": "knowledge_corrections.html", "audience": "admin",
+                "scripts": ["knowledge_corrections.js"],
                 "permission": "knowledge:correction",
                 "api_base": "/api/admin/v1/knowledge",
             },
@@ -198,68 +178,6 @@ class Plugin(BasePlugin):
                 "default": "10",
                 "placeholder": "如 10",
                 "help": "农户端与后台列表默认每页展示条数",
-            },
-        ]
-
-    def get_mcp_tools(self):
-        """
-        声明插件的 MCP 工具（注册名自动加插件名前缀 knowledge_）
-
-        - knowledge_search / knowledge_detail / knowledge_categories：audience=both，
-          供管理员与农户端 AI 检索
-        - knowledge_create：audience=admin，新建条目（不含典型图片，需后台补传）
-        - knowledge_batch_create：audience=admin，批量新建条目（仅录标题，需后台补图）
-        - knowledge_update：audience=admin，增量更新条目（仅写非空参数，图片不可改）
-        permission_code 复用 RBAC 权限码，与后台接口同权限口径。
-        """
-        return [
-            {
-                "name": "search",
-                "description": "搜索农业知识条目，支持按关键词/分类ID/适用作物筛选，"
-                               "返回条目摘要列表（id/标题/分类名/作物/摘要）。",
-                "handler": knowledge_search,
-                "audience": "both",
-                "permission_code": "knowledge:list",
-            },
-            {
-                "name": "detail",
-                "description": "查询农业知识条目详情，返回完整字段：典型图片URL列表、"
-                               "发生原因、解决方案、适用作物等。",
-                "handler": knowledge_detail,
-                "audience": "both",
-                "permission_code": "knowledge:list",
-            },
-            {
-                "name": "categories",
-                "description": "列出农业知识库的二级分类树（大类>子类，仅启用分类）。",
-                "handler": knowledge_categories,
-                "audience": "both",
-                "permission_code": "knowledge:list",
-            },
-            {
-                "name": "create",
-                "description": "新建农业知识条目（不含典型图片，需后续在后台编辑上传补充）。"
-                               "参数：title/category_id 必填，crop/summary/cause/solution 选填。",
-                "handler": knowledge_create,
-                "audience": "admin",
-                "permission_code": "knowledge:create",
-            },
-            {
-                "name": "batch_create",
-                "description": "批量新建农业知识条目（共享分类/作物，仅录标题）。"
-                               "参数：category_id/titles 必填，crop 选填；典型图片需后台补传。",
-                "handler": knowledge_batch_create,
-                "audience": "admin",
-                "permission_code": "knowledge:create",
-            },
-            {
-                "name": "update",
-                "description": "更新农业知识条目（增量语义：仅写入非空参数，未传字段保持原值）。"
-                               "参数：entry_id 必填，title/category_id/crop/summary/cause/"
-                               "solution 选填；典型图片不可经 MCP 修改，需后台上传。",
-                "handler": knowledge_update,
-                "audience": "admin",
-                "permission_code": "knowledge:update",
             },
         ]
 

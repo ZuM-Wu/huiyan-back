@@ -10,6 +10,7 @@ App管理插件 — 公开API缓存工具
 """
 import logging
 from datetime import datetime
+from core.time_utils import china_now
 
 from core.cache.cache_manager import cache_manager
 
@@ -34,7 +35,7 @@ async def cache_get(key: str):
     if not cached or not cached.get("cached_at"):
         return None
     try:
-        age = (datetime.now() - datetime.fromisoformat(cached["cached_at"])).total_seconds()
+        age = (china_now() - datetime.fromisoformat(cached["cached_at"])).total_seconds()
     except (TypeError, ValueError):
         return None
     if age >= cached.get("ttl", DEFAULT_CACHE_TTL):
@@ -46,7 +47,7 @@ async def cache_set(key: str, data, ttl: int = DEFAULT_CACHE_TTL) -> None:
     """写入缓存 — 值内嵌 cached_at 与 ttl（data 允许为 None，表示已确认无数据）"""
     await cache_manager.set(
         key,
-        {"cached_at": datetime.now().isoformat(), "ttl": ttl, "data": data},
+        {"cached_at": china_now().isoformat(), "ttl": ttl, "data": data},
         expire=ttl,
     )
 

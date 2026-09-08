@@ -1,4 +1,4 @@
-"""慧眼护农 V4 主入口
+"""慧眼护农 3.4.0 主入口
 单进程: FastAPI 托管 API + 前端静态文件
 
 部署约束: 仅支持单 worker 部署（uvicorn 默认单进程）。
@@ -6,7 +6,9 @@
 多 worker 部署会导致状态漂移与安全机制失效，严禁使用 --workers > 1。
 """
 import logging
-from contextlib import asynccontextmanager
+from logging.handlers import RotatingFileHandler
+from contextlib import asynccontextmanager, nullcontext
+from pathlib import Path
 from uuid import uuid4
 
 from fastapi import FastAPI, Request
@@ -19,6 +21,20 @@ from core.view_controller import view_controller
 from core.view_farmer import farmer_view_controller
 from core.view_site import site_view_controller
 from core.middleware.maintenance import MaintenanceMiddleware
+
+# AgentScope Service：固定使用 agentscope==2.0.7。
+# AgentScope 是 AI 子系统唯一运行链路，导入失败时直接暴露启动错误。
+try:
+    from services.agentscope.runtime import (
+        agentscope_app,
+        install_chat_failure_logging,
+    )
+    from services.agentscope.shutdown import shutdown_signal_proxy
+except Exception as exc:  # pragma: no cover - 仅覆盖未安装可选依赖的降级环境
+    agentscope_app = None
+    install_chat_failure_logging = None
+    shutdown_signal_proxy = None
+    logging.getLogger(__name__).error("AgentScope Service 导入失败: %s", exc)
 
 # 核心路由
 from api.admin.auth import router as admin_auth_router
@@ -52,12 +68,12 @@ from api.admin.weather_alert import router as admin_weather_alert_router
 from api.admin.task_monitor import router as admin_task_monitor_router
 from api.admin.task_queue import router as admin_task_queue_router
 from api.admin.api_key import router as admin_api_key_router
-from api.admin.ai_chat import router as admin_ai_chat_router
-from api.admin.ai_setting import router as admin_ai_setting_router
-from api.admin.ai_mcp import router as admin_ai_mcp_router
-from api.admin.ai_mcp_farmer import router as admin_ai_mcp_farmer_router
-from api.farmer.ai_mcp import router as farmer_ai_mcp_router
+from api.admin.ai_resources import router as admin_ai_resources_router
 from api.admin.inbox import router as admin_inbox_router
+from api.admin.hardware_device import (
+    marker_router as admin_hardware_marker_router,
+    router as admin_hardware_device_router,
+)
 from api.farmer.auth import router as farmer_auth_router
 from api.farmer.verify_code import router as farmer_verify_code_router
 from api.farmer.password_reset import router as farmer_password_reset_router
@@ -68,21 +84,61 @@ from api.farmer.certification import router as farmer_certification_router
 from api.farmer.production_area import router as farmer_production_area_router
 from api.farmer.weather import router as farmer_weather_router
 from api.farmer.api_key import router as farmer_api_key_router
-from api.farmer.ai_chat import router as farmer_ai_chat_router
 from api.farmer.inbox import router as farmer_inbox_router
 from api.farmer.plugins import router as farmer_plugins_router
 
-logging.basicConfig(level=logging.INFO)  # 日志级别
+def _configure_logging() -> None:
+    """配置统一应用日志；文件不可写时保留 stderr 并继续启动。"""
+    level_name = str(settings.LOG_LEVEL or "INFO").upper()
+    level = getattr(logging, level_name, logging.INFO)
+    logging.basicConfig(level=level)
+    root_logger = logging.getLogger()
+    root_logger.setLevel(level)
+    log_file = str(settings.LOG_FILE or "").strip()
+    if not log_file:
+        return
+    target = str(Path(log_file).expanduser().resolve())
+    if any(getattr(handler, "_huiyan_log_file", "") == target for handler in root_logger.handlers):
+        return
+    try:
+        Path(target).parent.mkdir(parents=True, exist_ok=True)
+        handler = RotatingFileHandler(
+            target, maxBytes=10 * 1024 * 1024, backupCount=5, encoding="utf-8",
+        )
+        handler._huiyan_log_file = target  # type: ignore[attr-defined]
+        handler.setFormatter(logging.Formatter(
+            "%(asctime)s %(levelname)s [%(name)s] %(message)s",
+        ))
+        root_logger.addHandler(handler)
+    except OSError:
+        root_logger.exception("[日志降级] LOG_FILE 不可写，继续使用 stderr: %s", target)
+
+
+_configure_logging()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期上下文管理器（替代 on_event）"""
-    await startup(app)
-    yield
-    await shutdown()
-
-
+    signal_context = (
+        shutdown_signal_proxy.installed()
+        if shutdown_signal_proxy is not None
+        else nullcontext()
+    )
+    with signal_context:
+        started = False
+        try:
+            await startup(app)
+            started = True
+            if agentscope_app is not None:
+                async with agentscope_app.router.lifespan_context(agentscope_app):
+                    install_chat_failure_logging()
+                    yield
+            else:
+                yield
+        finally:
+            if started:
+                await shutdown()
 # MCP 服务接线（MCP_ENABLED=true 时启用）
 # 历史坑: FastMCP 子应用自带 lifespan（初始化 session manager），
 # 不用 combine_lifespans 合并则 MCP 请求会挂死；合并后退出顺序为
@@ -90,16 +146,20 @@ async def lifespan(app: FastAPI):
 if settings.MCP_ENABLED:
     from fastmcp.utilities.lifespan import combine_lifespans
     from services.mcp.server import build_http_app
-    from services.mcp.registry import register_core_tools
+    from services.mcp.registry import register_core_capabilities
 
     mcp_app = build_http_app()
-    register_core_tools()
+    register_core_capabilities()
     _app_lifespan = combine_lifespans(lifespan, mcp_app.lifespan)
 else:
     mcp_app = None
     _app_lifespan = lifespan
 
-app = FastAPI(title="慧眼护农 V4", version="4.0.0", lifespan=_app_lifespan)
+app = FastAPI(title="慧眼护农 3.4.0", version="3.4.0", lifespan=_app_lifespan)
+
+if agentscope_app is not None:
+    # AgentScope 原生资源路由统一形成 /api/ai 入口。
+    app.mount("/api/ai", agentscope_app)
 
 
 @app.middleware("http")
@@ -178,11 +238,10 @@ app.include_router(admin_weather_alert_router)
 app.include_router(admin_task_monitor_router)
 app.include_router(admin_task_queue_router)
 app.include_router(admin_api_key_router)
-app.include_router(admin_ai_chat_router)
-app.include_router(admin_ai_setting_router)
-app.include_router(admin_ai_mcp_router)
-app.include_router(admin_ai_mcp_farmer_router)
+app.include_router(admin_ai_resources_router)
 app.include_router(admin_inbox_router)
+app.include_router(admin_hardware_device_router)
+app.include_router(admin_hardware_marker_router)
 app.include_router(farmer_auth_router)
 app.include_router(farmer_verify_code_router)
 app.include_router(farmer_password_reset_router)
@@ -193,8 +252,6 @@ app.include_router(farmer_certification_router)
 app.include_router(farmer_production_area_router)
 app.include_router(farmer_weather_router)
 app.include_router(farmer_api_key_router)
-app.include_router(farmer_ai_chat_router)
-app.include_router(farmer_ai_mcp_router)
 app.include_router(farmer_inbox_router)
 app.include_router(farmer_plugins_router)
 
@@ -237,9 +294,9 @@ async def health(request: Request):
     if degraded:
         return {
             "code": 200, "status": "degraded", "components": degraded,
-            "platform": platform_components, "version": "4.0.0",
+            "platform": platform_components, "version": "3.4.0",
         }
     return {
         "code": 200, "status": "ok", "components": [],
-        "platform": platform_components, "version": "4.0.0",
+        "platform": platform_components, "version": "3.4.0",
     }

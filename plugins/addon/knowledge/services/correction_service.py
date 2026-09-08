@@ -6,7 +6,7 @@
 处理时写入 admin_note / admin_id / handle_time，并将 status 置为 1 或 2。
 """
 import logging
-from datetime import datetime
+from core.time_utils import china_now
 
 from sqlalchemy import func, select
 
@@ -98,6 +98,6 @@ class CorrectionService:
         row.status = status
         row.admin_note = admin_note or ""
         row.admin_id = admin_id
-        row.handle_time = datetime.now()
+        row.handle_time = china_now()
         await db.commit()
         return ""

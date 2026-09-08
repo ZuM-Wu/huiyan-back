@@ -5,7 +5,7 @@
 参考 ZJMF task_wait 表设计：纯 MySQL + 乐观锁，无 Redis 依赖
 """
 from datetime import datetime
-
+from core.time_utils import china_now
 from sqlalchemy import (
     BigInteger, Computed, DateTime, Index, Integer, String, Text,
     UniqueConstraint,
@@ -64,4 +64,4 @@ class TaskQueue(Base):
     run_at: Mapped[datetime | None] = mapped_column(DateTime, comment="计划执行时间，为空时立即执行")
     next_run_at: Mapped[datetime | None] = mapped_column(DateTime, comment="下次允许执行时间")
     locked_at: Mapped[datetime | None] = mapped_column(DateTime, comment="最近抢占时间")
-    create_time: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, comment="创建时间")
+    create_time: Mapped[datetime] = mapped_column(DateTime, default=china_now, comment="创建时间")

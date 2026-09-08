@@ -4,8 +4,7 @@
 
 包含管理员通知动作配置和企业微信发送日志表。
 """
-from datetime import datetime
-
+from core.time_utils import china_now
 from sqlalchemy import Column, Integer, String, DateTime, Text
 
 from core.db.base import Base
@@ -22,8 +21,8 @@ class WecomWebhookAction(Base):
     action_type = Column(String(32), default="other", comment="动作分类")
     enabled = Column(Integer, default=0, comment="是否启用:0否 1是")
     webhook_url = Column(String(512), default="", comment="动作级Webhook地址，留空继承全局")
-    create_time = Column(DateTime, default=datetime.now, comment="创建时间")
-    update_time = Column(DateTime, default=datetime.now, onupdate=datetime.now, comment="更新时间")
+    create_time = Column(DateTime, default=china_now, comment="创建时间")
+    update_time = Column(DateTime, default=china_now, onupdate=china_now, comment="更新时间")
 
 
 class WecomWebhookLog(Base):
@@ -41,4 +40,4 @@ class WecomWebhookLog(Base):
     status = Column(Integer, default=0, comment="发送状态:0=失败 1=成功")
     error_msg = Column(String(512), default="", comment="错误信息")
     msg_id = Column(String(128), default="", comment="企业微信返回的消息ID")
-    create_time = Column(DateTime, default=datetime.now, comment="发送时间")
+    create_time = Column(DateTime, default=china_now, comment="发送时间")

@@ -10,8 +10,7 @@
 注意：插件业务表由 plugin.install() 通过 migrations/install.sql 建表，
 此 ORM 模型仅用于业务代码中的查询与序列化，不参与系统启动时的 create_all。
 """
-from datetime import datetime
-
+from core.time_utils import china_now
 from sqlalchemy import Column, DateTime, Integer, String, Text
 
 from core.db.base import Base
@@ -28,8 +27,8 @@ class KnowledgeCategory(Base):
     name = Column(String(50), nullable=False, comment="分类名称")
     sort_order = Column(Integer, nullable=False, default=0, comment="排序值 越小越靠前")
     status = Column(Integer, nullable=False, default=1, comment="状态 0停用 1启用")
-    create_time = Column(DateTime, default=datetime.now, comment="创建时间")
-    update_time = Column(DateTime, default=datetime.now, onupdate=datetime.now, comment="更新时间")
+    create_time = Column(DateTime, default=china_now, comment="创建时间")
+    update_time = Column(DateTime, default=china_now, onupdate=china_now, comment="更新时间")
 
 
 class KnowledgeEntry(Base):
@@ -49,8 +48,8 @@ class KnowledgeEntry(Base):
     view_count = Column(Integer, nullable=False, default=0, comment="浏览次数")
     sort_order = Column(Integer, nullable=False, default=0, comment="排序值 越小越靠前")
     admin_id = Column(Integer, nullable=False, default=0, comment="最后操作管理员ID")
-    create_time = Column(DateTime, default=datetime.now, comment="创建时间")
-    update_time = Column(DateTime, default=datetime.now, onupdate=datetime.now, comment="更新时间")
+    create_time = Column(DateTime, default=china_now, comment="创建时间")
+    update_time = Column(DateTime, default=china_now, onupdate=china_now, comment="更新时间")
 
 
 class KnowledgeCorrection(Base):
@@ -66,5 +65,5 @@ class KnowledgeCorrection(Base):
     status = Column(Integer, nullable=False, default=0, index=True, comment="状态 0待处理 1已采纳 2已驳回")
     admin_note = Column(String(500), nullable=False, default="", comment="管理员处理备注")
     admin_id = Column(Integer, nullable=False, default=0, comment="处理管理员ID")
-    create_time = Column(DateTime, default=datetime.now, comment="提交时间")
+    create_time = Column(DateTime, default=china_now, comment="提交时间")
     handle_time = Column(DateTime, nullable=True, comment="处理时间")

@@ -4,7 +4,7 @@
 对标 ZJMF file_log 表（FileLogModel.php），字段精简并补索引
 """
 from datetime import datetime
-
+from core.time_utils import china_now
 from sqlalchemy import DateTime, Index, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -34,4 +34,4 @@ class FileLogModel(Base):
     file_size: Mapped[int] = mapped_column(Integer, nullable=False, default=0, comment="文件字节数")
     admin_id: Mapped[int | None] = mapped_column(Integer, nullable=True, comment="上传管理员ID")
     source: Mapped[str] = mapped_column(String(32), nullable=False, default="admin", comment="来源：admin/farmer/system")
-    create_time: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, comment="创建时间")
+    create_time: Mapped[datetime] = mapped_column(DateTime, default=china_now, comment="创建时间")

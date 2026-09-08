@@ -91,7 +91,9 @@ async def list_menus(nav_type: str = "") -> list:
         q = select(Menu)
         if nav_type:
             q = q.where(Menu.nav_type == nav_type)
-        rows = (await db.execute(q.order_by(Menu.sort_order))).scalars().all()
+        rows = (await db.execute(
+            q.order_by(Menu.sort_order, Menu.plugin, Menu.id)
+        )).scalars().all()
         return [_menu_to_dict(m) for m in rows]
 
 
@@ -191,7 +193,9 @@ async def list_navs(nav_type: str = "") -> list:
         q = select(Nav)
         if nav_type:
             q = q.where(Nav.nav_type == nav_type)
-        rows = (await db.execute(q.order_by(Nav.sort_order))).scalars().all()
+        rows = (await db.execute(
+            q.order_by(Nav.sort_order, Nav.plugin, Nav.id)
+        )).scalars().all()
         return [_nav_to_dict(n) for n in rows]
 
 
@@ -255,7 +259,9 @@ async def list_permissions() -> list:
     """
     async with async_session_factory() as db:
         rows = (await db.execute(
-            select(Permission).order_by(Permission.sort_order)
+            select(Permission).order_by(
+                Permission.sort_order, Permission.plugin, Permission.id
+            )
         )).scalars().all()
         return [_permission_to_dict(p) for p in rows]
 
@@ -300,7 +306,7 @@ async def list_roles_with_permissions() -> list:
                 select(Permission)
                 .join(RolePermissionLink, RolePermissionLink.permission_id == Permission.id)
                 .where(RolePermissionLink.role_id == role.id)
-                .order_by(Permission.sort_order)
+                .order_by(Permission.sort_order, Permission.plugin, Permission.id)
             )).scalars().all()
 
             result.append({

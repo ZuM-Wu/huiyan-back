@@ -3,6 +3,7 @@
 from sqlalchemy import DateTime, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 from datetime import datetime
+from core.time_utils import china_now
 from core.db.base import Base
 
 
@@ -19,4 +20,4 @@ class SystemLog(Base):
     user_id: Mapped[int] = mapped_column(Integer, default=0, comment="操作人ID")
     user_name: Mapped[str] = mapped_column(String(100), default="", comment="操作人名称")
     ip: Mapped[str] = mapped_column(String(50), default="", comment="IP地址")
-    create_time: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, comment="创建时间")
+    create_time: Mapped[datetime] = mapped_column(DateTime, default=china_now, comment="创建时间")

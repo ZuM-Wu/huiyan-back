@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}我的产区 - 慧眼护农 农户端{% endblock %}
 {% block head %}
+<link rel="stylesheet" href="/static/css/hardware-marker.css?v={{ config.app_version }}">
 <style>
 /* 产区天气卡片（明暗双模式走 --app-* Token） */
 .weather-card { margin-bottom: var(--app-spacing-md); }
@@ -102,7 +103,8 @@
             <t-card class="area-map-card" :bordered="true" header-bordered title="产区地图" v-if="mapEnabled && mapKey">
                 <template #header>产区地图</template>
                 <amap-thumb :interactive="true" :api-key="mapKey" :security-code="mapSecurity"
-                    :area-boundary="currentAreaBoundary" :plots="plotList" :center="currentAreaCenter"></amap-thumb>
+                    :area-boundary="currentAreaBoundary" :plots="plotList" :center="currentAreaCenter"
+                    :hardware-markers="hardwareMarkers"></amap-thumb>
             </t-card>
             <t-skeleton v-if="loading" :row-col="[6]" animation="gradient"></t-skeleton>
             <t-table v-else :data="plotList" :columns="plotColumns"
@@ -152,6 +154,7 @@
 {% block scripts %}
 <!-- 地图共享调色板（canvas 绘制豁免），须先于 amap-thumb 加载 -->
 <script src="/static/js/components/amap-palette.js?v={{ config.app_version }}"></script>
+<script src="/static/js/components/hardware-marker.js?v={{ config.app_version }}"></script>
 <script src="/static/js/components/amap-thumb.js?v={{ config.app_version }}"></script>
 <script>
 HuiYanFarmer.createApp({
@@ -183,6 +186,7 @@ HuiYanFarmer.createApp({
         var mapEnabled = ref(false);
         var currentAreaBoundary = ref('');   // 当前产区边界 GeoJSON 字符串
         var currentAreaCenter = ref([]);     // 当前产区中心点 [lng, lat]
+        var hardwareMarkers = ref([]);       // 只读硬件水滴标记
 
         // 拉取地图配置（仅前端 Key + 安全码 + 开关）；失败静默，地图卡不显示
         var fetchMapConfig = function () {
@@ -242,6 +246,7 @@ HuiYanFarmer.createApp({
 
         var openPlots = function (row) {
             loading.value = true;
+            hardwareMarkers.value = [];
             currentAreaId.value = row.id;
             currentAreaName.value = row.name;
             // 地图数据：产区边界 + 中心点（从列表行直接取，/list 已返回 boundary/经纬度）
@@ -255,6 +260,9 @@ HuiYanFarmer.createApp({
             }).catch(function () { MessagePlugin.error('获取地块失败'); }).finally(function () {
                 loading.value = false;
             });
+            HuiYanFarmer.request.get('/production-area/' + row.id + '/hardware-markers').then(function (res) {
+                hardwareMarkers.value = (res.data && res.data.data) ? res.data.data : [];
+            }).catch(function () { hardwareMarkers.value = []; });
             fetchWeather(row.id);
         };
 
@@ -348,6 +356,7 @@ HuiYanFarmer.createApp({
             weatherData: weatherData, weatherLoading: weatherLoading, formatHour: formatHour,
             mapKey: mapKey, mapSecurity: mapSecurity, mapEnabled: mapEnabled,
             currentAreaBoundary: currentAreaBoundary, currentAreaCenter: currentAreaCenter,
+            hardwareMarkers: hardwareMarkers,
             gddVisible: gddVisible, gddLoading: gddLoading, gddBatchNo: gddBatchNo,
             gddData: gddData, openGdd: openGdd
         };

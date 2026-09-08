@@ -4,7 +4,7 @@
 记录发送的短信/邮件验证码，用于登录、注册、密码重置等场景
 """
 from datetime import datetime
-
+from core.time_utils import china_now
 from sqlalchemy import DateTime, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -25,4 +25,4 @@ class VerifyCode(Base):
     attempt_count: Mapped[int] = mapped_column(Integer, default=0, comment="失败尝试计数（累计5次错误自动作废，防爆破）")
     expire_time: Mapped[datetime] = mapped_column(DateTime, nullable=False, comment="过期时间")
     ip: Mapped[str] = mapped_column(String(50), default="", comment="请求IP（审计）")
-    create_time: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, comment="创建时间")
+    create_time: Mapped[datetime] = mapped_column(DateTime, default=china_now, comment="创建时间")

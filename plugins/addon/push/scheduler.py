@@ -13,6 +13,7 @@
 """
 import logging
 from datetime import datetime, time
+from core.time_utils import china_now
 
 from sqlalchemy import select
 
@@ -73,7 +74,7 @@ async def schedule_onetime_task(task: PushCenterTask) -> int:
 def get_onetime_run_at(task: PushCenterTask) -> datetime:
     """将一次性任务的日期与发送时刻合成为队列计划执行时间。"""
     schedule = _schedule(task)
-    reference = _as_datetime(schedule.get("start_time")) or task.create_time or datetime.now()
+    reference = _as_datetime(schedule.get("start_time")) or task.create_time or china_now()
     task_time = _parse_task_time(schedule.get("time_hour_min"))
     run_at = datetime.combine(reference.date(), task_time)
     start_time = _as_datetime(schedule.get("start_time"))
@@ -84,7 +85,7 @@ def get_onetime_run_at(task: PushCenterTask) -> datetime:
 
 async def _check_and_dispatch() -> None:
     """检查并分发到期任务"""
-    now = datetime.now()
+    now = china_now()
     current_hour_min = now.strftime("%H:%M")
 
     async with async_session_factory() as db:

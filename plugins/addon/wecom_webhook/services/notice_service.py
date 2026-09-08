@@ -3,7 +3,7 @@
 
 import json
 import logging
-from datetime import datetime
+from core.time_utils import china_now
 from typing import Any, Dict, Optional
 
 from sqlalchemy import select
@@ -107,7 +107,7 @@ class WecomNoticeService:
                 return False
             row.enabled = int(data.get("enabled") or 0)
             row.webhook_url = str(data.get("webhook_url") or "")
-            row.update_time = datetime.now()
+            row.update_time = china_now()
             await db.commit()
         return True
 
@@ -244,7 +244,7 @@ class WecomNoticeService:
                     action_key=action_key, msgtype=msgtype,
                     content=(content or "")[:500], status=1 if success else 0,
                     error_msg=(error_msg or "")[:512], msg_id=msg_id or "",
-                    create_time=datetime.now(),
+                    create_time=china_now(),
                 )
                 db.add(log)
                 await db.commit()

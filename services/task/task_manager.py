@@ -1,6 +1,6 @@
 """
 任务队列
-慧眼护农 V4 任务子系统
+慧眼护农 3.4.0 任务子系统
 
 使用 APScheduler 实现定时任务调度
 
@@ -10,7 +10,8 @@
 import inspect
 import logging
 import time
-from datetime import datetime, timedelta
+from datetime import timedelta
+from core.time_utils import CHINA_TIMEZONE, china_now, china_now_aware
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -27,7 +28,7 @@ class TaskManager:
     """
 
     def __init__(self):
-        self.scheduler = AsyncIOScheduler()
+        self.scheduler = AsyncIOScheduler(timezone=CHINA_TIMEZONE)
         self._tasks = {}
 
     def start(self):
@@ -65,16 +66,16 @@ class TaskManager:
         """
         job_kwargs = dict(job_kwargs or {})
         if trigger == "interval":
-            t = IntervalTrigger(**kwargs)
+            t = IntervalTrigger(timezone=CHINA_TIMEZONE, **kwargs)
         elif trigger == "cron":
-            t = CronTrigger(**kwargs)
+            t = CronTrigger(timezone=CHINA_TIMEZONE, **kwargs)
         else:
             raise ValueError(f"不支持的触发器类型: {trigger}")
 
         # 指定首次运行时间，避免 interval 任务注册后空等一个周期
         if first_run_delay is not None:
             job_kwargs["next_run_time"] = (
-                datetime.now() + timedelta(seconds=first_run_delay)
+                china_now_aware() + timedelta(seconds=first_run_delay)
             )
 
         # 包装任务函数，执行完毕后统一记录结果并发布失败事件。
@@ -153,9 +154,9 @@ class TaskManager:
             True=调整成功；False=任务不存在或参数非法
         """
         if trigger == "interval":
-            t = IntervalTrigger(**kwargs)
+            t = IntervalTrigger(timezone=CHINA_TIMEZONE, **kwargs)
         elif trigger == "cron":
-            t = CronTrigger(**kwargs)
+            t = CronTrigger(timezone=CHINA_TIMEZONE, **kwargs)
         else:
             raise ValueError(f"不支持的触发器类型: {trigger}")
 
@@ -167,7 +168,7 @@ class TaskManager:
         # 重调会重置计时，按需把首次运行提前到短延迟后（免空等一个周期）
         if first_run_delay is not None:
             self.scheduler.modify_job(
-                name, next_run_time=datetime.now() + timedelta(seconds=first_run_delay)
+                name, next_run_time=china_now_aware() + timedelta(seconds=first_run_delay)
             )
         logger.info(f"[TaskManager] 已重调任务触发器: {name}")
         return True
@@ -332,7 +333,7 @@ async def _clean_old_logs():
         if days <= 0:
             days = 90
 
-        cutoff = datetime.now() - timedelta(days=days)
+        cutoff = china_now() - timedelta(days=days)
         result = await db.execute(
             delete(SystemLog).where(SystemLog.create_time < cutoff)
         )

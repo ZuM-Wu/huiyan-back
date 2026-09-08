@@ -4,7 +4,7 @@ import asyncio
 import json
 import logging
 from dataclasses import asdict, dataclass
-from datetime import datetime
+from core.time_utils import china_now
 from typing import Any
 
 import mcp.types as mcp_types
@@ -14,7 +14,7 @@ from pydantic import ValidationError
 
 from core.config_service import get_config
 from core.db.base import async_session_factory
-from services.ai import tool_bridge
+from services.mcp import external as tool_bridge
 
 logger = logging.getLogger(__name__)
 # websockets 的调试日志可能包含握手路径与查询令牌，本桥只输出自行脱敏的状态日志。
@@ -359,7 +359,7 @@ class XiaozhiMcpBridge:
 
 
 def _now_text() -> str:
-    return datetime.now().isoformat(timespec="seconds")
+    return china_now().isoformat(timespec="seconds")
 
 
 def _safe_error_name(exc: Exception) -> str:

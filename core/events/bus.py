@@ -6,7 +6,7 @@ import json
 import logging
 import time
 from copy import deepcopy
-from datetime import datetime
+from core.time_utils import china_now
 from typing import Any
 
 from core.db.event_outbox import EventOutbox
@@ -41,7 +41,7 @@ class EventBus:
             payload=json.dumps(clean, ensure_ascii=False, sort_keys=True),
             correlation_id=correlation_id,
             status="Pending",
-            create_time=datetime.now(),
+            create_time=china_now(),
         )
         db.add(row)
         await db.flush()

@@ -7,7 +7,7 @@
 api/admin/task_monitor.py，不在本插件职责范围内。
 """
 import logging
-from datetime import datetime
+from core.time_utils import china_now
 from urllib.parse import unquote
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -137,7 +137,7 @@ async def update_config(task_name: str, data: AlertConfigUpdate, request: Reques
         for key, value in update_data.items():
             if value is not None:
                 setattr(config, key, value)
-        config.update_time = datetime.now()
+        config.update_time = china_now()
         await db.commit()
 
         await active_log(
@@ -164,7 +164,7 @@ async def batch_update_configs(data: BatchConfigUpdate, request: Request):
                 config.admin_ids = item.admin_ids
                 if item.task_title:
                     config.task_title = item.task_title
-                config.update_time = datetime.now()
+                config.update_time = china_now()
             else:
                 # 不存在则创建
                 new_config = TaskAlertConfig(

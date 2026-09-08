@@ -10,7 +10,7 @@
 条目为开放式清单，后续有新的待办来源时在 get_data 的 items 列表中追加即可（空位先空着）。
 """
 import logging
-from datetime import datetime
+from core.time_utils import china_now
 
 from sqlalchemy import select, func
 
@@ -32,7 +32,7 @@ class TodoWidget(BaseWidget):
     widget_type = "todo"
 
     async def get_data(self) -> dict:
-        now = datetime.now()
+        now = china_now()
         async with async_session_factory() as db:
             # 待处理实名：待审核的实名认证记录
             cert_count = (await db.execute(
@@ -48,7 +48,7 @@ class TodoWidget(BaseWidget):
 
             # 天气预警：本日入库且当前仍生效的预警
             # （create_time 落在今日零点后 AND end_time 为空或未过期），
-            # 本地 naive 时间口径，与全项目 datetime.now() 一致
+            # 本地 naive 时间口径，与全项目 china_now() 一致
             today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
             alert_count = (await db.execute(
                 select(func.count(WeatherAlert.id))

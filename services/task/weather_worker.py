@@ -22,7 +22,8 @@
   （开关切换=增删任务，频率变化=reschedule_task）
 """
 import logging
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
+from core.time_utils import china_now
 
 from sqlalchemy import delete
 
@@ -94,7 +95,7 @@ async def weather_clean_job():
                 WeatherDaily.date < date.today() - timedelta(days=d1)
             ))
             r2 = await db.execute(delete(WeatherAlert).where(
-                WeatherAlert.end_time < datetime.now() - timedelta(days=d2)
+                WeatherAlert.end_time < china_now() - timedelta(days=d2)
             ))
             await db.commit()
         n1, n2 = r1.rowcount or 0, r2.rowcount or 0
@@ -123,7 +124,7 @@ async def weather_alert_notify_job():
             pending = (await db.execute(
                 select(WeatherAlert).where(
                     WeatherAlert.notified == 0,
-                    WeatherAlert.end_time >= datetime.now(),
+                    WeatherAlert.end_time >= china_now(),
                 )
             )).scalars().all()
             count = 0

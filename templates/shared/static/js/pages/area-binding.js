@@ -41,7 +41,7 @@
             const bindMap = reactive({});
             // 全部产区的绑定映射 {area_id: [farmer_id,...]}，用于列表初始化与刷新
             const bindingSource = ref({});
-            // 产区地理数据映射 {area_id: {boundary, plots, center}}，来源 /{id}/geo（供只读缩略地图渲染）
+            // 产区地图数据映射，合并地理数据与管理员可见硬件标记，供只读缩略图统一渲染。
             const geoMap = reactive({});
 
             /* ========== 地图配置（缩略地图需高德 JS API Key） ========== */
@@ -60,16 +60,21 @@
                 Object.keys(geoMap).forEach((id) => { delete geoMap[id]; });
             };
 
-            // 逐个产区拉取地理数据（边界 + 中心 + 地块）；失败静默跳过，前端显示占位
+            // 逐个产区并行拉取地理数据与硬件标记；标记失败不影响基础地图展示。
             const fetchGeos = () => {
                 areaList.value.forEach((a) => {
                     if (geoMap[a.id]) { return; }  // 已有则不重复请求
-                    request.get('/production-area/' + a.id + '/geo').then((res) => {
-                        const d = res.data.data || {};
+                    const geoRequest = request.get('/production-area/' + a.id + '/geo');
+                    const markerRequest = request.get(
+                        '/production-area/' + a.id + '/hardware-markers'
+                    ).catch(() => ({ data: { data: [] } }));
+                    Promise.all([geoRequest, markerRequest]).then(([geoRes, markerRes]) => {
+                        const d = geoRes.data.data || {};
                         geoMap[a.id] = {
                             boundary: d.boundary || '',
                             plots: d.plots || [],
                             center: (d.longitude && d.latitude) ? [d.longitude, d.latitude] : [],
+                            hardwareMarkers: markerRes.data.data || [],
                         };
                     }).catch(() => {});
                 });

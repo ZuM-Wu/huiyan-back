@@ -1,7 +1,7 @@
 """主题、插件静态资源的 owner 隔离登记表。"""
 
 from dataclasses import dataclass
-from datetime import datetime
+from core.time_utils import china_now
 from urllib.parse import urlsplit
 
 
@@ -55,7 +55,7 @@ class ResourceRegistry:
                 version=str(manifest.get("version") or ""),
                 resource_type=str(item.get("type") or "asset"),
                 path=path,
-                registered_at=datetime.now().isoformat(),
+                registered_at=china_now().isoformat(),
             )
             self._records[record_key] = record
             self._versions[record_key] = self._versions.get(record_key, 0) + 1

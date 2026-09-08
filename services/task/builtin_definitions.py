@@ -25,6 +25,11 @@ def register_builtin_task_definitions() -> None:
         concurrency=4, failure_notifications=False,
     ))
 
+    from services.task.ai_connection_worker import (
+        TASK_DECLARATION,
+    )
+    task_registry.register(TASK_DECLARATION)
+
     from services.task.periodic_handlers import periodic_handlers
 
     for name, title, owner, handler in periodic_handlers():

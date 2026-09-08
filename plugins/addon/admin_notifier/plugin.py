@@ -15,8 +15,6 @@
 import logging
 from pathlib import Path
 
-from sqlalchemy import delete
-
 from core.config_manager import ConfigManager
 from core.plugin_manager import BasePlugin
 
@@ -33,7 +31,7 @@ class Plugin(BasePlugin):
         super().__init__(db_session, config)
         self.name = PLUGIN_NAME
         self.title = "邮件通知管理员"
-        self.version = "2.0.0"
+        self.version = "1.0.1"
         self.description = "任务失败时按配置发送邮件/短信通知管理员"
         self.module = "addon"
         self._config_manager = ConfigManager()
@@ -78,9 +76,9 @@ class Plugin(BasePlugin):
         卸载插件（五步逆操作）：
         1. 删除数据表（执行 migrations/uninstall.sql）
         2. 按 owner 注销全部运行时能力 — PluginManager 处理
-        3. 级联删除权限 — PluginManager 处理
-        4. 清理配置
-        5. 删除后台菜单，返回 True
+        3. 级联删除权限、配置、导航和菜单 — PluginManager 处理
+        4. 注销插件运行时能力 — PluginManager 处理
+        5. 返回 True
         """
         if not self.db:
             return False
@@ -89,19 +87,7 @@ class Plugin(BasePlugin):
         await self._run_sql_file("uninstall.sql")
 
         # 2. 运行时能力注销由 PluginManager 处理
-        # 3. 级联删除权限（PluginManager 处理）
-
-        # 4. 清理配置
-        from core.db.configuration import ConfigurationModel
-        await self.db.execute(
-            delete(ConfigurationModel).where(
-                ConfigurationModel.key.like(f"{PLUGIN_NAME}.%")
-            )
-        )
-
-        # 5. 删除后台菜单
-        from core.db.menu import Menu
-        await self.db.execute(delete(Menu).where(Menu.plugin == PLUGIN_NAME))
+        # 3-5. 权限、配置、导航、菜单和运行时能力由 PluginManager 统一清理。
 
         logger.info("[admin_notifier] 插件卸载完成")
         return True
@@ -139,6 +125,7 @@ class Plugin(BasePlugin):
                 "icon": "mail",
                 "nav_type": "admin",
                 "template": "admin_notifier.html", "audience": "admin",
+                "scripts": ["admin_notifier.js"],
                 "permission": "admin_notifier:config:view",
                 "api_base": "/api/admin/v1/admin_notifier",
             },

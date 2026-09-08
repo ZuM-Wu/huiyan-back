@@ -1,6 +1,6 @@
 """平台扩展能力健康状态收集。"""
 
-from datetime import datetime
+from core.time_utils import china_now
 
 
 class PlatformHealth:
@@ -13,7 +13,7 @@ class PlatformHealth:
         self._components[component] = {
             "status": status,
             "reason": reason,
-            "checked_at": datetime.now().isoformat(),
+            "checked_at": china_now().isoformat(),
             **details,
         }
 

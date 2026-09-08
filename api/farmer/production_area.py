@@ -12,6 +12,7 @@ from core.config_service import get_config
 from core.production_area_service import (
     list_farmer_area_page, list_farmer_batches, list_farmer_plots,
 )
+from core.hardware_device_service import list_farmer_hardware_markers
 from core.response import ok
 
 logger = logging.getLogger(__name__)
@@ -58,6 +59,17 @@ async def list_my_plots(area_id: int, request: Request,
     if data is None:
         raise HTTPException(status_code=404, detail="产区不存在或无权访问")
     return ok(data)
+
+
+@router.get("/{area_id}/hardware-markers")
+async def list_my_hardware_markers(
+    area_id: int, request: Request, _: None = Depends(check_farmer),
+):
+    """返回当前农户有权访问产区的只读硬件标记最小字段。"""
+    markers = await list_farmer_hardware_markers(request.state.user_id, area_id)
+    if markers is None:
+        raise HTTPException(status_code=404, detail="产区不存在或无权访问")
+    return ok(markers)
 
 
 @router.get("/plot/{plot_id}/batches")

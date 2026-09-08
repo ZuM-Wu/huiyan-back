@@ -31,18 +31,11 @@
         '/static/js/upload-limits.js',
         '/static/js/components/image-upload.js',
         '/static/js/components/amap-palette.js',
+        '/static/js/components/hardware-marker.js',
         '/static/js/components/amap-picker.js',
         '/static/js/components/amap-board.js',
         '/static/js/components/amap-thumb.js',
         '/static/js/components/com-tinymce.js',
-        '/static/js/components/ai-chat-loading.js',
-        '/static/js/components/ai-markdown-view.js',
-        '/static/js/components/ai-reasoning-block.js',
-        '/static/js/components/ai-image-grid.js',
-        '/static/js/components/ai-tool-bubble.js',
-        '/static/js/components/ai-message-bubble.js',
-        '/static/js/components/ai-message-list.js',
-        '/static/js/components/ai-chat-sender.js',
         '/static/js/spa-navigator.js',
         '/static/js/layout.js'
     ];
@@ -55,12 +48,20 @@
         '/static/css/admin-nav.css',
         '/static/css/admin-forms.css',
         '/static/css/admin-detail.css',
-        '/static/css/variable-hint.css'
+        '/static/css/variable-hint.css',
+        '/static/css/hardware-marker.css'
     ];
 
-    // 判断脚本 src 是否为全局脚本（忽略 ?v= 版本号）
-    function isGlobalScript(src) {
-        var path = (src || '').split('?')[0];
+    // 判断脚本是否为全局脚本；主题基座可用 data-theme-global 声明自己的公共组件。
+    // 主题资源仍必须由当前页面 HTML 提供，不能通过任意 URL 绕过加载边界。
+    function isGlobalScript(scriptOrSrc) {
+        if (scriptOrSrc && typeof scriptOrSrc !== 'string') {
+            var themeGlobal = scriptOrSrc.getAttribute('data-theme-global');
+            if (themeGlobal !== null && themeGlobal !== 'false') { return true; }
+        }
+        var src = typeof scriptOrSrc === 'string'
+            ? scriptOrSrc : (scriptOrSrc && scriptOrSrc.getAttribute('src')) || '';
+        var path = src.split('?')[0];
         return GLOBAL_SCRIPT_PATHS.indexOf(path) !== -1;
     }
 
@@ -82,7 +83,7 @@
         var pageScripts = [];
         doc.querySelectorAll('body > script').forEach(function (s) {
             var src = s.getAttribute('src');
-            if (src && isGlobalScript(src)) { return; } // 跳过全局脚本（base.html 已加载）
+            if (src && isGlobalScript(s)) { return; } // 跳过全局脚本（base.html 已加载）
             pageScripts.push(s.outerHTML);
         });
 
@@ -251,6 +252,7 @@
 
         var contentEl = document.querySelector('.page-content');
         if (!contentEl) {
+            _navigating = false;
             window.location.href = url;
             return;
         }
@@ -268,6 +270,7 @@
                 var extracted = extractContent(html);
                 if (!extracted) {
                     // 无法提取内容，回退到全页跳转
+                    _navigating = false;
                     window.location.href = url;
                     return;
                 }
@@ -384,7 +387,7 @@
     // 标记 data-page-script 后，其与 SPA 注入脚本遵循相同的移除循环。
     document.querySelectorAll('body > script[src]').forEach(function (s) {
         var src = s.getAttribute('src') || '';
-        if (!isGlobalScript(src)) {
+        if (!isGlobalScript(s)) {
             s.setAttribute('data-page-script', 'true');
         }
     });

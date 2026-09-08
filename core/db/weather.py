@@ -12,7 +12,7 @@
 管理端/农户端 API 只读，用户请求永不直穿第三方 API。
 """
 from datetime import date as date_type, datetime
-
+from core.time_utils import china_now
 from sqlalchemy import Date, DateTime, Float, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -36,8 +36,8 @@ class WeatherData(Base):
     forecast: Mapped[str | None] = mapped_column(Text, comment="逐日预报JSON（3~7天）")
     fetch_time: Mapped[datetime | None] = mapped_column(DateTime, comment="最近一次成功拉取时间")
     error_msg: Mapped[str] = mapped_column(String(256), default="", comment="最近一次失败原因（成功时置空，失败保留旧快照）")
-    create_time: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, comment="创建时间")
-    update_time: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, onupdate=datetime.now, comment="更新时间")
+    create_time: Mapped[datetime] = mapped_column(DateTime, default=china_now, comment="创建时间")
+    update_time: Mapped[datetime] = mapped_column(DateTime, default=china_now, onupdate=china_now, comment="更新时间")
 
 
 class WeatherDaily(Base):
@@ -58,8 +58,8 @@ class WeatherDaily(Base):
     precip: Mapped[float | None] = mapped_column(Float, comment="降水量（mm）")
     wind_scale: Mapped[str] = mapped_column(String(16), default="", comment="风力等级")
     text_day: Mapped[str] = mapped_column(String(64), default="", comment="天气现象文字")
-    create_time: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, comment="创建时间")
-    update_time: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, onupdate=datetime.now, comment="更新时间")
+    create_time: Mapped[datetime] = mapped_column(DateTime, default=china_now, comment="创建时间")
+    update_time: Mapped[datetime] = mapped_column(DateTime, default=china_now, onupdate=china_now, comment="更新时间")
 
 
 class WeatherAreaBinding(Base):
@@ -73,8 +73,8 @@ class WeatherAreaBinding(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True, comment="绑定ID")
     area_id: Mapped[int] = mapped_column(Integer, nullable=False, default=0, comment="产区ID（唯一）")
     source: Mapped[str] = mapped_column(String(64), default="", comment="指定数据源插件名（weather_qweather/weather_amap）")
-    create_time: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, comment="创建时间")
-    update_time: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, onupdate=datetime.now, comment="更新时间")
+    create_time: Mapped[datetime] = mapped_column(DateTime, default=china_now, comment="创建时间")
+    update_time: Mapped[datetime] = mapped_column(DateTime, default=china_now, onupdate=china_now, comment="更新时间")
 
 
 class WeatherAlert(Base):
@@ -96,4 +96,4 @@ class WeatherAlert(Base):
     start_time: Mapped[datetime | None] = mapped_column(DateTime, comment="预警生效时间")
     end_time: Mapped[datetime | None] = mapped_column(DateTime, comment="预警结束时间")
     notified: Mapped[int] = mapped_column(Integer, default=0, comment="通知状态: 0=未通知, 1=已通知（定时补推去重标记）")
-    create_time: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, comment="创建时间")
+    create_time: Mapped[datetime] = mapped_column(DateTime, default=china_now, comment="创建时间")

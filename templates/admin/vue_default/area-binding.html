@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block title %}农户绑定 - 慧眼护农{% endblock %}
+{% block head %}
+<style>
+.area-binding-page .ab-card {
+    display: flex; flex-direction: column; height: 100%;
+    border: 1px solid var(--app-border); border-radius: var(--app-radius-md);
+    background: var(--app-bg-card); padding: var(--app-spacing-md);
+    gap: var(--app-spacing-sm); transition: box-shadow .2s;
+}
+.area-binding-page .ab-card:hover { box-shadow: var(--app-shadow-2); }
+.area-binding-page .ab-card__thumb {
+    width: 100%; aspect-ratio: 1 / 1; border-radius: var(--app-radius-md); overflow: hidden;
+    border: 1px solid var(--app-border); background: var(--app-bg-container);
+    display: flex; align-items: center; justify-content: center;
+}
+.area-binding-page .ab-card__thumb > img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.area-binding-page .ab-card__thumb .amap-thumb,
+.area-binding-page .ab-card__thumb .amap-thumb__map { width: 100%; height: 100%; }
+.area-binding-page .ab-card__thumb .amap-thumb__empty {
+    width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
+    font-size: var(--app-font-size-sm); color: var(--app-text-placeholder);
+}
+.area-binding-page .ab-card__thumb-empty { font-size: var(--app-font-size-sm); color: var(--app-text-placeholder); }
+.area-binding-page .ab-card__head {
+    display: flex; align-items: center; gap: var(--app-spacing-xs); flex-wrap: nowrap;
+}
+.area-binding-page .ab-card__name {
+    flex: 1 1 auto; min-width: 0;
+    font-size: var(--app-font-size-lg); font-weight: 600; color: var(--app-text-primary);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.area-binding-page .ab-card__bound {
+    display: flex; flex-wrap: wrap; gap: var(--app-spacing-xs); align-content: flex-start;
+    height: 60px; overflow: hidden;
+    padding-top: var(--app-spacing-xs); border-top: 1px dashed var(--app-border);
+}
+.area-binding-page .ab-card__bound .t-tag { max-width: 100%; }
+.area-binding-page .ab-card__label { font-size: var(--app-font-size-sm); color: var(--app-text-secondary); align-self: center; }
+.area-binding-page .ab-card__ops { display: flex; flex-direction: column; gap: var(--app-spacing-xs); margin-top: auto; }
+.area-binding-page .ab-card__ops-btns { display: flex; gap: var(--app-spacing-xs); }
+.area-binding-page .ab-pagination { margin-top: var(--app-spacing-lg); display: flex; justify-content: flex-end; }
+.area-binding-page .ab-empty {
+    padding: 48px 0; text-align: center; color: var(--app-text-secondary);
+}
+</style>
+{% endblock %}
+{% block content %}
+<div id="page-app" v-cloak class="admin-list-page area-binding-page">
+    <t-card title="产区绑定">
+        <div class="card-header-toolbar">
+            <div class="card-header-toolbar-left">
+                <t-input v-model="searchKeyword" placeholder="产区名称、编号、农户" clearable class="search-input" @enter="fetchAreas"></t-input>
+                <t-button theme="primary" @click="fetchAreas">查询</t-button>
+            </div>
+        </div>
+
+        <t-skeleton v-if="areaLoading" :row-col="[6]" animation="gradient"></t-skeleton>
+        <template v-else>
+            <t-row :gutter="[16, 16]">
+                <t-col v-for="row in areaList" :key="row.id" :xs="12" :md="6" :xl="4">
+                    <div class="ab-card">
+                        <div class="ab-card__thumb">
+                            <amap-thumb v-if="mapReady && geoMap[row.id]" :api-key="mapKey" :security-code="mapSecurity"
+                                :area-boundary="geoMap[row.id].boundary" :plots="geoMap[row.id].plots"
+                                :center="geoMap[row.id].center"
+                                :hardware-markers="geoMap[row.id].hardwareMarkers"></amap-thumb>
+                            <span v-else class="ab-card__thumb-empty">暂无地图</span>
+                        </div>
+                        <div class="ab-card__head">
+                            <span class="ab-card__name">[[ row.name ]]</span>
+                            <t-tag v-if="row.code" theme="primary" variant="light">[[ row.code ]]</t-tag>
+                            <t-tag v-if="row.crop_category" theme="default" variant="light">[[ row.crop_category ]]</t-tag>
+                        </div>
+                        <div class="ab-card__bound">
+                            <span class="ab-card__label">已绑定：</span>
+                            <template v-if="(bindMap[row.id] || []).length">
+                                <t-tag v-for="fid in visibleBound(row.id)" :key="fid" theme="success" variant="light">[[ farmerName(fid) ]]</t-tag>
+                                <t-tag v-if="extraBound(row.id) > 0" theme="default" variant="light">+[[ extraBound(row.id) ]]</t-tag>
+                            </template>
+                            <span v-else class="ab-card__label">未绑定</span>
+                        </div>
+                        <div class="ab-card__ops">
+                            <t-select v-model="bindMap[row.id]" placeholder="选择农户（可多选）" multiple filterable
+                                clearable :min-collapsed-num="1" style="width: 100%;">
+                                <t-option v-for="f in farmerOptions" :key="f.id" :value="f.id"
+                                    :label="f.nickname ? (f.name + '（' + f.nickname + '）') : f.name"></t-option>
+                            </t-select>
+                            <div class="ab-card__ops-btns">
+                                <t-button theme="primary" block v-permission="'area:update'" @click="saveBind(row)">保存绑定</t-button>
+                                <t-button theme="warning" v-permission="'area:update'"
+                                    v-if="(bindMap[row.id] || []).length" @click="unbind(row)">清空</t-button>
+                            </div>
+                        </div>
+                    </div>
+                </t-col>
+            </t-row>
+            <div v-if="!areaList.length" class="ab-empty">暂无产区数据</div>
+        </template>
+
+        <div v-if="areaPagination.total > areaPagination.pageSize" class="ab-pagination">
+            <t-pagination v-model="areaPagination.current" :page-size="areaPagination.pageSize"
+                :total="areaPagination.total" :show-jumper="false" @change="onAreaPageChange"></t-pagination>
+        </div>
+    </t-card>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="/static/js/pages/area-binding.js?v={{ config.app_version }}"></script>
+{% endblock %}

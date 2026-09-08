@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}功能开发中 - 慧眼护农{% endblock %}
+{% block content %}
+<div id="page-app" v-cloak class="coming-soon-page">
+    <t-card title="功能开发中">
+        <!-- 占位页统一样式：使用 .placeholder-page 系列类，消除内联硬编码颜色 -->
+        <div class="placeholder-page">
+            <t-icon name="loading" class="placeholder-page__icon" />
+            <p class="placeholder-page__title">此功能正在开发中，敬请期待</p>
+            <p class="placeholder-page__desc">即将为您带来更好的体验</p>
+        </div>
+    </t-card>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="/static/js/pages/coming_soon.js?v={{ config.app_version }}"></script>
+{% endblock %}

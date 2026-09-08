@@ -18,8 +18,6 @@
 import logging
 from pathlib import Path
 
-from sqlalchemy import delete
-
 from core.config_manager import ConfigManager
 from core.plugin_manager import BasePlugin
 
@@ -45,7 +43,7 @@ class Plugin(BasePlugin):
         super().__init__(db_session, config)
         self.name = PLUGIN_NAME
         self.title = "企业微信通知"
-        self.version = "5.0.0"
+        self.version = "1.0.1"
         self.description = "企业微信群机器人管理员通知渠道，使用数据驱动模板卡片和动作级路由"
         self.module = "addon"
         self._config_manager = ConfigManager()
@@ -93,9 +91,9 @@ class Plugin(BasePlugin):
         卸载插件（五步逆操作）:
         1. 删除数据表（执行 migrations/uninstall.sql）
         2. 按 owner 注销全部运行时能力 — PluginManager 处理
-        3. 级联删除权限 — PluginManager 调用 unregister_plugin_permissions() 处理
-        4. 清理配置（删除所有 wecom_webhook. 前缀配置）
-        5. 删除后台菜单，返回 True
+        3. 级联删除权限、配置、导航和菜单 — PluginManager 处理
+        4. 注销运行时能力 — PluginManager 处理
+        5. 返回 True
         """
         if not self.db:
             return False
@@ -104,17 +102,7 @@ class Plugin(BasePlugin):
         await self._run_sql_file("uninstall.sql")
 
         # 2. 运行时能力注销由 PluginManager 处理
-        # 3. 级联删除权限（PluginManager 处理）
-
-        # 4. 清理配置
-        from core.db.configuration import ConfigurationModel
-        await self.db.execute(
-            delete(ConfigurationModel).where(ConfigurationModel.key.like(f"{PLUGIN_NAME}.%"))
-        )
-
-        # 5. 删除后台菜单
-        from core.db.menu import Menu
-        await self.db.execute(delete(Menu).where(Menu.plugin == PLUGIN_NAME))
+        # 3-5. 权限、配置、导航、菜单和运行时能力由 PluginManager 统一清理。
 
         logger.info("[wecom_webhook] 插件卸载完成")
         return True
@@ -162,11 +150,10 @@ class Plugin(BasePlugin):
         if not self.db:
             return False
         await self._seed_actions()
-        from core.db.configuration import ConfigurationModel
-        await self.db.execute(delete(ConfigurationModel).where(
-            ConfigurationModel.key == f"{PLUGIN_NAME}.default_msgtype"
-        ))
-        logger.info("[wecom_webhook] 已从 %s 升级至 5.0.0", old_version)
+        await self._config_manager.delete_plugin_config(
+            PLUGIN_NAME, self.db, extra_prefixes=(f"{PLUGIN_NAME}.default_msgtype",)
+        )
+        logger.info("[wecom_webhook] 已从 %s 升级至 1.0.1", old_version)
         return True
 
     def get_permissions(self):
@@ -184,6 +171,8 @@ class Plugin(BasePlugin):
                 "icon": "notification",
                 "nav_type": "admin",
                 "template": "wecom_webhook.html", "audience": "admin",
+                "styles": ["wecom-webhook.css"],
+                "scripts": ["wecom_webhook.js"],
                 "permission": "wecom_webhook:config:view",
                 "api_base": "/api/admin/v1/wecom-webhook",
             },

@@ -50,13 +50,8 @@ class SmsPluginBase(BasePlugin):
         """默认卸载：清理以插件名为前缀的配置"""
         if not self.db:
             return True
-        from sqlalchemy import delete
-        from core.db.configuration import ConfigurationModel
-        await self.db.execute(
-            delete(ConfigurationModel).where(
-                ConfigurationModel.key.like(f"{self.name}.%")
-            )
-        )
+        from core.config_manager import ConfigManager
+        await ConfigManager().delete_plugin_config(self.name, self.db)
         logger.info(f"[{self.name}] 短信插件卸载完成")
         return True
 
@@ -137,13 +132,8 @@ class OssPluginBase(BasePlugin):
         """默认卸载：清理以插件名为前缀的配置"""
         if not self.db:
             return True
-        from sqlalchemy import delete
-        from core.db.configuration import ConfigurationModel
-        await self.db.execute(
-            delete(ConfigurationModel).where(
-                ConfigurationModel.key.like(f"{self.name}.%")
-            )
-        )
+        from core.config_manager import ConfigManager
+        await ConfigManager().delete_plugin_config(self.name, self.db)
         logger.info(f"[{self.name}] 对象存储插件卸载完成")
         return True
 
@@ -236,13 +226,8 @@ class MailPluginBase(BasePlugin):
         """默认卸载：清理以插件名为前缀的配置"""
         if not self.db:
             return True
-        from sqlalchemy import delete
-        from core.db.configuration import ConfigurationModel
-        await self.db.execute(
-            delete(ConfigurationModel).where(
-                ConfigurationModel.key.like(f"{self.name}.%")
-            )
-        )
+        from core.config_manager import ConfigManager
+        await ConfigManager().delete_plugin_config(self.name, self.db)
         logger.info(f"[{self.name}] 邮件插件卸载完成")
         return True
 

@@ -6,7 +6,8 @@
 import logging
 import secrets
 import string
-from datetime import datetime, timedelta
+from datetime import timedelta
+from core.time_utils import china_now
 from typing import Any, Tuple, cast
 
 from sqlalchemy import func, select, update
@@ -62,7 +63,7 @@ async def send_verify_code(
         code_length = int(await _get_config(db, "sms_code_length", "6"))
 
         # 频率限制：同 target+purpose 距上次发送不足 interval 秒时拒绝
-        now = datetime.now()
+        now = china_now()
         result = await db.execute(
             select(VerifyCode)
             .where(
@@ -155,7 +156,7 @@ async def verify_code(target: str, code: str, purpose: str) -> Tuple[bool, str]:
         return False, "操作过于频繁，请稍后再试"
 
     async with async_session_factory() as db:
-        now = datetime.now()
+        now = china_now()
         result = await db.execute(
             select(VerifyCode)
             .where(

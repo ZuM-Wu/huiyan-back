@@ -5,7 +5,7 @@
 写入日志 -> 联动站内信 -> 异步投递插件发送任务
 """
 import logging
-from datetime import datetime
+from core.time_utils import china_now
 from typing import Any, Dict, Optional
 
 from sqlalchemy import select
@@ -122,7 +122,7 @@ class NoticeSender:
                     "variables": masked_variables,
                     "subject": subject,
                 },
-                create_time=datetime.now(),
+                create_time=china_now(),
             )
             db.add(log)
             await db.commit()
@@ -202,7 +202,7 @@ class NoticeSender:
                 template_id=local_template_id,
                 content=(content[:100] + "...") if len(content) > 100 else content,
                 status=0, recipient_id=recipient_id or 0, extra=log_extra,
-                create_time=datetime.now(),
+                create_time=china_now(),
             )
             db.add(log)
             await db.commit()
@@ -233,7 +233,7 @@ class NoticeSender:
                     log.status = 0
                     log.error_msg = f"任务投递失败：{e}"
                     log.extra = {**(log.extra or {}), "pending": False}
-                    log.send_time = datetime.now()
+                    log.send_time = china_now()
                     await db.commit()
             logger.error("[通知发送] 任务投递失败: log_id=%s, error=%s", log_id, e)
             raise RuntimeError(f"通知任务投递失败：{e}") from e

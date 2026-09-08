@@ -85,8 +85,11 @@ def normalize_extensions(values: Any) -> list[str]:
 
 def validate_policy_value(definition: dict, value: dict) -> dict:
     """按策略声明校验可保存值。"""
+    raw_max_size = value.get("max_size_mb")
     try:
-        max_size_mb = int(value.get("max_size_mb"))
+        if raw_max_size is None:
+            raise TypeError
+        max_size_mb = int(raw_max_size)
     except (TypeError, ValueError) as exc:
         raise UploadPolicyError("invalid_upload_policy", "上传大小必须为整数") from exc
     if not 1 <= max_size_mb <= MAX_SIZE_MB:
@@ -261,12 +264,12 @@ async def save_policies(definitions: list[dict], values: list[dict]) -> None:
     """事务保存可见策略，并镜像其旧配置键。"""
     definition_map = {item["id"]: item for item in definitions}
     submitted: dict[str, dict] = {}
-    for raw in values:
-        policy_id = str(raw.get("id") or "")
+    for submitted_value in values:
+        policy_id = str(submitted_value.get("id") or "")
         definition = definition_map.get(policy_id)
         if not definition:
             raise UploadPolicyError("policy_unavailable", f"上传策略不存在: {policy_id}")
-        submitted[policy_id] = validate_policy_value(definition, raw)
+        submitted[policy_id] = validate_policy_value(definition, submitted_value)
     if set(submitted) != set(definition_map):
         raise UploadPolicyError("policy_unavailable", "请提交当前页面显示的全部上传策略")
 

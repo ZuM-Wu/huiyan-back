@@ -134,45 +134,81 @@ from migrations.api_key_plain import (  # noqa: E402
     probe as _probe_api_key_plain,
     apply as _apply_api_key_plain,
 )
-from migrations.ai_tables import (  # noqa: E402
-    probe as _probe_ai_tables,
-    apply as _apply_ai_tables,
-)
-from migrations.ai_message_attachments import (  # noqa: E402
-    probe as _probe_ai_message_attachments,
-    apply as _apply_ai_message_attachments,
-)
-from migrations.mcp_server_config import (  # noqa: E402
-    probe as _probe_mcp_server_config,
-    apply as _apply_mcp_server_config,
-)
-from migrations.mcp_farmer_server_table import (  # noqa: E402
-    probe as _probe_mcp_farmer_table,
-    apply as _apply_mcp_farmer_table,
-)
-from migrations.farmer_mcp_credential_table import (  # noqa: E402
-    probe as _probe_farmer_mcp_credential,
-    apply as _apply_farmer_mcp_credential,
-)
 from migrations.weather_notice_disable_auto_email import (  # noqa: E402
     probe as _probe_weather_notice_disable,
     apply as _apply_weather_notice_disable,
-)
-from migrations.mcp_server_test_status import (  # noqa: E402
-    probe as _probe_mcp_server_test_status,
-    apply as _apply_mcp_server_test_status,
 )
 from migrations.xiaozhi_global_key_cleanup import (  # noqa: E402
     probe as _probe_xiaozhi_global_key_cleanup,
     apply as _apply_xiaozhi_global_key_cleanup,
 )
-from migrations.vision_glm_llm_module import (  # noqa: E402
-    probe as _probe_vision_glm_llm_module,
-    apply as _apply_vision_glm_llm_module,
+from migrations.plugin_update_plan import (  # noqa: E402
+    probe as _probe_plugin_update_plan,
+    apply as _apply_plugin_update_plan,
 )
-from migrations.ai_system_tools_default import (  # noqa: E402
-    probe as _probe_ai_system_tools_default,
-    apply as _apply_ai_system_tools_default,
+from migrations.plugin_update_plan_legacy_backfill import (  # noqa: E402
+    probe as _probe_plugin_update_plan_legacy,
+    apply as _apply_plugin_update_plan_legacy,
+)
+from migrations.plugin_update_plan_package_integrity import (  # noqa: E402
+    probe as _probe_plugin_update_plan_integrity,
+    apply as _apply_plugin_update_plan_integrity,
+)
+from migrations.plugin_version_track_normalization import (  # noqa: E402
+    probe as _probe_plugin_version_track,
+    apply as _apply_plugin_version_track,
+)
+from migrations.agentscope_runtime import (  # noqa: E402
+    probe as _probe_agentscope_runtime,
+    apply as _apply_agentscope_runtime,
+)
+from migrations.agentscope_hard_cut import (  # noqa: E402
+    probe as _probe_agentscope_hard_cut,
+    apply as _apply_agentscope_hard_cut,
+)
+from migrations.ai_resource_connection_refactor import (  # noqa: E402
+    probe as _probe_ai_resource_connection_refactor,
+    apply as _apply_ai_resource_connection_refactor,
+)
+from migrations.ai_resource_discovery_cleanup import (  # noqa: E402
+    probe as _probe_ai_resource_discovery_cleanup,
+    apply as _apply_ai_resource_discovery_cleanup,
+)
+from migrations.ai_resource_vendor_metadata import (  # noqa: E402
+    probe as _probe_ai_resource_vendor_metadata,
+    apply as _apply_ai_resource_vendor_metadata,
+)
+from migrations.ai_resource_responses_protocol import (  # noqa: E402
+    probe as _probe_ai_resource_responses_protocol,
+    apply as _apply_ai_resource_responses_protocol,
+)
+from migrations.ai_resource_glm_chat_protocol import (  # noqa: E402
+    probe as _probe_ai_resource_glm_chat_protocol,
+    apply as _apply_ai_resource_glm_chat_protocol,
+)
+from migrations.ai_model_card_vision_consistency import (  # noqa: E402
+    probe as _probe_ai_model_card_vision_consistency,
+    apply as _apply_ai_model_card_vision_consistency,
+)
+from migrations.ai_platform_credential_owner import (  # noqa: E402
+    probe as _probe_ai_platform_credential_owner,
+    apply as _apply_ai_platform_credential_owner,
+)
+from migrations.hardware_device_table import (  # noqa: E402
+    probe as _probe_hardware_device_table,
+    apply as _apply_hardware_device_table,
+)
+from migrations.hardware_marker_coordinates import (  # noqa: E402
+    probe as _probe_hardware_marker_coordinates,
+    apply as _apply_hardware_marker_coordinates,
+)
+from migrations.hardware_metric_visibility import (  # noqa: E402
+    probe as _probe_hardware_metric_visibility,
+    apply as _apply_hardware_metric_visibility,
+)
+from migrations.hardware_realtime_snapshot import (  # noqa: E402
+    probe as _probe_hardware_realtime_snapshot,
+    apply as _apply_hardware_realtime_snapshot,
 )
 
 _REGISTRY = [
@@ -184,16 +220,25 @@ _REGISTRY = [
     ("file_log_table", _probe_file_log, _apply_file_log),
     ("api_key_table", _probe_api_key, _apply_api_key),
     ("api_key_plain", _probe_api_key_plain, _apply_api_key_plain),
-    ("ai_tables", _probe_ai_tables, _apply_ai_tables),
-    ("ai_message_attachments", _probe_ai_message_attachments, _apply_ai_message_attachments),
-    ("mcp_server_config", _probe_mcp_server_config, _apply_mcp_server_config),
-    ("mcp_farmer_server_table", _probe_mcp_farmer_table, _apply_mcp_farmer_table),
-    ("farmer_mcp_credential_table", _probe_farmer_mcp_credential, _apply_farmer_mcp_credential),
     ("weather_notice_disable_auto_email", _probe_weather_notice_disable, _apply_weather_notice_disable),
-    ("mcp_server_test_status", _probe_mcp_server_test_status, _apply_mcp_server_test_status),
     ("xiaozhi_global_key_cleanup", _probe_xiaozhi_global_key_cleanup, _apply_xiaozhi_global_key_cleanup),
-    ("vision_glm_llm_module", _probe_vision_glm_llm_module, _apply_vision_glm_llm_module),
-    ("ai_system_tools_default", _probe_ai_system_tools_default, _apply_ai_system_tools_default),
+    ("plugin_update_plan", _probe_plugin_update_plan, _apply_plugin_update_plan),
+    ("plugin_update_plan_legacy_backfill", _probe_plugin_update_plan_legacy, _apply_plugin_update_plan_legacy),
+    ("plugin_update_plan_package_integrity", _probe_plugin_update_plan_integrity, _apply_plugin_update_plan_integrity),
+    ("plugin_version_track_normalization", _probe_plugin_version_track, _apply_plugin_version_track),
+    ("agentscope_runtime", _probe_agentscope_runtime, _apply_agentscope_runtime),
+    ("agentscope_hard_cut", _probe_agentscope_hard_cut, _apply_agentscope_hard_cut),
+    ("ai_resource_connection_refactor", _probe_ai_resource_connection_refactor, _apply_ai_resource_connection_refactor),
+    ("ai_resource_discovery_cleanup", _probe_ai_resource_discovery_cleanup, _apply_ai_resource_discovery_cleanup),
+    ("ai_resource_vendor_metadata", _probe_ai_resource_vendor_metadata, _apply_ai_resource_vendor_metadata),
+    ("ai_resource_responses_protocol", _probe_ai_resource_responses_protocol, _apply_ai_resource_responses_protocol),
+    ("ai_resource_glm_chat_protocol", _probe_ai_resource_glm_chat_protocol, _apply_ai_resource_glm_chat_protocol),
+    ("ai_model_card_vision_consistency", _probe_ai_model_card_vision_consistency, _apply_ai_model_card_vision_consistency),
+    ("ai_platform_credential_owner", _probe_ai_platform_credential_owner, _apply_ai_platform_credential_owner),
+    ("hardware_device_table", _probe_hardware_device_table, _apply_hardware_device_table),
+    ("hardware_marker_coordinates", _probe_hardware_marker_coordinates, _apply_hardware_marker_coordinates),
+    ("hardware_metric_visibility", _probe_hardware_metric_visibility, _apply_hardware_metric_visibility),
+    ("hardware_realtime_snapshot", _probe_hardware_realtime_snapshot, _apply_hardware_realtime_snapshot),
 ]
 
 

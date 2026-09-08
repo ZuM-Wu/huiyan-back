@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>慧眼本地控制中心</title>
+    <script>
+        (function () {
+            try {
+                var theme = localStorage.getItem('control_center_theme');
+                if (theme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+            } catch (error) {}
+        })();
+    </script>
+    <link rel="stylesheet" href="/shared/vendor/tdesign/tdesign.min.css">
+    <link rel="stylesheet" href="/shared/css/theme.css">
+    <link rel="stylesheet" href="/assets/control-center.css">
+</head>
+<body>
+<div id="control-app" v-cloak>
+    <header class="control-header">
+        <div>
+            <h1>慧眼本地控制中心</h1>
+            <p>后端进程与插件离线更新</p>
+        </div>
+        <div class="header-actions">
+            <t-tooltip content="切换明暗主题">
+                <t-button shape="square" variant="text" @click="toggleTheme">
+                    <template #icon><t-icon :name="darkTheme ? 'sunny' : 'moon'"></t-icon></template>
+                </t-button>
+            </t-tooltip>
+            <t-button variant="outline" @click="openAdmin" :disabled="!backendAvailable">
+                <template #icon><t-icon name="jump"></t-icon></template>
+                打开管理后台
+            </t-button>
+            <t-button theme="danger" variant="text" @click="confirmExit" :disabled="busy">
+                <template #icon><t-icon name="poweroff"></t-icon></template>
+                退出控制中心
+            </t-button>
+        </div>
+    </header>
+
+    <main v-if="authenticated" class="control-main">
+        <section class="status-band">
+            <div class="backend-state">
+                <span class="state-dot" :class="'is-' + backend.state"></span>
+                <div>
+                    <div class="state-title">[[ backendLabel ]]</div>
+                    <div class="state-detail">[[ backendDetail ]]</div>
+                </div>
+            </div>
+            <div class="backend-actions">
+                <t-button theme="primary" @click="runBackendAction('start')"
+                    :disabled="busy || backend.ownership === 'external' || backendAvailable">
+                    <template #icon><t-icon name="play-circle"></t-icon></template>
+                    启动
+                </t-button>
+                <t-button variant="outline" @click="runBackendAction('restart')"
+                    :disabled="busy || backend.ownership !== 'managed'">
+                    <template #icon><t-icon name="refresh"></t-icon></template>
+                    重启
+                </t-button>
+                <t-button variant="outline" @click="runBackendAction('stop')"
+                    :disabled="busy || backend.ownership !== 'managed'">
+                    <template #icon><t-icon name="stop-circle"></t-icon></template>
+                    停止
+                </t-button>
+            </div>
+        </section>
+
+        <t-alert v-if="backend.ownership === 'external'" theme="warning" title="检测到外部后端进程">
+            8000 端口不属于控制中心。请先在原 Anaconda Prompt 中停止 Uvicorn，控制中心检测到端口释放后即可启动和更新。
+        </t-alert>
+        <t-alert v-if="state.pending_error" theme="error" title="读取更新计划失败">
+            [[ state.pending_error ]]
+        </t-alert>
+
+        <section class="updates-section">
+            <div class="section-heading">
+                <div>
+                    <h2>待应用插件更新</h2>
+                    <p>更新期间管理后台会暂时离线，控制中心页面不会中断。</p>
+                </div>
+                <t-button variant="outline" @click="confirmApplyAll"
+                    :disabled="busy || !updates.length || backend.ownership === 'external'">
+                    <template #icon><t-icon name="system-update"></t-icon></template>
+                    应用全部
+                </t-button>
+            </div>
+            <t-table :data="updates" :columns="updateColumns" row-key="operation_id" hover>
+                <template #plugin_id="{ row }">
+                    <div class="plugin-name">[[ row.plugin_id ]]</div>
+                    <div class="operation-id">[[ row.operation_id ]]</div>
+                </template>
+                <template #version="{ row }">
+                    <span>[[ row.current_version ]]</span>
+                    <t-icon name="chevron-right"></t-icon>
+                    <strong>[[ row.target_version ]]</strong>
+                </template>
+                <template #status="{ row }">
+                    <t-tag theme="warning" variant="light">待重启应用</t-tag>
+                </template>
+                <template #actions="{ row }">
+                    <t-button theme="primary" variant="text" @click="confirmApply(row)"
+                        :disabled="busy || backend.ownership === 'external'">
+                        应用更新
+                    </t-button>
+                </template>
+                <template #empty>
+                    <div class="empty-state">当前没有待应用的插件更新</div>
+                </template>
+            </t-table>
+        </section>
+
+        <section class="operation-section">
+            <div class="section-heading compact">
+                <div>
+                    <h2>操作进度</h2>
+                    <p>[[ operationMessage ]]</p>
+                </div>
+                <t-tag v-if="operation" :theme="operationTheme" variant="light">
+                    [[ operationStatusLabel ]]
+                </t-tag>
+            </div>
+            <t-steps :current="stepCurrent" :status="stepStatus" readonly>
+                <t-step-item title="停止后端" content="释放 8000 端口"></t-step-item>
+                <t-step-item title="离线预检" content="校验包与迁移链"></t-step-item>
+                <t-step-item title="应用更新" content="备份、替换与迁移"></t-step-item>
+                <t-step-item title="重启后端" content="重新托管 Uvicorn"></t-step-item>
+                <t-step-item title="健康检查" content="确认服务可访问"></t-step-item>
+            </t-steps>
+            <t-alert v-if="operation && operation.error" theme="error" title="操作失败">
+                [[ operation.error ]]
+            </t-alert>
+            <t-alert v-if="operation && operation.health && operation.health.status === 'degraded'"
+                theme="warning" title="后端已启动，但存在降级组件">
+                [[ (operation.health.components || []).join('、') || '请查看健康信息和日志。' ]]
+            </t-alert>
+        </section>
+
+        <section class="logs-section">
+            <div class="section-heading compact">
+                <div>
+                    <h2>运行日志</h2>
+                    <p>控制中心、Uvicorn 与离线更新器的最新输出</p>
+                </div>
+                <t-button shape="square" variant="text" @click="clearVisibleLogs">
+                    <template #icon><t-icon name="clear"></t-icon></template>
+                </t-button>
+            </div>
+            <div ref="logPanel" class="log-panel">
+                <div v-for="entry in logs" :key="entry.cursor" class="log-line">
+                    <span class="log-time">[[ formatLogTime(entry.time) ]]</span>
+                    <span class="log-source">[[ entry.source ]]</span>
+                    <span class="log-message">[[ entry.message ]]</span>
+                </div>
+                <div v-if="!logs.length" class="log-empty">暂无日志</div>
+            </div>
+        </section>
+    </main>
+
+    <main v-else class="auth-required">
+        <t-icon name="lock-on" size="48px"></t-icon>
+        <h2>请通过桌面快捷方式打开控制中心</h2>
+        <p>当前页面没有本机控制会话。请关闭此页并双击桌面的“慧眼本地控制中心”。</p>
+    </main>
+</div>
+
+<script src="/shared/vendor/vue/vue.global.prod.min.js"></script>
+<script src="/shared/vendor/tdesign/tdesign.min.js"></script>
+<script src="/shared/vendor/tdesign-icons/index.min.js"></script>
+<script src="/assets/control-center.js"></script>
+</body>
+</html>

@@ -43,7 +43,7 @@ class Plugin(WeatherPluginBase):
         super().__init__(db_session, config)
         self.name = PLUGIN_NAME
         self.title = "高德气象"
-        self.version = "1.0.0"
+        self.version = "1.0.1"
         self.description = "高德开放平台气象数据源（区县级实况+逐日预报）"
         self.module = "weather"
 

@@ -3,7 +3,7 @@
 负责后台管理端（/admin/...）页面路由注册与静态资源挂载。
 
 Jinja2 环境（主题解析 / 回退 / 插件模板收集）统一委托 core.theme_manager，
-后台使用 admin 模块当前启用主题的环境（默认 templates/admin/default/）。
+后台使用 admin 模块当前启用主题的环境（默认 templates/admin/vue_default/）。
 """
 import logging
 from pathlib import Path
@@ -70,7 +70,7 @@ class ViewController:
             "iframe_title": "外部页面"
         })
 
-    def _register_routes(self, app: FastAPI):  # noqa: C901
+    def _register_routes(self, app: FastAPI):
         """注册页面路由"""
 
         # ---- 登录页（独立布局，不继承 base.html）----
@@ -81,8 +81,6 @@ class ViewController:
         # ---- 插件页面: /admin/plugin/{name}/{page} ----
         @app.get("/admin/plugin/{name}/{page}", response_class=HTMLResponse)
         async def plugin_page(request: Request, name: str, page: str):
-            if name == "vision_glm" and page in {"vision_glm", "vision_glm.html"}:
-                return RedirectResponse(url="/admin/ai-setting?tab=interfaces", status_code=307)
             from core.plugin_pages import resolve_plugin_page
             declaration = resolve_plugin_page(name, page.removesuffix(".html"), "admin")
             if not declaration:

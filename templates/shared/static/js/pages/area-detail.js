@@ -33,6 +33,7 @@
 
             /* ========== 地块列表 ========== */
             const plotList = ref([]);
+            const hardwareMarkers = ref([]);
             const plotLoading = ref(false);
             const plotColumns = [
                 { colKey: 'name', title: '地块名称', ellipsis: true },
@@ -48,6 +49,26 @@
                 request.get('/plot/list', { params: { area_id: areaId, limit: 100 } }).then((res) => {
                     plotList.value = res.data.data.list || [];
                 }).catch(() => {}).finally(() => { plotLoading.value = false; });
+            };
+
+            const fetchHardwareMarkers = () => request.get(
+                '/production-area/' + areaId + '/hardware-markers'
+            ).then((res) => {
+                hardwareMarkers.value = res.data.data || [];
+            }).catch(() => {});
+
+            const onHardwareMarkerMoved = (payload) => {
+                request.patch('/hardware-devices/' + payload.id + '/marker', {
+                    marker_longitude: payload.marker_longitude,
+                    marker_latitude: payload.marker_latitude,
+                }).then(() => {
+                    const marker = hardwareMarkers.value.find((item) => item.id === payload.id);
+                    if (marker) {
+                        marker.marker_longitude = payload.marker_longitude;
+                        marker.marker_latitude = payload.marker_latitude;
+                    }
+                    MessagePlugin.success('设备位置已保存');
+                }).catch(() => { fetchHardwareMarkers(); });
             };
 
             /* ========== 地块表单（框选新增 / 编辑） ========== */
@@ -196,10 +217,12 @@
                 fetchMapConfig();
                 fetchArea();
                 fetchPlots();
+                fetchHardwareMarkers();
             });
 
             return {
                 area, center, regionText, plotList, plotLoading, plotColumns,
+                hardwareMarkers, onHardwareMarkerMoved,
                 dialogVisible, dialogTitle, saving, form, formRef, rules,
                 onPlotDrawn, onPlotUpdated, openEdit, doSave, toggleStatus, removePlot, goBack,
                 boardRef, drawBoundaryFor,

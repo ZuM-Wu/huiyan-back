@@ -1,0 +1,24 @@
+{
+  "key": "vue_default",
+  "name": "Vue 默认主题",
+  "module": "admin",
+  "theme_id": "vue_default",
+  "surface": "admin",
+  "compatible_app_versions": [">=3.4.0"],
+  "template_overrides": [],
+  "static_assets": [
+    {"key": "preview.svg", "path": "assets/preview.svg", "type": "preview"},
+    {"key": "vue-default.css", "path": "assets/vue-default.css", "type": "style"}
+  ],
+  "component_tokens": {},
+  "dependencies": [],
+  "conflicts": [],
+  "fallback_theme": "vue_default",
+  "owner": "theme:admin:vue_default",
+  "enabled": true,
+  "version": "1.0.0",
+  "author": "HuiYan",
+  "preview": "preview.svg",
+  "min_app_version": "3.4.0",
+  "description": "后台管理端 Vue 默认主题，使用 TDesign 页面组件和 AgentScope 资源工作台"
+}

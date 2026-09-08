@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}{{ iframe_title }} - 慧眼护农{% endblock %}
+{% block head %}
+<style>
+    /* iframe 页面：当 .page-content 的直接子元素包含 iframe-page 时，内容区 padding 置 0 */
+    .page-content:has(> .iframe-page) { padding: 0 !important; }
+</style>
+{% endblock %}
+{% block content %}
+<iframe class="iframe-page" src="{{ iframe_url }}" 
+        sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+        title="{{ iframe_title }}"></iframe>
+{% endblock %}

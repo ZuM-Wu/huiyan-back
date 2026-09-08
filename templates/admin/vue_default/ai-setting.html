@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}AI 资源设置 - 慧眼护农{% endblock %}
+{% block head %}
+<style>
+.ai-setting-page { --ai-control-height: var(--app-spacing-xl); }
+#page-app.ai-setting-page > .t-card { flex: 0 1 auto; max-height: var(--app-card-max-height); }
+#page-app.ai-setting-page > .t-card > .t-card__body { flex: 0 1 auto; }
+.ai-page-header { display: flex; flex-direction: column; gap: var(--app-spacing-md); width: 100%; }
+.ai-page-header__row { display: flex; align-items: center; justify-content: space-between; gap: var(--app-spacing-md); width: 100%; }
+.ai-page-header__title { display: flex; flex-direction: column; gap: var(--app-spacing-xs); }
+.ai-page-header__title strong { color: var(--app-text-primary); font-size: var(--app-font-size-lg); line-height: 1.25; }
+.ai-page-header__title span, .ai-note { color: var(--app-text-secondary); font-size: var(--app-font-size-sm); line-height: var(--app-line-height); }
+.ai-page-header__actions, .ai-toolbar, .ai-toolbar-actions { display: flex; align-items: center; flex-wrap: wrap; gap: var(--app-spacing-sm); }
+.ai-page-header__actions { justify-content: flex-end; }
+.ai-workbench__error { margin: 0 var(--app-spacing-lg) var(--app-spacing-md); }
+.ai-resource-tabs, .ai-resource-tabs .t-tabs__content, .ai-resource-tabs .t-tab-panel { min-width: 0; }
+.ai-toolbar { justify-content: space-between; min-height: var(--ai-control-height); margin-bottom: var(--app-spacing-md); }
+.ai-table-wrap { min-width: 0; overflow: hidden; }
+.ai-table-wrap .t-table { width: 100%; }
+.ai-empty { display: flex; align-items: center; justify-content: center; padding: var(--app-spacing-xl) var(--app-spacing-md); color: var(--app-text-secondary); }
+.ai-empty__content { display: flex; width: 100%; flex-direction: column; align-items: center; justify-content: center; gap: var(--app-spacing-sm); text-align: center; }
+.ai-empty__content .t-icon { color: var(--app-text-placeholder); }
+.ai-empty--compact { padding: var(--app-spacing-lg) var(--app-spacing-md); }
+.ai-connection-area { min-height: 430px; }
+.ai-preset-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--app-spacing-md); }
+.ai-preset-card { display: flex; flex-direction: column; gap: var(--app-spacing-sm); min-height: 150px; padding: var(--app-spacing-md); text-align: left; background: var(--app-bg-container); border: 1px solid var(--app-border); border-radius: var(--app-radius-md); cursor: pointer; transition: border-color .2s, box-shadow .2s; }
+.ai-preset-card:hover { border-color: var(--app-brand-color); box-shadow: var(--app-shadow-1); }
+.ai-preset-card__head { display: flex; align-items: center; justify-content: space-between; gap: var(--app-spacing-sm); }
+.ai-preset-card__head strong { color: var(--app-text-primary); font-size: var(--app-font-size-md); }
+.ai-preset-card__protocol, .ai-preset-card__url { color: var(--app-text-secondary); font-size: var(--app-font-size-sm); line-height: var(--app-line-height); overflow-wrap: anywhere; }
+.ai-preset-card__status { display: flex; align-items: center; justify-content: space-between; gap: var(--app-spacing-sm); margin-top: auto; }
+.ai-preset-card__count, .ai-preset-card__schedule { color: var(--app-text-placeholder); font-size: var(--app-font-size-sm); }
+.ai-section-divider { margin: var(--app-spacing-xl) 0 var(--app-spacing-md); border-top: 1px solid var(--app-border); }
+.ai-capability-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--app-spacing-sm) var(--app-spacing-md); }
+.ai-model-dialog__form .t-form__item { margin-bottom: var(--app-spacing-sm); }
+.ai-model-dialog__form .t-form__item-content { min-width: 0; }
+.ai-model-dialog__model-row { display: flex; min-width: 0; align-items: center; gap: var(--app-spacing-sm); }
+.ai-model-dialog__model-row .t-select { flex: 1; min-width: 0; }
+.ai-model-dialog__model-row .t-button { flex: 0 0 auto; }
+.ai-skill-upload { display: inline-flex; align-items: center; gap: var(--app-spacing-sm); }
+.ai-skill-input, .ai-skill-upload .t-upload { display: none; }
+</style>
+{% endblock %}
+{% block content %}
+<div id="page-app" v-cloak class="admin-list-page ai-setting-page">
+    <t-card>
+        <template #header>
+            <div class="ai-page-header">
+                <div class="ai-page-header__row">
+                    <div class="ai-page-header__title">
+                        <strong>AI 资源设置</strong>
+                        <span>管理 AgentScope 2.0.7 的供应商、ModelCard、MCP 与公共 Skill</span>
+                    </div>
+                </div>
+                <div class="ai-page-header__row ai-page-header__actions">
+                    <t-button theme="default" @click="loadAll"><template #icon><t-icon name="refresh" /></template>刷新</t-button>
+                    <t-button theme="primary" @click="openConnection()"><template #icon><t-icon name="add" /></template>新建供应商连接</t-button>
+                </div>
+            </div>
+        </template>
+        <t-alert v-if="error" class="ai-workbench__error" theme="error" :closeable="false">[[ error ]]</t-alert>
+        <div v-if="loading" class="ai-loading"><t-skeleton :loading="true" :row-col="[6, 4, 8, 6]" /></div>
+        <t-tabs v-else v-model="tab" class="ai-resource-tabs" :destroy-on-hide="false" @change="handleTabChange">
+            <t-tab-panel value="connections" label="供应商">
+                <div class="ai-toolbar"><span class="ai-note">API Key 只允许写入和更新，列表只展示非敏感连接信息。</span></div>
+                <div class="ai-preset-grid">
+                    <button v-for="preset in presets" :key="preset.preset_key" type="button" class="ai-preset-card" @click="openConnection(preset)">
+                        <span class="ai-preset-card__head"><strong>[[ preset.vendor ]]</strong><t-icon name="chevron-right" /></span>
+                        <span class="ai-preset-card__protocol">[[ preset.protocol ]]</span>
+                        <span class="ai-preset-card__url">[[ preset.base_url || '填写自定义 Base URL' ]]</span>
+                        <span class="ai-preset-card__schedule">每 5 分钟自动检测</span>
+                        <span class="ai-preset-card__status"><span class="ai-preset-card__count">[[ connectionCount(preset.preset_key) ]] 个连接</span><t-tag size="small" variant="light" :theme="connectionHealth(preset.preset_key).theme">[[ connectionHealth(preset.preset_key).text ]]</t-tag></span>
+                    </button>
+                </div>
+                <div class="ai-section-divider"></div>
+                <div v-if="connections.length" class="ai-table-wrap"><t-table :data="connections" :columns="connectionColumns" row-key="id" hover>
+                    <template #vendor="{row}">[[ row.vendor ]]</template>
+                    <template #protocol="{row}">[[ protocolLabel(row.protocol) ]]</template>
+                    <template #base_url="{row}">[[ row.base_url ]]</template>
+                    <template #status="{row}"><t-tag :theme="row.status === 1 ? 'success' : 'default'" variant="light">[[ row.status === 1 ? '启用' : '停用' ]]</t-tag><t-tag v-if="row.is_default" theme="primary" variant="light">默认</t-tag></template>
+                    <template #last_test_status="{row}"><t-tooltip :content="row.last_test_error || testTime(row)"><t-tag v-if="row.last_test_status === 1" theme="success" variant="light">正常</t-tag><t-tag v-else-if="row.last_test_status === 2" theme="danger" variant="light">异常</t-tag><span v-else class="ai-note">待检测</span></t-tooltip></template>
+                    <template #operation="{row}"><t-space><t-button size="small" variant="text" @click="editConnection(row)">编辑</t-button><t-button size="small" variant="text" @click="connectionAction('/connections/'+row.id+'/models/refresh','post','模型刷新')">刷新模型</t-button><t-button size="small" variant="text" @click="connectionAction('/connections/'+row.id+'/default','post','默认连接已设置')">设为默认</t-button><t-button size="small" theme="danger" variant="text" @click="remove('/connections/'+row.id,'供应商连接')">删除</t-button></t-space></template>
+                </t-table></div>
+            </t-tab-panel>
+            <t-tab-panel value="model-cards" label="ModelCard">
+                <div class="ai-toolbar"><span class="ai-note">ModelCard 只能从具体连接最近一次发现的真实模型创建。</span><div class="ai-toolbar-actions"><t-button theme="primary" @click="openCard"><template #icon><t-icon name="add" /></template>新建 ModelCard</t-button></div></div>
+                <div v-if="cards.length" class="ai-table-wrap"><t-table :data="cards" :columns="cardColumns" row-key="id" hover><template #connection="{row}">[[ connectionName(row.connection_id) ]]</template><template #capabilities="{row}"><t-tag v-for="item in (row.input_types || [])" :key="item" variant="light" size="small">[[ item ]]</t-tag><t-tag v-if="row.support_tools" theme="primary" variant="light" size="small">工具</t-tag><t-tag v-if="row.support_reasoning" theme="warning" variant="light" size="small">思考</t-tag><t-tag v-if="row.support_vision" theme="success" variant="light" size="small">视觉</t-tag></template><template #status="{row}"><t-tag :theme="row.status === 1 ? 'success' : 'default'" variant="light">[[ row.status === 1 ? '启用' : '停用' ]]</t-tag></template><template #operation="{row}"><t-space><t-button size="small" variant="text" @click="editCard(row)">编辑</t-button><t-button size="small" theme="danger" variant="text" @click="remove('/model-cards/'+row.id,'ModelCard')">删除</t-button></t-space></template></t-table></div>
+                <t-empty v-else class="ai-empty ai-connection-area" description="暂无 ModelCard，请先建立连接并刷新模型" />
+            </t-tab-panel>
+            <t-tab-panel value="mcps" label="MCP">
+                <div class="ai-toolbar"><span class="ai-note">启用后自动进入当前管理员的全部 AI 会话，由模型按需调用。</span><div class="ai-toolbar-actions"><t-button theme="default" @click="openMcp('system')"><template #icon><t-icon name="link" /></template>接入系统 MCP</t-button><t-button theme="primary" @click="openMcp('custom')"><template #icon><t-icon name="add" /></template>新建 MCP</t-button></div></div>
+                <div v-if="mcps.length" class="ai-table-wrap"><t-table :data="mcps" :columns="mcpColumns" row-key="id" hover><template #enabled="{row}"><t-tag :theme="row.enabled ? 'success' : 'default'" variant="light">[[ row.enabled ? '启用' : '停用' ]]</t-tag></template><template #operation="{row}"><t-space><t-button size="small" variant="text" @click="editMcp(row)">编辑</t-button><t-button size="small" variant="text" @click="connectionAction('/mcps/'+row.id+'/status','put','MCP 状态已更新',{enabled:!row.enabled})">[[ row.enabled ? '停用' : '启用' ]]</t-button><t-button size="small" theme="danger" variant="text" @click="remove('/mcps/'+row.id,'MCP')">删除</t-button></t-space></template></t-table></div>
+                <t-empty v-else class="ai-empty ai-connection-area" description="暂无 MCP，点击新建 MCP 添加" />
+            </t-tab-panel>
+            <t-tab-panel value="skills" label="Skill">
+                <div class="ai-toolbar"><span class="ai-note">公共 Skill 上传后不会自动进入会话，请在需要时安装到指定会话。</span><div class="ai-toolbar-actions ai-skill-upload"><input ref="skillInput" class="ai-skill-input" type="file" webkitdirectory directory multiple @change="handleSkillFiles($event.target.files)" /><t-button theme="primary" :loading="skillUploading" @click="$refs.skillInput.click()"><template #icon><t-icon name="upload" /></template>上传公共 Skill 文件夹</t-button></div></div>
+                <div v-if="skills.length" class="ai-table-wrap"><t-table :data="skills" :columns="skillColumns" row-key="id" hover><template #enabled="{row}"><t-tag :theme="row.enabled !== false ? 'success' : 'default'" variant="light">[[ row.enabled !== false ? '可用' : '停用' ]]</t-tag></template><template #operation="{row}"><t-space><t-button size="small" variant="text" @click="openSkillInstall(row)">安装到会话</t-button><t-button size="small" theme="danger" variant="text" @click="removeSharedSkill(row.id)">删除</t-button></t-space></template></t-table></div><t-empty v-else class="ai-empty ai-connection-area" description="暂无公共 Skill" />
+            </t-tab-panel>
+        </t-tabs>
+    </t-card>
+    <t-dialog v-model:visible="showConnection" :header="editingConnection ? '编辑供应商连接' : '新建供应商连接'" width="min(680px, calc(100vw - 32px))" :confirm-btn="{content:'保存'}" @confirm="saveConnection"><t-form :data="connectionForm" label-width="100px"><t-form-item label="供应商"><t-select v-model="connectionForm.preset_key" :disabled="!!editingConnection" placeholder="选择供应商" @change="selectConnectionPreset"><t-option v-for="preset in presets" :key="preset.preset_key" :value="preset.preset_key" :label="preset.preset_key === 'custom_openai' ? '自定义供应商' : preset.vendor" /></t-select></t-form-item><t-form-item v-if="connectionForm.preset_key === 'custom_openai'" label="供应商名称"><t-input v-model="connectionForm.vendor_name" :disabled="!!editingConnection" placeholder="请输入自定义供应商名称" /></t-form-item><t-form-item label="协议"><t-select v-model="connectionForm.protocol" :disabled="connectionProtocolLocked()" placeholder="选择标准协议" @change="selectConnectionProtocol"><t-option v-for="option in connectionProtocolOptions()" :key="option.value" :value="option.value" :label="option.label" /></t-select></t-form-item><t-form-item label="Provider"><t-input v-model="connectionForm.provider" readonly /></t-form-item><t-form-item label="连接名称"><t-input v-model="connectionForm.name" placeholder="例如：生产环境连接" /></t-form-item><t-form-item label="API Key"><t-input v-model="connectionForm.api_key" type="password" :placeholder="editingConnection ? '留空表示不更新' : '请输入 API Key'" /></t-form-item><t-form-item label="Base URL"><t-input v-model="connectionForm.base_url" placeholder="可覆盖预设地址；自定义连接必填" /></t-form-item><t-form-item v-if="editingConnection" label="状态"><t-switch v-model="connectionForm.status" :custom-value="[1, 2]" /></t-form-item></t-form></t-dialog>
+    <t-dialog v-model:visible="showCard" class="ai-model-dialog" :header="editingCard ? '编辑 ModelCard' : '新建 ModelCard'" width="min(560px, calc(100vw - 32px))" :confirm-btn="{content:'保存'}" @confirm="saveCard"><t-form class="ai-model-dialog__form" :data="cardForm" label-width="110px"><t-form-item label="来源连接"><t-select v-model="cardForm.connection_id" :disabled="!!editingCard" placeholder="选择连接" @change="resetAvailableModels"><t-option v-for="row in connections" :key="row.id" :value="row.id" :label="row.name || row.vendor" /></t-select></t-form-item><t-form-item label="真实模型"><div class="ai-model-dialog__model-row"><t-select v-model="cardForm.model_name" :disabled="!!editingCard" placeholder="先刷新模型" @change="selectCardModel"><t-option v-for="model in availableModels" :key="model.model_name" :value="model.model_name" :label="model.label + ' (' + model.model_name + ')'" /></t-select><t-button v-if="!editingCard" variant="outline" @click="refreshCardModels"><template #icon><t-icon name="refresh" /></template>刷新</t-button></div></t-form-item><t-form-item label="展示名称"><t-input v-model="cardForm.label" placeholder="默认使用模型名称，可自行修改" /></t-form-item><t-form-item label="输入模态"><t-select v-model="cardForm.input_types" multiple :min-collapsed-num="2" placeholder="选择输入类型"><t-option value="text/plain" label="文本（text/plain）" /><t-option value="image/*" label="图片（image/*）" /></t-select></t-form-item><t-form-item label="输出模态"><t-select v-model="cardForm.output_types" multiple :min-collapsed-num="2" placeholder="选择输出类型"><t-option value="text/plain" label="文本（text/plain）" /><t-option value="application/x-thinking" label="思考（application/x-thinking）" /></t-select></t-form-item><t-form-item label="上下文长度"><t-input-number v-model="cardForm.context_size" :min="1" /></t-form-item><t-form-item label="最大输出"><t-input-number v-model="cardForm.output_size" :min="1" /></t-form-item><t-form-item label="能力"><div class="ai-capability-grid"><t-checkbox v-model="cardForm.support_tools">工具调用</t-checkbox><t-checkbox v-model="cardForm.support_reasoning">思考</t-checkbox></div></t-form-item><t-form-item label="状态"><t-switch v-model="cardForm.status" :custom-value="[1, 2]" /></t-form-item><t-form-item label="参数 Schema"><t-textarea v-model="cardForm.parameter_schema" :autosize="{minRows:4,maxRows:10}" /></t-form-item></t-form></t-dialog>
+    <t-dialog v-model:visible="showMcp" :header="editingMcp ? '编辑 MCP' : (mcpForm.kind === 'system' ? '接入系统 MCP' : '新建 MCP')" :confirm-btn="{content:'保存'}" @confirm="saveMcp"><t-form :data="mcpForm" label-width="90px"><t-form-item v-if="!editingMcp" label="名称"><t-input v-model="mcpForm.name" :disabled="mcpForm.kind === 'system'" /></t-form-item><t-form-item label="显示名称"><t-input v-model="mcpForm.display_name" /></t-form-item><t-form-item label="MCP 地址"><t-input v-model="mcpForm.url" :disabled="mcpForm.kind === 'system'" placeholder="https://example.com/mcp" /></t-form-item><t-form-item label="描述"><t-textarea v-model="mcpForm.description" /></t-form-item><t-form-item v-if="mcpForm.kind === 'system'" label="个人 API Key"><t-input v-model="mcpForm.api_key" type="password" :placeholder="editingMcp ? '留空表示保留现有密钥' : '请输入个人 API Key'" /></t-form-item><t-form-item v-else label="Headers"><t-textarea v-model="mcpForm.headers" :autosize="{minRows:2,maxRows:6}" :placeholder="editingMcp ? '留空表示保留现有 Headers' : '{}'" /></t-form-item><t-form-item v-if="editingMcp" label="凭据"><t-checkbox v-model="mcpForm.clear_headers">清除已存 Headers</t-checkbox></t-form-item><t-form-item label="状态"><t-switch v-model="mcpForm.enabled" /></t-form-item></t-form></t-dialog>
+    <t-dialog v-model:visible="showSkillInstall" header="安装公共 Skill 到会话" width="min(560px, calc(100vw - 32px))" :confirm-btn="{content:'安装'}" @confirm="installSkill"><t-form label-width="80px"><t-form-item label="Skill"><t-input :value="selectedSkill ? (selectedSkill.display_name || selectedSkill.name) : ''" readonly /></t-form-item><t-form-item label="Agent"><t-select v-model="selectedAgent" placeholder="选择 Agent" @change="loadSkillSessions"><t-option v-for="row in agents" :key="agentId(row)" :value="agentId(row)" :label="agentName(row)" /></t-select></t-form-item><t-form-item label="Session"><t-select v-model="selectedSession" placeholder="选择 Session"><t-option v-for="row in sessions" :key="sessionId(row)" :value="sessionId(row)" :label="sessionName(row)" /></t-select></t-form-item></t-form></t-dialog>
+</div>
+{% endblock %}
+{% block scripts %}<script src="/static/js/pages/ai-setting.js?v={{ config.app_version }}&rev=20260830-1"></script>{% endblock %}

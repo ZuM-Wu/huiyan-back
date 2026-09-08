@@ -7,6 +7,7 @@
 import asyncio
 from dataclasses import dataclass
 from datetime import datetime
+from core.time_utils import china_now
 
 
 @dataclass
@@ -35,7 +36,7 @@ class PlatformLock:
             await asyncio.wait_for(lock.acquire(), timeout=max(timeout, 0.01))
         except asyncio.TimeoutError:
             return False
-        self._states[key] = LockState(key, owner, datetime.now())
+        self._states[key] = LockState(key, owner, china_now())
         return True
 
     def release(self, key: str, owner: str) -> None:

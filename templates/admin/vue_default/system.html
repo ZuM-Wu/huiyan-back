@@ -1,0 +1,405 @@
+{% extends "base.html" %}
+{% block title %}系统设置 - 慧眼护农{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="/static/css/system-settings.css?v={{ config.app_version }}">
+{% endblock %}
+{% block content %}
+<div id="page-app" v-cloak class="system-settings-page">
+    <!-- 页面标题已废弃：侧边栏已标识当前页，内容区不再显示标题 -->
+    <t-card class="t-card--scrollable" title="系统设置">
+        <t-tabs v-model="activeTab" theme="normal">
+
+            <!-- ========== Tab 1: 基本设置 ========== -->
+            <t-tab-panel value="basic" label="基本设置">
+                <div class="settings-tab-content">
+                    <t-form :data="basicForm" @submit="saveBasic">
+                        <div class="form-section-title">站点信息</div>
+                        <div class="form-grid form-grid--3">
+                            <t-form-item label="网站名称">
+                                <t-input v-model="basicForm.site_name" placeholder="请输入网站名称"/>
+                            </t-form-item>
+                            <t-form-item label="网站副标题">
+                                <t-input v-model="basicForm.site_subtitle" placeholder="请输入网站副标题"/>
+                            </t-form-item>
+                            <t-form-item label="网站域名">
+                                <t-input v-model="basicForm.site_domain" placeholder="如 https://example.com"/>
+                            </t-form-item>
+                            <t-form-item label="维护模式">
+                                <t-radio-group v-model="basicForm.site_maintenance">
+                                    <t-radio :value="1">开启</t-radio>
+                                    <t-radio :value="0">关闭</t-radio>
+                                </t-radio-group>
+                            </t-form-item>
+                            <t-form-item v-if="basicForm.site_maintenance === 1" label="维护提示语">
+                                <t-input v-model="basicForm.maintenance_message" placeholder="系统维护中，请稍后访问"/>
+                            </t-form-item>
+                        </div>
+
+                        <div class="form-section-title">站点标识</div>
+                        <div class="form-grid form-grid--3">
+                            <t-form-item label="网站 Logo">
+                                <image-upload v-model="basicForm.site_logo"
+                                    hint="建议尺寸：宽 130px、高 28px"></image-upload>
+                            </t-form-item>
+                            <t-form-item label="网站 Favicon">
+                                <image-upload v-model="basicForm.site_favicon"
+                                    hint="建议尺寸：32×32px"></image-upload>
+                            </t-form-item>
+                            <t-form-item label="登录背景图">
+                                <image-upload v-model="basicForm.login_bg"
+                                    hint="建议尺寸：1920×1080px"></image-upload>
+                            </t-form-item>
+                        </div>
+                        <div class="form-grid form-grid--2">
+                            <t-form-item label="Logo 跳转地址">
+                                <t-input v-model="basicForm.site_logo_url"
+                                    placeholder="点击 Logo 跳转的地址，留空则不跳转"/>
+                            </t-form-item>
+                            <t-form-item label="Logo 跳转方式">
+                                <t-radio-group v-model="basicForm.site_logo_target">
+                                    <t-radio value="_self">当前页面打开</t-radio>
+                                    <t-radio value="_blank">新页面打开</t-radio>
+                                </t-radio-group>
+                            </t-form-item>
+                        </div>
+
+                        <div class="form-section-title">高级参数</div>
+                        <div class="form-grid form-grid--4">
+                            <t-form-item label="管理员起始 ID">
+                                <t-input-number v-model="basicForm.start_id_admin" :min="1" theme="normal"/>
+                            </t-form-item>
+                            <t-form-item label="农户起始 ID">
+                                <t-input-number v-model="basicForm.start_id_farmer" :min="1" theme="normal"/>
+                            </t-form-item>
+                            <t-form-item label="默认分页大小">
+                                <t-input-number v-model="basicForm.page_size_default" :min="5" :max="100" theme="normal"/>
+                            </t-form-item>
+                            <t-form-item label="最大分页大小">
+                                <t-input-number v-model="basicForm.page_size_max" :min="10" :max="500" theme="normal"/>
+                            </t-form-item>
+                        </div>
+
+                        <div class="form-section-title">其他</div>
+                        <div class="form-grid form-grid--2">
+                            <t-form-item label="备案号">
+                                <t-input v-model="basicForm.record_number" placeholder="如 京ICP备XXXXXXXX号"/>
+                            </t-form-item>
+                            <t-form-item label="版权信息">
+                                <t-input v-model="basicForm.copyright" placeholder="底部版权文字"/>
+                            </t-form-item>
+                        </div>
+
+                        <div class="settings-form-actions">
+                            <t-button theme="primary" type="submit" :loading="saving">保存设置</t-button>
+                        </div>
+                    </t-form>
+                </div>
+            </t-tab-panel>
+
+            <!-- ========== Tab 2: 访问设置（前台/后台子 Tab） ========== -->
+            <t-tab-panel value="access" label="访问设置">
+                <div class="settings-tab-content">
+                    <!-- 内嵌左侧子 Tab：前台设置 / 后台设置（对标 ZJMF 访问设置布局） -->
+                    <t-tabs v-model="accessSubTab" placement="left" theme="normal">
+
+                        <!-- ---------- 前台设置（农户） ---------- -->
+                        <t-tab-panel value="frontend" label="前台设置">
+                            <t-form :data="frontendForm" @submit="saveFrontend">
+                                <div class="form-section-title mt0">手机号相关</div>
+                                <div class="form-grid form-grid--4">
+                                    <t-form-item label="允许手机号注册">
+                                        <t-radio-group v-model="frontendForm.farmer_allow_phone_register">
+                                            <t-radio :value="1">是</t-radio>
+                                            <t-radio :value="0">否</t-radio>
+                                        </t-radio-group>
+                                    </t-form-item>
+                                    <t-form-item label="手机注册需验证码">
+                                        <t-radio-group v-model="frontendForm.farmer_phone_register_verify">
+                                            <t-radio :value="1">是</t-radio>
+                                            <t-radio :value="0">否</t-radio>
+                                        </t-radio-group>
+                                    </t-form-item>
+                                    <t-form-item label="手机号密码登录">
+                                        <t-radio-group v-model="frontendForm.farmer_phone_password_login">
+                                            <t-radio :value="1">开启</t-radio>
+                                            <t-radio :value="0">关闭</t-radio>
+                                        </t-radio-group>
+                                    </t-form-item>
+                                    <t-form-item label="手机短信登录">
+                                        <t-radio-group v-model="frontendForm.farmer_phone_sms_login">
+                                            <t-radio :value="1">开启</t-radio>
+                                            <t-radio :value="0">关闭</t-radio>
+                                        </t-radio-group>
+                                    </t-form-item>
+                                </div>
+
+                                <div class="form-section-title">邮箱相关</div>
+                                <div class="form-grid form-grid--4">
+                                    <t-form-item label="允许邮箱注册">
+                                        <t-radio-group v-model="frontendForm.farmer_allow_email_register">
+                                            <t-radio :value="1">是</t-radio>
+                                            <t-radio :value="0">否</t-radio>
+                                        </t-radio-group>
+                                    </t-form-item>
+                                    <t-form-item label="邮箱注册需验证码">
+                                        <t-radio-group v-model="frontendForm.farmer_email_register_verify">
+                                            <t-radio :value="1">是</t-radio>
+                                            <t-radio :value="0">否</t-radio>
+                                        </t-radio-group>
+                                    </t-form-item>
+                                    <t-form-item label="邮箱密码登录">
+                                        <t-radio-group v-model="frontendForm.farmer_email_password_login">
+                                            <t-radio :value="1">开启</t-radio>
+                                            <t-radio :value="0">关闭</t-radio>
+                                        </t-radio-group>
+                                    </t-form-item>
+                                    <t-form-item label="邮箱验证码登录">
+                                        <t-radio-group v-model="frontendForm.farmer_email_code_login">
+                                            <t-radio :value="1">开启</t-radio>
+                                            <t-radio :value="0">关闭</t-radio>
+                                        </t-radio-group>
+                                    </t-form-item>
+                                </div>
+                                <div class="form-grid form-grid--2">
+                                    <t-form-item label="限制邮箱后缀">
+                                        <t-radio-group v-model="frontendForm.farmer_email_suffix_enabled">
+                                            <t-radio :value="1">是</t-radio>
+                                            <t-radio :value="0">否</t-radio>
+                                        </t-radio-group>
+                                    </t-form-item>
+                                    <!-- 邮箱后缀输入框（条件显示，与限制开关同一行） -->
+                                    <t-form-item v-if="frontendForm.farmer_email_suffix_enabled === 1" label="允许的邮箱后缀">
+                                        <t-input v-model="frontendForm.farmer_email_suffixes"
+                                            placeholder="多个以逗号分隔，如 @qq.com,@163.com" clearable />
+                                    </t-form-item>
+                                </div>
+
+                                <div class="form-section-title">通用设置</div>
+                                <div class="form-grid form-grid--4">
+                                    <t-form-item label="显示注册跳转按钮">
+                                        <t-radio-group v-model="frontendForm.farmer_show_register_switch">
+                                            <t-radio :value="1">是</t-radio>
+                                            <t-radio :value="0">否</t-radio>
+                                        </t-radio-group>
+                                    </t-form-item>
+                                    <t-form-item label="首选登录方式">
+                                        <t-select v-model="frontendForm.farmer_default_login_method" :options="loginMethodOptions"/>
+                                    </t-form-item>
+                                    <t-form-item label="密码登录首选凭证">
+                                        <t-select v-model="frontendForm.farmer_default_password_type" :options="passwordTypeOptions"/>
+                                    </t-form-item>
+                                    <t-form-item label="农户登录有效期">
+                                        <t-select v-model="frontendForm.farmer_session_duration" :options="farmerSessionOptions"/>
+                                    </t-form-item>
+                                </div>
+
+                                <div class="form-section-title">注册字段要求</div>
+                                <div class="form-grid form-grid--4">
+                                    <t-form-item label="是否允许注册">
+                                        <t-radio-group v-model="frontendForm.allow_farmer_register">
+                                            <t-radio :value="1">是</t-radio>
+                                            <t-radio :value="0">否</t-radio>
+                                        </t-radio-group>
+                                    </t-form-item>
+                                    <t-form-item label="手机号">
+                                        <t-radio-group v-model="frontendForm.farmer_register_phone_required">
+                                            <t-radio :value="1">必填</t-radio>
+                                            <t-radio :value="0">选填</t-radio>
+                                        </t-radio-group>
+                                    </t-form-item>
+                                    <t-form-item label="邮箱">
+                                        <t-radio-group v-model="frontendForm.farmer_register_email_required">
+                                            <t-radio :value="1">必填</t-radio>
+                                            <t-radio :value="0">选填</t-radio>
+                                        </t-radio-group>
+                                    </t-form-item>
+                                </div>
+
+                                <div class="form-section-title">协议链接</div>
+                                <div class="form-grid form-grid--2">
+                                    <t-form-item label="服务协议链接">
+                                        <t-input v-model="frontendForm.farmer_service_agreement_url"
+                                            placeholder="如 /agreement/service，留空则不显示" clearable />
+                                    </t-form-item>
+                                    <t-form-item label="隐私协议链接">
+                                        <t-input v-model="frontendForm.farmer_privacy_policy_url"
+                                            placeholder="如 /agreement/privacy，留空则不显示" clearable />
+                                    </t-form-item>
+                                </div>
+                                <t-alert theme="info" :close="true"
+                                    message="注册密码复杂度与处理与后台共用「后台设置-强制密码复杂度」开关。验证码发送需在「通知管理-发送设置」关联对应短信/邮件模板。"
+                                    class="mb16"></t-alert>
+                                <div class="settings-form-actions">
+                                    <t-button theme="primary" type="submit" :loading="saving">保存设置</t-button>
+                                </div>
+                            </t-form>
+                        </t-tab-panel>
+
+                        <!-- ---------- 后台设置（管理员） ---------- -->
+                        <t-tab-panel value="backend" label="后台设置">
+                            <t-form :data="accessForm" @submit="saveAccess">
+                                <div class="form-section-title mt0">管理员登录安全</div>
+                                <div class="form-grid form-grid--3">
+                                    <t-form-item label="登录会话时长">
+                                        <t-select v-model="accessForm.login_session_duration" :options="sessionOptions"/>
+                                    </t-form-item>
+                                    <t-form-item label="密码重试次数">
+                                        <t-input-number v-model="accessForm.login_retry_limit" :min="1" :max="20" theme="normal"/>
+                                    </t-form-item>
+                                    <t-form-item label="账户锁定时间">
+                                        <t-select v-model="accessForm.login_lock_duration" :options="lockOptions"/>
+                                    </t-form-item>
+                                    <t-form-item label="允许多端同时登录">
+                                        <t-radio-group v-model="accessForm.session_concurrent">
+                                            <t-radio :value="1">允许</t-radio>
+                                            <t-radio :value="0">禁止</t-radio>
+                                        </t-radio-group>
+                                    </t-form-item>
+                                </div>
+
+                                <div class="form-section-title">管理员密码策略</div>
+                                <div class="form-grid form-grid--3">
+                                    <t-form-item label="强制密码复杂度">
+                                        <t-radio-group v-model="accessForm.force_password_complexity">
+                                            <t-radio :value="1">开启</t-radio>
+                                            <t-radio :value="0">关闭</t-radio>
+                                        </t-radio-group>
+                                    </t-form-item>
+                                    <t-form-item label="管理员强制安全验证">
+                                        <t-radio-group v-model="accessForm.admin_enforce_safe">
+                                            <t-radio :value="1">开启</t-radio>
+                                            <t-radio :value="0">关闭</t-radio>
+                                        </t-radio-group>
+                                    </t-form-item>
+                                </div>
+
+                                <div class="form-section-title">后台 IP 白名单</div>
+                                <div class="form-grid form-grid--3">
+                                    <t-form-item label="IP 白名单开关">
+                                        <t-radio-group v-model="accessForm.ip_whitelist_enabled">
+                                            <t-radio :value="1">开启</t-radio>
+                                            <t-radio :value="0">关闭</t-radio>
+                                        </t-radio-group>
+                                    </t-form-item>
+                                </div>
+                                <t-form-item v-if="accessForm.ip_whitelist_enabled === 1" label="白名单 IP 列表">
+                                    <t-textarea v-model="accessForm.ip_whitelist"
+                                        placeholder="每行一个 IP 地址，仅白名单中的管理员可访问后台"
+                                        :autosize="{minRows: 3, maxRows: 10}"/>
+                                </t-form-item>
+
+                                <div class="settings-form-actions">
+                                    <t-button theme="primary" type="submit" :loading="saving">保存设置</t-button>
+                                </div>
+                            </t-form>
+                        </t-tab-panel>
+
+                    </t-tabs>
+                </div>
+            </t-tab-panel>
+
+            <!-- ========== Tab 3: 系统缓存 ========== -->
+            <t-tab-panel value="cache" label="系统缓存">
+                <div class="settings-tab-content">
+                    <div class="form-section-title mt0">缓存管理</div>
+                    <div class="cache-list">
+                        <div v-for="item in cacheActions" :key="item.key" class="cache-list-item">
+                            <div class="cache-list-item-info">
+                                <div class="cache-list-item-title">[[ item.title ]]</div>
+                                <div class="cache-list-item-desc">[[ item.desc ]]</div>
+                            </div>
+                            <t-button :theme="item.theme"
+                                :loading="clearing === item.key" @click="doClear(item)">清除</t-button>
+                        </div>
+                    </div>
+                </div>
+            </t-tab-panel>
+
+            <!-- ========== Tab 4: 上传设置 ========== -->
+            <t-tab-panel value="upload" label="上传设置">
+                <upload-settings-panel :active="activeTab === 'upload'"></upload-settings-panel>
+            </t-tab-panel>
+
+            <!-- ========== Tab 5: 存储设置 ========== -->
+            <t-tab-panel value="storage" label="存储设置">
+                <div class="settings-tab-content">
+                    <!-- 块1: 存储插件列表表格（对标 ZJMF oss-box 表格） -->
+                    <div class="form-section-title mt0">对象存储插件</div>
+                    <t-skeleton v-if="storageLoading" :row-col="[4]" animation="gradient"></t-skeleton>
+                    <t-table v-else row-key="name" :data="storageList"
+                             :columns="storageColumns" size="medium" :hover="true">
+                        <template #status="{ row }">
+                            <t-tag v-if="row.status === 1" theme="success" variant="light">已启用</t-tag>
+                            <t-tag v-else-if="row.status === 0" theme="warning" variant="light">未启用</t-tag>
+                            <t-tag v-else theme="default" variant="light">未安装</t-tag>
+                        </template>
+                        <template #has_data="{ row }">
+                            <span v-if="row.has_data">是</span>
+                            <span v-else>--</span>
+                        </template>
+                        <template #is_current="{ row }">
+                            <t-tag v-if="row.is_current" theme="primary" variant="light">当前使用</t-tag>
+                            <span v-else>--</span>
+                        </template>
+                        <template #op="{ row }">
+                            <t-button v-if="!row.is_current && row.status === 1"
+                                theme="primary" variant="text" size="small"
+                                @click="openSwitchDialog(row)">切换为当前</t-button>
+                        </template>
+                    </t-table>
+
+                    <!-- 块2: 存储位置设置（对标 ZJMF oss-setting 下拉选择器） -->
+                    <div class="form-section-title">存储位置</div>
+                    <div class="form-grid form-grid--2">
+                        <t-form-item label="存储方式">
+                            <t-select v-model="storageMethod" :options="storageMethodOptions"
+                                placeholder="请选择存储方式" style="width: 360px;"></t-select>
+                        </t-form-item>
+                        <t-form-item>
+                            <t-button theme="primary" :loading="switching"
+                                @click="openSwitchDialogFromSelect">保存</t-button>
+                        </t-form-item>
+                    </div>
+                    <t-alert theme="info" :close="true"
+                        message="变更存储位置前，请先迁移历史数据至新存储位置。切换存储方式需管理员密码二次验证。"
+                        class="mb16"></t-alert>
+
+                    <!-- 块3: 连通检测 -->
+                    <div class="form-section-title">连通检测</div>
+                    <div class="form-grid form-grid--2">
+                        <t-form-item label="当前存储">
+                            <t-tag theme="primary" variant="light">[[ currentStorageMethodLabel ]]</t-tag>
+                        </t-form-item>
+                        <t-form-item>
+                            <t-button theme="primary" variant="outline"
+                                :loading="testingConnection" @click="testConnection">测试连接</t-button>
+                        </t-form-item>
+                    </div>
+                </div>
+            </t-tab-panel>
+
+            <!-- 切换存储方式确认弹窗（密码验证，对标 ZJMF localVisible 弹窗） -->
+            <t-dialog header="切换存储方式" :visible.sync="switchDialogVisible" :footer="false" width="520">
+                <div class="dia-tips">
+                    确认将存储方式切换为 <span style="color: var(--app-error);">[[ switchTargetName ]]</span>？
+                    切换后新上传文件将使用新存储方式，已有文件不受影响。
+                </div>
+                <t-form>
+                    <t-form-item label="管理员密码">
+                        <t-input type="password" v-model="switchPassword"
+                            placeholder="请输入管理员密码以确认切换" clearable />
+                    </t-form-item>
+                    <div class="com-f-btn">
+                        <t-button theme="primary" :loading="switching" @click="confirmSwitch">确认切换</t-button>
+                        <t-button theme="default" @click="switchDialogVisible = false">取消</t-button>
+                    </div>
+                </t-form>
+            </t-dialog>
+
+        </t-tabs>
+    </t-card>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="/static/js/pages/system_settings.js?v={{ config.app_version }}"></script>
+{% endblock %}

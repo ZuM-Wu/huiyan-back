@@ -5,7 +5,7 @@ import logging
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
-from sqlalchemy import select, func, or_, delete
+from sqlalchemy import select, func, or_, delete, update
 
 from core.auth.middleware_chain import check_admin
 from core.auth.rbac import require_permission
@@ -247,10 +247,13 @@ async def get_area_geo(area_id: int, _: None = Depends(check_admin)):
         if not area:
             raise HTTPException(status_code=404, detail="产区不存在")
         plot_rows = (await db.execute(
-            select(Plot.name, Plot.boundary).where(Plot.area_id == area_id)
+            select(Plot.id, Plot.name, Plot.boundary).where(Plot.area_id == area_id)
         )).all()
     # 仅保留含有效边界的地块（缩略图只画有边界的多边形）
-    plots = [{"name": name, "boundary": boundary} for name, boundary in plot_rows if boundary]
+    plots = [
+        {"id": plot_id, "name": name, "boundary": boundary}
+        for plot_id, name, boundary in plot_rows if boundary
+    ]
     return ok({
         "boundary": area.boundary or "",
         "longitude": area.longitude, "latitude": area.latitude,
@@ -380,6 +383,7 @@ async def update_area_status(area_id: int, data: AreaStatusUpdate, request: Requ
 async def delete_area(area_id: int, request: Request, _: None = Depends(check_admin)):
     """删除产区（仅当无下级地块时允许，保护未来插件外键）"""
     from core.db.base import async_session_factory
+    from core.db.hardware_device import HardwareDevice
     from core.db.production_area import ProductionArea, Plot
     async with async_session_factory() as db:
         area = (await db.execute(
@@ -392,6 +396,9 @@ async def delete_area(area_id: int, request: Request, _: None = Depends(check_ad
         )).scalar() or 0
         if plot_count > 0:
             raise HTTPException(status_code=400, detail="该产区下仍有地块，请先删除地块或改为停用")
+        await db.execute(update(HardwareDevice).where(
+            HardwareDevice.area_id == area_id
+        ).values(area_id=None, plot_id=None, marker_ratio=None))
         await db.delete(area)
         await db.commit()
         await active_log(f"删除产区: {area.name}", "area", rel_id=area_id,

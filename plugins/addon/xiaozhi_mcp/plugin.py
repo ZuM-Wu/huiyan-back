@@ -3,8 +3,6 @@
 import logging
 from pathlib import Path
 
-from sqlalchemy import delete
-
 from core.config_manager import ConfigManager
 from core.plugin_manager import BasePlugin
 
@@ -21,7 +19,7 @@ class Plugin(BasePlugin):
         super().__init__(db_session, config)
         self.name = PLUGIN_NAME
         self.title = "小智 AI MCP"
-        self.version = "2.0.0"
+        self.version = "1.0.1"
         self.description = "将小智 AI 接入点桥接到插件专属自定义 MCP 工具体系"
         self.module = "addon"
         self._config_manager = ConfigManager()
@@ -43,19 +41,14 @@ class Plugin(BasePlugin):
         return True
 
     async def uninstall(self) -> bool:
-        """停止连接并清理插件专属表、配置和后台菜单。"""
+        """停止连接并清理插件专属表；配置、导航和菜单由框架统一清理。"""
         if not self.db:
             return False
-        from core.db.configuration import ConfigurationModel
-        from core.db.menu import Menu
         from plugins.addon.xiaozhi_mcp.service import xiaozhi_bridge
 
         await xiaozhi_bridge.stop("插件已卸载")
         await self._run_sql_file("uninstall.sql")
-        await self.db.execute(delete(ConfigurationModel).where(
-            ConfigurationModel.key.like(f"{PLUGIN_NAME}.%")
-        ))
-        await self.db.execute(delete(Menu).where(Menu.plugin == PLUGIN_NAME))
+        # 配置、菜单和导航由 PluginManager 统一清理。
         logger.info("[xiaozhi_mcp] 插件卸载完成")
         return True
 
@@ -88,6 +81,7 @@ class Plugin(BasePlugin):
             "icon": "link",
             "nav_type": "admin",
             "template": "xiaozhi_mcp.html", "audience": "admin",
+            "scripts": ["xiaozhi_mcp.js"],
             "permission": "xiaozhi_mcp:list",
             "api_base": "/api/admin/v1/xiaozhi-mcp",
         }]

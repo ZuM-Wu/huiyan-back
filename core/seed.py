@@ -17,11 +17,14 @@ logger = logging.getLogger(__name__)
 # 种子版本号：与 hy_configuration.seed_version 比对，一致时整体跳过种子流程
 # 重要约定：任何人修改本模块/seed_nav/seed_notice 的种子内容后，必须递增此版本号，
 # 否则新种子不会在存量环境生效（启动修复/新增项依赖种子流程重新执行）
-SEED_VERSION = "13"
+SEED_VERSION = "16"
 # 版本变更记录：
 # - v10：菜单/导航/通知/权限码种子当前版本（站内信管理并入通知日志页 Tab、移除独立预警记录页等历史变更已固化）
 # - v11：seed_notice 修复天气邮件通知默认启用问题
 # - v12：新增平台敏感操作权限，并按现有页面权限为存量角色幂等继承
+# - v14：后台默认主题切换为 vue_default，旧 default 主题迁移为 classic
+# - v15：恢复 AgentScope 对话入口，使用新聊天页面，不恢复旧 AI 框架
+# - v16：新增硬件设备管理页面、导航与细粒度权限
 
 
 async def seed_menus(db):
@@ -51,6 +54,7 @@ async def seed_menus(db):
         # ---- 产区管理（核心模块，plugin=""） ----
         (18, "production",         "产区管理",   "",                    "location",   0,   6,  "",  1),
         (19, "production_area",    "产区列表",   "/admin/production-area", "location", 18,  0,  "",  1),
+        (36, "hardware_device",    "硬件管理",   "/admin/hardware-device", "control-platform", 18, 1, "", 1),
         (21, "planting_batch",     "种植批次",   "/admin/planting-batch", "list",    18,  2,  "",  1),
         (22, "area_binding",       "农户绑定",   "/admin/area-binding", "usergroup", 18,   3,  "",  1),
         (23, "weather",            "天气服务",   "/admin/weather",      "cloudy-day", 18,  4,  "",  1),
@@ -65,7 +69,7 @@ async def seed_menus(db):
         # ---- AI 助手（核心模块，plugin=""；ID 33 起） ----
         (33, "ai",              "AI 助手",   "",                      "chat",       0,   8, "",  1),
         (34, "ai_chat",         "AI 对话",   "/admin/ai-chat",        "chat",       33,  0,  "",  1),
-        (35, "ai_setting",      "AI 设置",   "/admin/ai-setting",     "setting",    33,  1,  "",  1),
+        (35, "ai_setting",      "AI 资源工作台",   "/admin/ai-setting",     "setting",    33,  1,  "",  1),
     ]
 
     inserted = 0
@@ -146,6 +150,18 @@ async def seed_menus(db):
     if removed_old_notice:
         logger.info("[后台菜单种子] 清理旧版通知菜单 %d 条", removed_old_notice)
 
+    # AgentScope 对话页只有一个系统入口。历史版本可能留下不同名称或漂移
+    # ID 的重复记录，保留 canonical ID=34，按路径清理其余副本。
+    removed_ai_duplicates = (await db.execute(
+        delete(Menu).where(
+            Menu.nav_type == "admin",
+            Menu.path == "/admin/ai-chat",
+            Menu.id != 34,
+        )
+    )).rowcount
+    if removed_ai_duplicates:
+        logger.info("[后台菜单种子] 清理重复 AgentScope 对话菜单 %d 条", removed_ai_duplicates)
+
     # 说明：前台导航（nav_type='frontend'）由管理员在导航管理中维护并持久化，
     # 不再在此处清理。前台可注册页面仅来源于插件 get_pages() 中声明为 frontend 的页面。
 
@@ -173,7 +189,6 @@ async def seed_farmer_menus(db):
         (112, "cache",          "缓存管理", "/farmer/cache",      "file",        110, 1,  "",  1),
         (113, "system_info",    "系统信息", "/farmer/system",     "setting",     110, 2,  "",  1),
         (120, "production_area", "我的产区", "/farmer/production-area", "location",  0,   2,  "",  1),
-        (121, "ai",              "AI 助手",   "/farmer/ai",              "chat",      0,   3, "",  1),
         (122, "inbox",           "站内信",     "/farmer/inbox",           "notification", 0, 4, "",  1),
     ]
 
@@ -191,6 +206,19 @@ async def seed_farmer_menus(db):
             inserted += 1
 
     logger.info("[农户菜单种子] 新增 %d 条记录（跳过已存在）", inserted)
+
+    # AgentScope 硬切后不再提供农户端旧 AI 对话入口；按名称和路径清理存量菜单，
+    # 防止旧版本菜单记录继续出现在农户导航中。
+    removed_old_ai = (await db.execute(
+        delete(Menu).where(
+            Menu.nav_type == "frontend",
+            (Menu.name.in_(["ai", "ai_chat"]) | Menu.path.in_([
+                "/farmer/ai", "/farmer/ai-chat"
+            ])),
+        )
+    )).rowcount
+    if removed_old_ai:
+        logger.info("[农户菜单种子] 清理旧 AI 对话入口 %d 条", removed_old_ai)
 
 async def seed_permissions(db):
     """
@@ -336,7 +364,7 @@ async def seed_configuration(db):
         "sms_code_interval": ("60", "验证码发送间隔（秒）"),
         # ===== 模板主题设置 =====
         "site_theme": ("default", "官网当前启用主题（templates/site/ 下的主题目录名）"),
-        "admin_theme": ("default", "后台当前启用主题（templates/admin/ 下的主题目录名）"),
+        "admin_theme": ("vue_default", "后台当前启用主题（templates/admin/ 下的主题目录名）"),
         "farmer_theme": ("default", "农户端当前启用主题（templates/farmer/ 下的主题目录名）"),
         # ===== 官网主题控制器配置 =====
         "site_nav": (
@@ -398,24 +426,6 @@ async def seed_configuration(db):
         "task_queue_clean_finish": ("1", "完成后自动删除（0=保留, 1=自动删除）"),
         # ===== 对象存储配置 =====
         "oss_method": ("local_oss", "对象存储方式（默认本地存储 local_oss）"),
-        # ===== AI 大模型对话配置（驱动插件自身配置由插件安装时写入，此处仅全局参数，
-        # 默认值与 core/ai/service.py 的 AI_SETTING_DEFAULTS 保持一致） =====
-        "ai.active_interface": ("", "AI 当前激活的模型驱动接口（空=自动选择第一个启用插件）"),
-        "ai.default_model": ("deepseek-v4-flash", "AI 默认对话模型"),
-        "ai.max_tool_rounds": ("5", "AI 工具调用最大回合数"),
-        "ai.context_limit": ("20", "AI 上下文窗口消息条数上限"),
-        "ai.farmer_enabled": ("0", "农户端 AI 对话开关（0=关闭, 1=开启）"),
-        "ai.system_tools_enabled": ("0", "系统 MCP 工具总开关（0=关闭, 1=开启）"),
-        "ai.thinking_enabled": ("1", "AI 思考模式开关（0=关闭, 1=开启）"),
-        "ai.reasoning_effort": ("high", "AI 思考强度（low/high/max）"),
-        "ai.system_prompt": (
-            "你是慧眼护农智慧农业系统的AI助手。你可以帮助用户查询天气信息、"
-            "管理生产区域和地块、查看农户信息、处理任务和管理知识库。"
-            "请用简洁专业的中文回答用户问题，合理使用可用工具获取实时数据。",
-            "AI 默认系统提示词（未选择技能时使用）",
-        ),
-        "ai.temperature": ("0.7", "AI 模型温度（0-2，思考模式开启时被平台忽略）"),
-        "ai.max_tokens": ("0", "AI 最大输出 token 数（0=不限制）"),
     }
 
     inserted = 0
@@ -424,7 +434,13 @@ async def seed_configuration(db):
         existing = (await db.execute(
             select(ConfigurationModel).where(ConfigurationModel.key == key)
         )).scalar_one_or_none()
-        if not existing:
+        if key == "admin_theme" and existing and existing.value == "default":
+            # 旧版本 default 指向原管理端主题；该主题现以 classic 标识保留，
+            # 存量配置必须只迁移这个历史值，不能覆盖管理员已选择的其他主题。
+            existing.value = value
+            existing.description = description
+            inserted += 1
+        elif not existing:
             db.add(ConfigurationModel(key=key, value=value, description=description))
             inserted += 1
 

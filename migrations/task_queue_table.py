@@ -148,9 +148,33 @@ async def _create_outbox(db) -> None:
 
 
 async def _migrate_existing_rows(db) -> None:
+    """只迁移尚未写入 definition 的旧队列行，避免改写运行时新任务。"""
+    known = (
+        "'notice','clean_repeat_cache','clean_old_logs','clean_task_logs',"
+        "'sweep_expired_cache','weather_pull','weather_daily_finalize',"
+        "'weather_clean','weather_alert_notify','push_execute','wecom_notice'"
+    )
+    # 先收敛旧格式中的不可执行任务。此时 definition 仍为空，可可靠区分
+    # 历史行与已经按新任务协议提交的运行时行。
+    await db.execute(text(
+        "UPDATE hy_task_queue SET status='Dead', "
+        "error_msg=CASE WHEN type='hook' THEN '迁移终止：旧 hook 任务不再支持' "
+        "ELSE CONCAT('迁移终止：未知任务定义 ', type) END "
+        "WHERE definition='' AND status IN ('Wait','Exec','Failed') "
+        f"AND (type='hook' OR type NOT IN ({known}))"
+    ))
+    await db.execute(text(
+        "UPDATE hy_task_queue SET "
+        "status=CASE WHEN retry < GREATEST(max_retry + 1, 1) THEN 'Wait' ELSE 'Dead' END, "
+        "next_run_at=CASE WHEN retry < GREATEST(max_retry + 1, 1) THEN NOW() ELSE next_run_at END, "
+        "error_msg=CASE WHEN retry >= GREATEST(max_retry + 1, 1) "
+        "THEN CONCAT('迁移终止：历史失败任务已耗尽尝试次数。', COALESCE(error_msg, '')) "
+        "ELSE error_msg END "
+        f"WHERE definition='' AND status='Failed' AND type IN ({known})"
+    ))
     await db.execute(text("""
         UPDATE hy_task_queue SET
-            definition=IF(definition='', type, definition),
+            definition=type,
             owner=CASE
                 WHEN type='push_execute' THEN 'push'
                 WHEN type='wecom_notice' THEN 'wecom_webhook'
@@ -165,27 +189,8 @@ async def _migrate_existing_rows(db) -> None:
             attempt=retry,
             max_attempts=GREATEST(max_retry + 1, 1),
             next_run_at=COALESCE(next_run_at, run_at, create_time)
+        WHERE definition=''
     """))
-    known = (
-        "'notice','clean_repeat_cache','clean_old_logs','clean_task_logs',"
-        "'sweep_expired_cache','weather_pull','weather_daily_finalize',"
-        "'weather_clean','weather_alert_notify','push_execute','wecom_notice'"
-    )
-    await db.execute(text(
-        "UPDATE hy_task_queue SET status='Dead', "
-        "error_msg=CASE WHEN type='hook' THEN '迁移终止：旧 hook 任务不再支持' "
-        "ELSE CONCAT('迁移终止：未知任务定义 ', type) END "
-        f"WHERE status IN ('Wait','Exec','Failed') AND (type='hook' OR type NOT IN ({known}))"
-    ))
-    await db.execute(text(
-        "UPDATE hy_task_queue SET "
-        "status=CASE WHEN attempt < max_attempts THEN 'Wait' ELSE 'Dead' END, "
-        "next_run_at=CASE WHEN attempt < max_attempts THEN NOW() ELSE next_run_at END, "
-        "error_msg=CASE WHEN attempt >= max_attempts "
-        "THEN CONCAT('迁移终止：历史失败任务已耗尽尝试次数。', COALESCE(error_msg, '')) "
-        "ELSE error_msg END "
-        f"WHERE status='Failed' AND type IN ({known})"
-    ))
 
 
 async def migrate(db) -> None:

@@ -3,7 +3,8 @@ JWT 认证模块
 提供 Admin 和 Farmer 双密钥体系的 JWT 签发和验证
 """
 
-from datetime import datetime, timedelta
+from datetime import timedelta
+from core.time_utils import china_now_aware
 from typing import Optional, Dict
 
 from jose import jwt, JWTError
@@ -28,12 +29,13 @@ def create_jwt(data: Dict, is_admin: bool = True, expire_seconds: Optional[int] 
     key = settings.JWT_KEY_ADMIN if is_admin else settings.JWT_KEY_FARMER
     expire = expire_seconds if expire_seconds is not None else settings.JWT_EXPIRE_SECONDS
 
+    now = china_now_aware()
     payload = {
         "id": data["id"],
         "name": data.get("name", ""),
         "is_admin": is_admin,
-        "iat": datetime.utcnow(),
-        "exp": datetime.utcnow() + timedelta(seconds=expire),
+        "iat": now,
+        "exp": now + timedelta(seconds=expire),
     }
     return jwt.encode(payload, key, algorithm=ALGORITHM)
 

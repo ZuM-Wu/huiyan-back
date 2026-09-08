@@ -117,6 +117,7 @@ _CORE_EVENTS = (
     EventDefinition("notice.sending", "通知即将发送", "通知", 1, "system", NoticeSendingPayload, "transient", export_fields=frozenset({"action_key", "channel", "content", "variables"})),
     EventDefinition("plugin.update.prepared", "插件更新预检完成", "插件", 1, "system", PlatformLifecyclePayload, "durable", True, export_fields=frozenset({"plugin_name", "version", "operation_id"})),
     EventDefinition("plugin.update.confirmed", "插件更新已确认", "插件", 1, "system", PlatformLifecyclePayload, "durable", True, export_fields=frozenset({"plugin_name", "version", "operation_id"})),
+    EventDefinition("plugin.update.applied", "插件更新已应用", "插件", 1, "system", PlatformLifecyclePayload, "durable", True, export_fields=frozenset({"plugin_name", "version", "operation_id"})),
     EventDefinition("plugin.update.failed", "插件更新失败", "插件", 1, "system", PlatformLifecyclePayload, "durable", True, export_fields=frozenset({"plugin_name", "operation_id"})),
     EventDefinition("plugin.enabled", "插件已启用", "插件", 1, "system", PlatformLifecyclePayload, "transient", export_fields=frozenset({"plugin_name"})),
     EventDefinition("plugin.disabled", "插件已禁用", "插件", 1, "system", PlatformLifecyclePayload, "transient", export_fields=frozenset({"plugin_name"})),

@@ -10,6 +10,7 @@
 import json
 import logging
 from datetime import datetime, timedelta
+from core.time_utils import china_now
 from typing import Any, Optional, cast
 
 from sqlalchemy import select, func, desc, update, false
@@ -164,7 +165,7 @@ async def mark_task_handled(log_id: int, admin_id: int) -> bool:
             update(TaskLog).where(TaskLog.id == log_id).values(
                 handle_status=1,
                 handled_by=admin_id,
-                handled_time=datetime.now(),
+                handled_time=china_now(),
             )
         ))
         await db.commit()
@@ -185,7 +186,7 @@ async def mark_task_ignored(log_id: int, admin_id: int) -> bool:
             update(TaskLog).where(TaskLog.id == log_id).values(
                 handle_status=2,
                 handled_by=admin_id,
-                handled_time=datetime.now(),
+                handled_time=china_now(),
             )
         ))
         await db.commit()
@@ -197,7 +198,7 @@ async def get_task_overview() -> dict:
 
     返回: {today_total, today_success, today_failed, unhandled_count, tasks}
     """
-    today_start = datetime.now().replace(
+    today_start = china_now().replace(
         hour=0, minute=0, second=0, microsecond=0
     )
 
@@ -413,7 +414,7 @@ async def retry_queue_task(task_id: int) -> bool:
             .where(TaskQueue.id == task_id)
             .values(
                 status="Wait", retry=0, attempt=0, error_msg="",
-                next_run_at=datetime.now(), locked_at=None,
+                next_run_at=china_now(), locked_at=None,
                 start_time=None, finish_time=None, version=t.version + 1,
             )
         )

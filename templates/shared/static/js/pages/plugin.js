@@ -25,6 +25,7 @@
             const configSchema = ref([]);
             const configForm = ref({});
             const uploadPolicies = ref([]);
+            const controlCenterAvailable = ref(false);
             const pagination = reactive({ current: 1, pageSize: 15, total: 0 });
 
             const columns = [
@@ -34,7 +35,7 @@
                 { colKey: 'author', title: '开发者', width: 140, ellipsis: true },
                 { colKey: 'version', title: '版本', width: 100 },
                 { colKey: 'status', title: '状态', width: 100, cell: 'status' },
-                { colKey: 'actions', title: '操作', width: 240, cell: 'actions' }
+                { colKey: 'actions', title: '操作', width: 310, cell: 'actions' }
             ];
             const syncColumns = [
                 { colKey: 'title', title: '插件名称', minWidth: 160, ellipsis: true },
@@ -43,8 +44,33 @@
                 { colKey: 'version', title: '目录版本', width: 110, cell: 'version' },
                 { colKey: 'status', title: '状态', width: 90, cell: 'status' },
                 { colKey: 'version_state', title: '版本状态', width: 110, cell: 'version_state' },
-                { colKey: 'sync_actions', title: '操作', width: 80, cell: 'sync_actions' }
+                { colKey: 'sync_actions', title: '操作', width: 150, cell: 'sync_actions' }
             ];
+
+            const probeControlCenter = () => {
+                const controller = new AbortController();
+                const timer = window.setTimeout(() => controller.abort(), 1200);
+                return fetch('http://localhost:8765/api/ping', {
+                    mode: 'cors', cache: 'no-store', signal: controller.signal
+                }).then((response) => response.ok ? response.json() : null).then((data) => {
+                    controlCenterAvailable.value = Boolean(data && data.protocol_version === 1);
+                    return controlCenterAvailable.value;
+                }).catch(() => {
+                    controlCenterAvailable.value = false;
+                    return false;
+                }).finally(() => window.clearTimeout(timer));
+            };
+
+            const openControlCenter = async (row) => {
+                const available = await probeControlCenter();
+                if (!available) {
+                    MessagePlugin.warning('请先双击桌面的“慧眼本地控制中心”，再应用更新');
+                    return;
+                }
+                const operationId = row.pending_update?.operation_id || row.operation_id || '';
+                const target = 'http://localhost:8765/?operation_id=' + encodeURIComponent(operationId);
+                window.location.assign(target);
+            };
 
             // 合并后的全量数据（已安装 + 未安装），用于本地搜索与分页
             let allData = [];
@@ -94,7 +120,9 @@
                             installed: true,
                             installed_version: item.version,
                             available_version: disk.version || item.version,
-                            upgrade_available: disk.upgrade_available === true
+                            upgrade_available: disk.upgrade_available === true,
+                            version_state: disk.version_state || 'current',
+                            pending_update: disk.pending_update || null
                         };
                     });
                     // 未安装的插件（含已卸载但文件仍保留、以及从未安装过的插件）
@@ -118,7 +146,10 @@
                     applyView();
                 }).catch(() => {
                     MessagePlugin.error('获取插件列表失败');
-                }).finally(() => { loading.value = false; });
+                }).finally(() => {
+                    loading.value = false;
+                    probeControlCenter();
+                });
             };
 
             const onPageChange = (pageInfo) => {
@@ -190,7 +221,7 @@
             const doUpgrade = (row) => {
                 upgradingName.value = row.name;
                 request.post('/plugin/upgrade/' + row.name).then((res) => {
-                    MessagePlugin.success(res.data.msg || '升级成功');
+                    MessagePlugin.success(res.data.msg || '更新计划已确认，重启后生效');
                     fetchData();
                 }).catch(() => {
                     // 业务错误由 request.js 展示，保留当前列表供管理员重试。
@@ -200,6 +231,7 @@
             const versionStateLabel = (state) => ({
                 current: '已是最新',
                 update_available: '可更新',
+                awaiting_restart: '待重启生效',
                 not_installed: '未安装',
                 local_newer: '安装版较新',
                 invalid: '版本异常'
@@ -207,6 +239,7 @@
 
             const versionStateTheme = (state) => {
                 if (state === 'update_available') return 'primary';
+                if (state === 'awaiting_restart') return 'warning';
                 if (state === 'invalid' || state === 'local_newer') return 'warning';
                 return 'default';
             };
@@ -229,7 +262,7 @@
             const upgradeFromSync = (row) => {
                 upgradingName.value = row.name;
                 request.post('/plugin/upgrade/' + row.name).then((res) => {
-                    MessagePlugin.success(res.data.msg || '升级成功');
+                    MessagePlugin.success(res.data.msg || '更新计划已确认，重启后生效');
                     return Promise.all([scanAllPlugins(), fetchData()]);
                 }).catch(() => {
                     // 统一请求层已显示升级失败的业务错误。
@@ -274,11 +307,11 @@
                 installingName, upgradingName,
                 syncVisible, syncLoading, syncRows, syncColumns,
                 configVisible, configLoading, configSaving, configPlugin,
-                configSchema, configForm, uploadPolicies,
+                configSchema, configForm, uploadPolicies, controlCenterAvailable,
                 fetchData, applyView, resetFilter, onPageChange, togglePlugin, confirmUninstall,
                 doInstall, doUpgrade,
                 openSyncDialog, upgradeFromSync, versionStateLabel, versionStateTheme,
-                openConfig, saveConfig, goUploadSettings
+                openConfig, saveConfig, goUploadSettings, openControlCenter
             };
         }
     });

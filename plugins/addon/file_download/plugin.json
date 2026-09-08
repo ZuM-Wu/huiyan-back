@@ -1,7 +1,7 @@
 {
   "name": "file_download",
   "title": "文件下载",
-  "version": "2.0.0",
+  "version": "1.0.1",
   "description": "文件下载插件：管理员按文件夹整理并上传文件、控制可见范围，农户在农户端浏览并下载可见文件",
   "author": "HuiYan Team",
   "module": "addon",
@@ -9,16 +9,16 @@
   "surface": "admin",
   "enabled": true,
   "default_order": 100,
-  "compatible_app_versions": [">=4.0.0"],
+  "compatible_app_versions": [">=3.4.0"],
   "dependencies": [],
   "conflicts": [],
   "permissions": ["file_download:list"],
   "capabilities": ["file.download"],
   "pages": [
-    {"page_key": "plugin_file_download", "surface": "admin", "route": "/plugin/file_download/file_download", "template": "file_download.html", "permission": "file_download:list"},
-    {"page_key": "plugin_file_download_front", "surface": "farmer", "route": "/plugin/file_download/file_download_index", "template": "file_download_index.html", "permission": "file_download:list"}
+    {"page_key": "plugin_file_download", "surface": "admin", "route": "/admin/plugin/file_download/file_download", "template": "file_download.html", "permission": "file_download:list", "scripts": ["file_download.js"]},
+    {"page_key": "plugin_file_download_front", "surface": "farmer", "route": "/farmer/plugin/file_download/file_download_index", "template": "file_download_index.html", "permission": "file_download:list"}
   ],
-  "resources": [],
+  "resources": ["static/file_download.js"],
   "tasks": [],
   "events": ["file_download.downloaded"],
   "health": {"check": "plugin.file_download"},

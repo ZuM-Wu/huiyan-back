@@ -3,8 +3,7 @@
 邮件通知管理员插件 — 数据模型
 仅包含任务告警配置表（hy_task_log 已移至核心 core/db/task_log.py）
 """
-from datetime import datetime
-
+from core.time_utils import china_now
 from sqlalchemy import Column, Integer, String, DateTime
 
 from core.db.base import Base
@@ -23,5 +22,5 @@ class TaskAlertConfig(Base):
     notify_channel = Column(String(16), default="email", comment="通知渠道: email/sms")
     notify_interface = Column(String(64), default="", comment="通知接口标识（如 mail_smtp）")
     admin_ids = Column(String(256), default="", comment="接收通知的管理员ID列表（逗号分隔）")
-    create_time = Column(DateTime, default=datetime.now, comment="创建时间")
-    update_time = Column(DateTime, default=datetime.now, onupdate=datetime.now, comment="更新时间")
+    create_time = Column(DateTime, default=china_now, comment="创建时间")
+    update_time = Column(DateTime, default=china_now, onupdate=china_now, comment="更新时间")

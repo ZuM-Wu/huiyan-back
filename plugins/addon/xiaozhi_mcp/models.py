@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """小智 AI MCP 插件业务模型。"""
-from datetime import datetime
-
+from core.time_utils import china_now
 from sqlalchemy import Column, DateTime, Integer, String, Text
 
 from core.db.base import Base
@@ -28,10 +27,10 @@ class XiaozhiMcpServerModel(Base):
         comment="最近测试状态：0未测试，1成功，2失败",
     )
     last_error = Column(String(512), nullable=False, default="", comment="最近测试错误信息")
-    create_time = Column(DateTime, default=datetime.now, comment="创建时间")
+    create_time = Column(DateTime, default=china_now, comment="创建时间")
     update_time = Column(
         DateTime,
-        default=datetime.now,
-        onupdate=datetime.now,
+        default=china_now,
+        onupdate=china_now,
         comment="更新时间",
     )

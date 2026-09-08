@@ -14,7 +14,7 @@ import hashlib
 import logging
 import time
 from collections import OrderedDict
-from datetime import datetime
+from core.time_utils import china_now
 from typing import Optional
 
 from sqlalchemy import select, update
@@ -142,7 +142,7 @@ class ApiKeyVerifier(TokenVerifier):
                 await db.execute(
                     update(ApiKeyModel)
                     .where(ApiKeyModel.id == key_row.id)
-                    .values(last_used_time=datetime.now())
+                    .values(last_used_time=china_now())
                 )
                 await db.commit()
 

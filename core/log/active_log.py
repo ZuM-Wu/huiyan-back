@@ -1,6 +1,6 @@
 """
 全局操作日志函数
-慧眼护农 V4 日志子系统
+慧眼护农 3.4.0 日志子系统
 
 调用规范: 所有关键业务链路必须调用 active_log()
 - 登录/登出、管理员 CRUD、农户注册/变更
@@ -9,7 +9,7 @@
 
 import logging
 import re
-from datetime import datetime
+from core.time_utils import china_now
 from fastapi import Request
 
 from core.db.base import async_session_factory
@@ -125,7 +125,7 @@ async def active_log(  # noqa: PLR0917
             user_id=user_id,
             user_name=user_name,
             ip=ip_addr,
-            create_time=datetime.now(),
+            create_time=china_now(),
         )
         _db.add(log_entry)
         await _db.commit()

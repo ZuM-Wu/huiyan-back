@@ -1,0 +1,287 @@
+{% extends "base.html" %}
+{% block title %}AI 对话 - 慧眼护农{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="/static/vendor/tdesign-chat/tdesign-chat.css">
+<style>
+/* 对话工作台占满后台内容区，颜色和间距只使用现有主题令牌。 */
+#page-app.ai-chat-page {
+    height: 100%;
+    min-height: 0;
+    margin: calc(var(--app-page-padding) * -1);
+    padding: 0;
+    background: var(--app-bg-card);
+}
+
+.ai-chat-workbench {
+    display: grid;
+    grid-template-rows: 56px minmax(0, 1fr);
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+    color: var(--app-text-primary);
+    background: var(--app-bg-card);
+}
+
+.ai-chat__toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--app-spacing-md);
+    min-width: 0;
+    padding: 0 var(--app-spacing-lg);
+    border-bottom: 1px solid var(--app-border);
+}
+
+.ai-chat__toolbar-left,
+.ai-chat__toolbar-right { display: flex; align-items: center; gap: var(--app-spacing-sm); }
+.ai-chat__model-select { width: 260px; }
+.ai-chat__model-select .t-input { border: 0; background: transparent; box-shadow: none; font-weight: 600; }
+.ai-chat__model-select .t-input:hover,
+.ai-chat__model-select .t-input:focus-within { background: var(--app-row-hover); }
+.ai-chat__model-empty { color: var(--app-text-secondary); font-size: var(--app-font-size-sm); }
+
+.ai-chat__body { display: grid; grid-template-columns: 248px minmax(0, 1fr); min-height: 0; }
+.ai-chat__sidebar {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    padding: var(--app-spacing-md);
+    background: var(--app-bg-page);
+    border-right: 1px solid var(--app-border);
+}
+
+.ai-chat__new-button { width: 100%; }
+.ai-chat__sidebar-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: var(--app-spacing-lg) var(--app-spacing-xs) var(--app-spacing-sm);
+    color: var(--app-text-secondary);
+    font-size: var(--app-font-size-sm);
+    font-weight: 600;
+}
+
+.ai-chat__session-list { display: flex; flex: 1; flex-direction: column; gap: 2px; min-height: 0; overflow-y: auto; }
+.ai-chat__session-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 32px;
+    align-items: center;
+    min-height: 52px;
+    color: var(--app-text-secondary);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--app-radius-sm);
+}
+.ai-chat__session-item {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    width: 100%;
+    min-width: 0;
+    min-height: 50px;
+    padding: var(--app-spacing-sm) var(--app-spacing-md);
+    color: inherit;
+    text-align: left;
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+}
+
+.ai-chat__session-row:hover,
+.ai-chat__session-row:focus-within,
+.ai-chat__session-row.is-active { color: var(--app-text-primary); background: var(--app-row-hover); border-color: var(--app-border); }
+.ai-chat__session-delete { opacity: 0; pointer-events: none; }
+.ai-chat__session-row:hover .ai-chat__session-delete,
+.ai-chat__session-row:focus-within .ai-chat__session-delete,
+.ai-chat__session-row.is-active .ai-chat__session-delete { opacity: 1; pointer-events: auto; }
+.ai-chat__session-name { overflow: hidden; font-size: var(--app-font-size-md); font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.ai-chat__session-time { color: var(--app-text-placeholder); font-size: var(--app-font-size-sm); }
+.ai-chat__sidebar-empty { padding: var(--app-spacing-lg) var(--app-spacing-sm); color: var(--app-text-placeholder); font-size: var(--app-font-size-sm); text-align: center; }
+
+.ai-chat__conversation {
+    position: relative;
+    display: grid;
+    grid-template-rows: minmax(0, 1fr) auto;
+    min-width: 0;
+    min-height: 0;
+    background: var(--app-bg-card);
+}
+
+.ai-chat__error {
+    position: absolute;
+    z-index: 2;
+    top: var(--app-spacing-md);
+    right: var(--app-spacing-lg);
+    left: var(--app-spacing-lg);
+}
+.ai-chat__messages { display: flex; min-height: 0; overflow: hidden; padding: var(--app-spacing-xl) 0 var(--app-spacing-lg); }
+.ai-chat__messages-inner { width: min(920px, calc(100% - 80px)); height: 100%; margin: 0 auto; }
+.ai-chat__messages .t-chat { height: 100%; background: transparent; }
+.ai-chat__messages .t-chat__list {
+    height: 100%;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+.ai-chat__messages .t-chat__list::-webkit-scrollbar { display: none; width: 0; height: 0; }
+
+/* TDesign Chat 的角色布局负责左右定位，产品层不展示任何角色头像。 */
+.ai-chat__messages .t-chat__avatar,
+.ai-chat__messages .t-chat-item__avatar,
+.ai-chat__messages .t-chat__item__avatar,
+.ai-chat__messages [part="avatar"] { display: none; }
+.ai-chat__message-content { display: flex; width: 100%; flex-direction: column; gap: var(--app-spacing-sm); }
+.ai-chat__image-list { display: flex; flex-wrap: wrap; gap: var(--app-spacing-sm); }
+.ai-chat__image-trigger { display: block; max-width: 180px; max-height: 160px; padding: 0; overflow: hidden; background: transparent; border: 0; border-radius: var(--app-radius-sm); cursor: zoom-in; }
+.ai-chat__image-thumbnail { display: block; width: auto; height: auto; max-width: 180px; max-height: 160px; object-fit: contain; border-radius: var(--app-radius-sm); cursor: zoom-in; }
+.ai-chat__tool-call { overflow: hidden; border: 1px solid var(--app-border); border-radius: var(--app-radius-sm); background: var(--app-bg-page); }
+.ai-chat__tool-call.t-collapse { border-bottom: 1px solid var(--app-border); }
+.ai-chat__tool-call .t-collapse-panel__header { min-height: 38px; padding: 0 var(--app-spacing-md); background: transparent; }
+.ai-chat__tool-call .t-collapse-panel__body { background: transparent; }
+.ai-chat__tool-call .t-collapse-panel__content { padding: 0 var(--app-spacing-md) var(--app-spacing-md); }
+.ai-chat__tool-name { color: var(--app-text-primary); font-size: var(--app-font-size-md); font-weight: 600; }
+.ai-chat__tool-name.is-streaming { color: var(--app-brand-color); }
+.ai-chat__tool-name.is-error { color: var(--app-error); }
+.ai-chat__tool-section + .ai-chat__tool-section { margin-top: var(--app-spacing-sm); }
+.ai-chat__tool-label { color: var(--app-text-placeholder); font-size: var(--app-font-size-sm); }
+.ai-chat__tool-detail { margin: var(--app-spacing-xs) 0 0; overflow-wrap: anywhere; color: var(--app-text-secondary); font-family: monospace; font-size: var(--app-font-size-md); white-space: pre-wrap; }
+
+/* 助手正文保持紧凑层级，Markdown 生成元素全部使用主题令牌。 */
+.ai-chat__messages .t-chat__text--assistant { overflow-wrap: anywhere; color: var(--app-text-primary); font-size: var(--app-font-size-md); line-height: 1.65; }
+.ai-chat__messages .t-chat__text--assistant > :first-child { margin-top: 0; }
+.ai-chat__messages .t-chat__text--assistant > :last-child { margin-bottom: 0; }
+.ai-chat__messages .t-chat__text--assistant p { margin: 0 0 var(--app-spacing-sm); }
+.ai-chat__messages .t-chat__text--assistant :where(h1, h2, h3, h4, h5, h6) { margin: var(--app-spacing-md) 0 var(--app-spacing-xs); color: var(--app-text-primary); font-weight: 600; line-height: 1.45; }
+.ai-chat__messages .t-chat__text--assistant h1 { font-size: var(--app-font-size-xl); }
+.ai-chat__messages .t-chat__text--assistant :where(h2, h3, h4, h5, h6) { font-size: var(--app-font-size-lg); }
+.ai-chat__messages .t-chat__text--assistant :where(ul, ol) { margin: 0 0 var(--app-spacing-sm); padding-left: var(--app-spacing-xl); }
+.ai-chat__messages .t-chat__text--assistant li + li { margin-top: var(--app-spacing-xs); }
+.ai-chat__messages .t-chat__text--assistant blockquote { margin: var(--app-spacing-sm) 0; padding: var(--app-spacing-xs) var(--app-spacing-md); color: var(--app-text-secondary); background: var(--app-bg-page); border-left: 3px solid var(--app-brand-color); }
+.ai-chat__messages .t-chat__text--assistant :not(pre) > code { padding: 2px var(--app-spacing-xs); color: var(--app-text-primary); background: var(--app-bg-page); border: 1px solid var(--app-border); border-radius: var(--app-radius-sm); }
+.ai-chat__messages .t-chat__text--assistant pre { margin: var(--app-spacing-sm) 0; padding: 0; overflow: auto; color: var(--app-text-primary); background: var(--app-bg-page); border: 1px solid var(--app-border); border-radius: var(--app-radius-sm); }
+.ai-chat__messages .t-chat__text--assistant .t-chat__code-header { min-height: 30px; align-items: center; padding: 0 var(--app-spacing-sm); color: var(--app-text-secondary); border-bottom: 1px solid var(--app-border); }
+.ai-chat__messages .t-chat__text--assistant pre code.hljs { margin: 0; padding: var(--app-spacing-sm) var(--app-spacing-md); overflow-x: auto; border-radius: 0; font-size: var(--app-font-size-sm); line-height: 1.5; }
+.ai-chat__messages .t-chat__text--assistant table { width: 100%; margin: var(--app-spacing-md) 0; border-collapse: collapse; }
+.ai-chat__messages .t-chat__text--assistant :where(th, td) { padding: var(--app-spacing-sm) var(--app-spacing-md); border: 1px solid var(--app-border); }
+.ai-chat__messages .t-chat__text--assistant th { background: var(--app-bg-page); font-weight: 600; }
+.ai-chat__messages .t-chat__text--assistant a { color: var(--app-brand-color); text-decoration: none; }
+.ai-chat__messages .t-chat__text--assistant a:hover { color: var(--app-brand-hover); text-decoration: underline; }
+.ai-chat__messages .t-chat__text--assistant hr { height: 0; margin: var(--app-spacing-md) 0; border: 0; border-top: 1px solid var(--app-border); }
+
+.ai-chat__empty { display: flex; align-items: center; justify-content: center; min-height: 0; color: var(--app-text-secondary); text-align: center; }
+.ai-chat__welcome { display: flex; flex-direction: column; align-items: center; gap: var(--app-spacing-sm); }
+.ai-chat__welcome-title { color: var(--app-text-primary); font-size: 24px; font-weight: 600; }
+.ai-chat__welcome-hint { color: var(--app-text-secondary); font-size: var(--app-font-size-md); }
+
+.ai-chat__composer { width: min(920px, calc(100% - 80px)); margin: 0 auto; padding: 0 0 var(--app-spacing-lg); }
+.ai-chat__composer .t-chat-sender { width: 100%; }
+.ai-chat__reasoning-controls { display: flex; align-items: center; min-height: 32px; }
+.ai-chat__reasoning-level { width: 112px; }
+.ai-chat__reasoning-level .t-input {
+    min-height: 32px;
+    color: var(--app-text-primary);
+    background: var(--app-bg-card);
+    border: 1px solid var(--app-border-hover);
+    border-radius: var(--app-radius-pill) !important;
+}
+.ai-chat__reasoning-level .t-input:hover,
+.ai-chat__reasoning-level .t-input:focus-within { border-color: var(--app-brand-color) !important; }
+.ai-chat__reasoning-level .t-input__wrap { border-radius: var(--app-radius-pill) !important; }
+.ai-chat__reasoning-level .t-input__inner { padding-left: var(--app-spacing-md); }
+.ai-chat__composer-note { display: block; margin-top: var(--app-spacing-xs); color: var(--app-text-placeholder); font-size: var(--app-font-size-sm); text-align: center; }
+.ai-chat__composer-note.is-warning { color: var(--app-warning); }
+</style>
+{% endblock %}
+{% block content %}
+<div id="page-app" v-cloak class="admin-list-page ai-chat-page">
+    <div class="ai-chat-workbench">
+        <header class="ai-chat__toolbar">
+            <div class="ai-chat__toolbar-left">
+                <t-select v-model="selectedModelKey" class="ai-chat__model-select" :options="modelOptions" :loading="modelsLoading" :disabled="!modelOptions.length || modelsLoading" placeholder="选择模型" @change="selectModel"></t-select>
+                <span v-if="!modelsLoading && !modelOptions.length" class="ai-chat__model-empty">请先在 AI 资源工作台启用模型</span>
+            </div>
+            <div class="ai-chat__toolbar-right">
+                <t-button theme="default" variant="text" shape="square" title="刷新" :loading="loading" @click="refreshAll"><template #icon><t-icon name="refresh" /></template></t-button>
+            </div>
+        </header>
+
+        <div class="ai-chat__body">
+            <aside class="ai-chat__sidebar" aria-label="对话列表">
+                <t-button class="ai-chat__new-button" theme="primary" variant="outline" @click="createSession"><template #icon><t-icon name="add" /></template>新建对话</t-button>
+                <div class="ai-chat__sidebar-title"><span>所有对话</span><span>[[ sessions.length ]]</span></div>
+                <div v-if="sessions.length" class="ai-chat__session-list" role="list">
+                    <div v-for="row in sessions" :key="sessionId(row)" class="ai-chat__session-row" :class="{'is-active': sessionId(row) === selectedSession}" role="listitem">
+                        <button type="button" class="ai-chat__session-item" @click="selectSession(sessionId(row))">
+                            <span class="ai-chat__session-name">[[ sessionName(row) ]]</span>
+                            <span class="ai-chat__session-time">[[ sessionTime(row) ]]</span>
+                        </button>
+                        <t-popconfirm content="确认删除此对话及全部聊天记录？" theme="danger" @confirm="deleteSession(row)">
+                            <t-button class="ai-chat__session-delete" theme="danger" variant="text" shape="square" size="small" :title="sessionId(row) === selectedSession && running ? '请先停止当前回复，再删除对话' : '删除对话'" aria-label="删除对话" :loading="deletingSession === sessionId(row)" :disabled="deletingSession !== '' || (sessionId(row) === selectedSession && running)" @click.stop>
+                                <template #icon><t-icon name="delete" /></template>
+                            </t-button>
+                        </t-popconfirm>
+                    </div>
+                </div>
+                <div v-else class="ai-chat__sidebar-empty">暂无对话</div>
+            </aside>
+
+            <section class="ai-chat__conversation" aria-label="模型对话">
+                <t-alert v-if="error" class="ai-chat__error" theme="error" :closeable="false">
+                    <template #operation><t-button theme="default" size="small" @click="refreshAll">重试</t-button></template>[[ error ]]
+                </t-alert>
+                <div v-if="selectedSession && chatItems.length" class="ai-chat__messages">
+                    <div class="ai-chat__messages-inner">
+                        <t-chat-list ref="messageList" :data="chatItems" layout="both" :auto-scroll="true" :clear-history="false" default-scroll-to="bottom">
+                            <template #content="{ item }">
+                                <div class="ai-chat__message-content">
+                                    <template v-for="block in item.content" :key="block.id || block.type">
+                                        <t-chat-thinking v-if="block.type === 'thinking'" :content="block.data" :status="block.status || item.status" :collapsed="block.collapsed" layout="block" @collapsed-change="setBlockCollapsed(item, block, $event)"></t-chat-thinking>
+                                        <t-collapse v-else-if="isToolBlock(block)" class="ai-chat__tool-call" :value="toolExpandValue(block)" expand-icon-placement="right" @change="setToolExpanded(item, block, $event)">
+                                            <t-collapse-panel :value="block.id">
+                                                <template #header><span class="ai-chat__tool-name" :class="'is-' + (block.status || 'complete')">[[ toolTitle(block) ]]</span></template>
+                                                <div v-if="block.data.args" class="ai-chat__tool-section"><span class="ai-chat__tool-label">调用参数</span><pre class="ai-chat__tool-detail">[[ block.data.args ]]</pre></div>
+                                                <div v-if="block.data.result" class="ai-chat__tool-section"><span class="ai-chat__tool-label">调用结果</span><pre class="ai-chat__tool-detail">[[ block.data.result ]]</pre></div>
+                                                <div v-if="!block.data.args && !block.data.result" class="ai-chat__tool-section"><span class="ai-chat__tool-label">等待工具返回</span></div>
+                                            </t-collapse-panel>
+                                        </t-collapse>
+                                        <div v-else-if="block.type === 'image'" class="ai-chat__image-list">
+                                            <t-image-viewer :images="[block.data.url]">
+                                                <template #trigger="{ open }">
+                                                    <button type="button" class="ai-chat__image-trigger" :aria-label="'预览图片：' + (block.data.name || '图片')" @click="open">
+                                                        <img class="ai-chat__image-thumbnail" :src="block.data.url" :alt="block.data.name || '图片'">
+                                                    </button>
+                                                </template>
+                                            </t-image-viewer>
+                                        </div>
+                                        <t-chat-content v-else :content="item.replyStatus === 'error' ? block.data : block" :role="item.role" :status="item.replyStatus === 'error' ? 'error' : ''" :markdown-props="markdownProps"></t-chat-content>
+                                    </template>
+                                </div>
+                            </template>
+                        </t-chat-list>
+                    </div>
+                </div>
+                <div v-else class="ai-chat__empty">
+                    <div class="ai-chat__welcome"><div class="ai-chat__welcome-title">有什么可以帮你的？</div><div class="ai-chat__welcome-hint">选择模型后，输入问题开始对话</div></div>
+                </div>
+                <div class="ai-chat__composer">
+                    <t-chat-sender v-model="draft" placeholder="输入消息" :loading="running" :disabled="!selectedModelKey || sending" :send-btn-disabled="sendDisabled" :attachments-props="attachmentProps" @send="sendMessage" @stop="interruptMessage" @file-select="selectFiles" @remove="removeAttachment">
+                        <template #footer-prefix>
+                            <div v-if="reasoningSupported && reasoningEffortOptions.length" class="ai-chat__reasoning-controls">
+                                <t-select v-model="reasoningEffort" class="ai-chat__reasoning-level" :options="reasoningEffortOptions" :disabled="reasoningControlsDisabled" aria-label="选择思考等级"></t-select>
+                            </div>
+                        </template>
+                        <template #suffix="{ renderPresets }"><sender-suffix :render-presets="renderPresets" :actions="imageActions" /></template>
+                    </t-chat-sender>
+                    <span class="ai-chat__composer-note" :class="{'is-warning': composerWarning}">[[ composerWarning || '内容由模型生成，请核验重要信息' ]]</span>
+                </div>
+            </section>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="/static/vendor/tdesign-chat/tdesign-chat.iife.js"></script>
+<script src="/static/js/pages/ai-chat-session-actions.js?v={{ config.app_version }}&rev=20260826-2"></script>
+<script src="/static/js/pages/ai-chat-event-stream.js?v={{ config.app_version }}&rev=20260827-2"></script>
+<script src="/static/js/pages/ai-chat-message-state.js?v={{ config.app_version }}&rev=20260827-2"></script>
+<script src="/static/js/pages/ai-chat.js?v={{ config.app_version }}&rev=20260830-2"></script>
+{% endblock %}

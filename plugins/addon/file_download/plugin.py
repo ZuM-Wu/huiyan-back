@@ -15,8 +15,6 @@
 import logging
 from pathlib import Path
 
-from sqlalchemy import delete
-
 from core.config_manager import ConfigManager
 from core.plugin_manager import BasePlugin
 
@@ -69,7 +67,7 @@ class Plugin(BasePlugin):
         super().__init__(db_session, config)
         self.name = PLUGIN_NAME
         self.title = "文件下载"
-        self.version = "2.0.0"
+        self.version = "1.0.1"
         self.description = "管理员分文件夹上传文件并控制可见范围，农户在农户端浏览下载"
         self.module = "addon"
         self._config_manager = ConfigManager()
@@ -116,9 +114,9 @@ class Plugin(BasePlugin):
         卸载插件（五步逆操作）：
         1. 删除数据表（执行 migrations/uninstall.sql）
         2. 按 owner 注销全部运行时能力 — PluginManager 处理
-        3. 级联删除权限 — PluginManager 调用 unregister_plugin_permissions() 处理
-        4. 清理配置（删除所有 file_download. 前缀配置）
-        5. 删除后台菜单 + 清空插件私有 upload/ 目录物理文件，返回 True
+        3. 级联删除权限、配置、导航和菜单 — PluginManager 处理
+        4. 清空插件私有 upload/ 目录物理文件
+        5. 注销运行时能力 — PluginManager 处理，返回 True
         """
         if not self.db:
             return False
@@ -127,17 +125,8 @@ class Plugin(BasePlugin):
         await self._run_sql_file("uninstall.sql")
 
         # 2. 运行时能力注销由 PluginManager 处理
-        # 3. 级联删除权限（PluginManager 处理）
-
-        # 4. 清理配置
-        from core.db.configuration import ConfigurationModel
-        await self.db.execute(
-            delete(ConfigurationModel).where(ConfigurationModel.key.like(f"{PLUGIN_NAME}.%"))
-        )
-
-        # 5. 删除后台菜单 + 清空物理文件
-        from core.db.menu import Menu
-        await self.db.execute(delete(Menu).where(Menu.plugin == PLUGIN_NAME))
+        # 3. 权限、配置、导航和菜单由 PluginManager 统一清理。
+        # 4. 清空物理文件；运行时能力由 PluginManager 注销。
         # 事务由框架层 PluginManager 统一管理，插件不自行 commit
         self._cleanup_upload_dir()
 
@@ -189,6 +178,7 @@ class Plugin(BasePlugin):
                 "icon": "folder",
                 "nav_type": "admin",
                 "template": "file_download.html", "audience": "admin",
+                "scripts": ["file_download.js"],
                 "permission": "file_download:list",
                 "api_base": "/api/admin/v1/file-download",
             },
@@ -212,24 +202,6 @@ class Plugin(BasePlugin):
         """声明由系统上传设置统一管理的资料上传策略。"""
         from plugins.addon.file_download.upload_policies import POLICIES
         return POLICIES
-
-    def get_mcp_tools(self):
-        """
-        声明插件的 MCP 工具（插件侧参考实现）
-
-        工具实际注册名为 file_download_list_files（registry 自动加插件名前缀）；
-        permission_code 复用现有 RBAC 权限码，与后台接口同权限口径。
-        """
-        return [
-            {
-                "name": "list_files",
-                "description": "查询文件下载插件中的文件列表，支持按关键词和文件夹ID筛选，"
-                               "返回文件名/所属文件夹/类型/大小/下载次数。",
-                "handler": mcp_list_files,
-                "audience": "admin",
-                "permission_code": "file_download:list",
-            },
-        ]
 
     # ------------------------------------------------------------------
     # 内部辅助

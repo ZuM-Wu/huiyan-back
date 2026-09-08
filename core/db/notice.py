@@ -3,7 +3,7 @@
 包含通知动作、短信模板、邮件模板、通知日志、站内信消息表
 """
 from datetime import datetime
-
+from core.time_utils import china_now
 from sqlalchemy import BigInteger, Boolean, DateTime, Integer, JSON, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -41,8 +41,8 @@ class NoticeAction(Base):
     # 联动配置
     trigger_inbox: Mapped[bool] = mapped_column(Boolean, default=False, comment="发送时是否联动站内信")
 
-    create_time: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, comment="创建时间")
-    update_time: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, onupdate=datetime.now, comment="更新时间")
+    create_time: Mapped[datetime] = mapped_column(DateTime, default=china_now, comment="创建时间")
+    update_time: Mapped[datetime] = mapped_column(DateTime, default=china_now, onupdate=china_now, comment="更新时间")
 
 
 class SmsTemplate(Base):
@@ -68,8 +68,8 @@ class SmsTemplate(Base):
     action_key: Mapped[str] = mapped_column(String(64), default="", comment="默认关联动作")
     remark: Mapped[str] = mapped_column(String(256), default="", comment="备注")
 
-    create_time: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, comment="创建时间")
-    update_time: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, onupdate=datetime.now, comment="更新时间")
+    create_time: Mapped[datetime] = mapped_column(DateTime, default=china_now, comment="创建时间")
+    update_time: Mapped[datetime] = mapped_column(DateTime, default=china_now, onupdate=china_now, comment="更新时间")
 
 
 class EmailTemplate(Base):
@@ -88,8 +88,8 @@ class EmailTemplate(Base):
 
     action_key: Mapped[str] = mapped_column(String(64), default="", comment="默认关联动作")
 
-    create_time: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, comment="创建时间")
-    update_time: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, onupdate=datetime.now, comment="更新时间")
+    create_time: Mapped[datetime] = mapped_column(DateTime, default=china_now, comment="创建时间")
+    update_time: Mapped[datetime] = mapped_column(DateTime, default=china_now, onupdate=china_now, comment="更新时间")
 
 
 class NoticeLog(Base):
@@ -111,7 +111,7 @@ class NoticeLog(Base):
     recipient_id: Mapped[int] = mapped_column(Integer, default=0, comment="接收者 ID(farmer_id/admin_id)")
     extra: Mapped[dict[str, object] | None] = mapped_column(JSON, comment="扩展字段 (message_id 等)")
     send_time: Mapped[datetime | None] = mapped_column(DateTime, comment="发送时间")
-    create_time: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, comment="创建时间")
+    create_time: Mapped[datetime] = mapped_column(DateTime, default=china_now, comment="创建时间")
 
 
 class InboxMessage(Base):
@@ -132,4 +132,4 @@ class InboxMessage(Base):
     read_time: Mapped[datetime | None] = mapped_column(DateTime, comment="阅读时间")
     priority: Mapped[int] = mapped_column(Integer, default=0, comment="优先级:0=普通 1=重要")
     extra: Mapped[dict[str, object] | None] = mapped_column(JSON, comment="扩展字段 (log_id 等)")
-    create_time: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, comment="创建时间")
+    create_time: Mapped[datetime] = mapped_column(DateTime, default=china_now, comment="创建时间")

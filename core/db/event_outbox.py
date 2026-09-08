@@ -1,7 +1,7 @@
 """可靠业务事件 Outbox 模型。"""
 
 from datetime import datetime
-
+from core.time_utils import china_now
 from sqlalchemy import BigInteger, DateTime, Index, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -24,4 +24,4 @@ class EventOutbox(Base):
     correlation_id: Mapped[str] = mapped_column(String(128), default="", comment="业务关联标识")
     status: Mapped[str] = mapped_column(String(20), default="Pending", comment="状态: Pending/Dispatched")
     dispatched_at: Mapped[datetime | None] = mapped_column(DateTime, comment="分发完成时间")
-    create_time: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, comment="创建时间")
+    create_time: Mapped[datetime] = mapped_column(DateTime, default=china_now, comment="创建时间")

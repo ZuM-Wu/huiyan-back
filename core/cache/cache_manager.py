@@ -1,6 +1,6 @@
 """
 缓存管理器
-慧眼护农 V4 缓存子系统
+慧眼护农 3.4.0 缓存子系统
 
 策略: 纯文件缓存（系统规范禁止引入 Redis 等外部缓存依赖）
 
@@ -95,11 +95,15 @@ class CacheManager:
                     not isinstance(data, dict) or "_expire" not in data
                     or (data["_expire"] != 0 and data["_expire"] < now)
                 )
-            except Exception:
+            except Exception as exc:
+                logger.warning("[CacheManager] 缓存清扫读取失败: path=%s error=%s", path, exc)
                 expired = True  # 损坏文件直接清理
             if expired:
-                path.unlink(missing_ok=True)
-                removed += 1
+                try:
+                    path.unlink(missing_ok=True)
+                    removed += 1
+                except OSError as exc:
+                    logger.warning("[CacheManager] 缓存清扫删除失败: path=%s error=%s", path, exc)
         return removed
 
     # 文件缓存辅助方法
@@ -114,15 +118,27 @@ class CacheManager:
         try:
             with open(path, "r", encoding="utf-8") as f:
                 data = json.load(f)
-        except Exception:
+        except Exception as exc:
+            logger.warning("[CacheManager] 缓存读取失败，按未命中处理: key=%s path=%s error=%s", key, path, exc)
             return None
-        # 旧版裸格式（无 _expire 信封）：视为过期删除，下次写入即完成热迁移
-        if not isinstance(data, dict) or "_expire" not in data:
-            path.unlink(missing_ok=True)
-            return None
-        # 信封格式：_expire=0 永不过期，否则到期惰性删除
-        if data["_expire"] != 0 and data["_expire"] < int(time.time()):
-            path.unlink(missing_ok=True)
+        try:
+            # 旧版裸格式（无 _expire 信封）或非法过期值均按损坏处理。
+            if not isinstance(data, dict) or "_expire" not in data:
+                expired = True
+            else:
+                expire_at = data["_expire"]
+                if isinstance(expire_at, bool) or not isinstance(expire_at, (int, float)):
+                    raise ValueError("缓存过期时间格式无效")
+                # 信封格式：_expire=0 永不过期，否则到期惰性删除。
+                expired = expire_at != 0 and expire_at < int(time.time())
+        except Exception as exc:
+            logger.warning("[CacheManager] 缓存内容损坏，按未命中处理: key=%s path=%s error=%s", key, path, exc)
+            expired = True
+        if expired:
+            try:
+                path.unlink(missing_ok=True)
+            except OSError as exc:
+                logger.warning("[CacheManager] 惰性缓存删除失败: key=%s path=%s error=%s", key, path, exc)
             return None
         return data.get("value")
 

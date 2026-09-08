@@ -14,7 +14,8 @@
 周期任务最终失败会发布 task.failed 可靠事件。
 """
 import logging
-from datetime import datetime, timedelta
+from datetime import timedelta
+from core.time_utils import china_now
 from typing import Any, cast
 
 from sqlalchemy import select, update, delete
@@ -40,7 +41,7 @@ class TaskMonitorService:
         1. 写入 hy_task_log
         2. 失败时写系统日志（平台内告知管理员）
         """
-        now = datetime.now()
+        now = china_now()
         start_time = now - timedelta(milliseconds=duration_ms) if duration_ms else now
 
         async with async_session_factory() as db:
@@ -99,7 +100,7 @@ class TaskMonitorService:
             log.handle_status = 1
             log.handled_by = admin_id
             log.handled_by_name = admin_name
-            log.handled_time = datetime.now()
+            log.handled_time = china_now()
             log.handle_note = "手动重试"
             await db.commit()
 
@@ -125,7 +126,7 @@ class TaskMonitorService:
                     handle_status=1,
                     handled_by=admin_id,
                     handled_by_name=admin_name,
-                    handled_time=datetime.now(),
+                    handled_time=china_now(),
                     handle_note=note,
                 )
             )
@@ -141,7 +142,7 @@ class TaskMonitorService:
                     handle_status=2,
                     handled_by=admin_id,
                     handled_by_name=admin_name,
-                    handled_time=datetime.now(),
+                    handled_time=china_now(),
                     handle_note=note,
                 )
             )
@@ -150,7 +151,7 @@ class TaskMonitorService:
 
     async def clean_expired_logs(self, retention_days: int = 30):
         """清理超过保留期的任务日志"""
-        cutoff = datetime.now() - timedelta(days=retention_days)
+        cutoff = china_now() - timedelta(days=retention_days)
         async with async_session_factory() as db:
             result = cast(CursorResult[Any], await db.execute(
                 delete(TaskLog).where(TaskLog.create_time < cutoff)

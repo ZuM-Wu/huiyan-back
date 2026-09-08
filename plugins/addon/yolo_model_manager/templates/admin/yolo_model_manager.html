@@ -1,0 +1,283 @@
+{% extends "plugin_page_shell.html" %}
+{% block title %}智能识别 - 慧眼护农{% endblock %}
+
+{% block content %}
+<div id="page-app" v-cloak class="yolo-model-page">
+    <t-card title="智能识别" class="ymm-main-card t-card--scrollable">
+        <t-tabs v-model="activeTab">
+            <t-tab-panel value="records" label="识别记录">
+                <div class="ymm-tab-body">
+                    <div class="card-header-toolbar">
+                        <div class="card-header-toolbar-left"></div>
+                        <div class="card-header-toolbar-right ymm-filters">
+                            <t-select v-model="recordFilters.plot_id" :options="recordOptions.plots"
+                                clearable filterable placeholder="全部地块" class="ymm-record-filter"></t-select>
+                            <t-select v-model="recordFilters.model_id" :options="recordOptions.models"
+                                clearable filterable placeholder="全部模型" class="ymm-record-filter"></t-select>
+                            <t-button theme="primary" @click="searchRecords">
+                                <template #icon><t-icon name="search"></t-icon></template>
+                                查询
+                            </t-button>
+                            <t-button theme="default" @click="resetRecords">重置</t-button>
+                            <t-tooltip content="刷新识别记录">
+                                <t-button shape="square" theme="default" @click="fetchRecords">
+                                    <template #icon><t-icon name="refresh"></t-icon></template>
+                                </t-button>
+                            </t-tooltip>
+                        </div>
+                    </div>
+
+                    <t-skeleton v-if="recordLoading" :row-col="[8, 8, 8, 8, 8]"
+                        animation="gradient"></t-skeleton>
+                    <t-table v-else :data="records" :columns="recordColumns"
+                        :pagination="recordPagination" row-key="id" hover table-layout="fixed"
+                        @page-change="onRecordPageChange">
+                        <template #image="{ row }">
+                            <t-image v-if="row.annotated_image_url" :src="row.annotated_image_url" fit="cover"
+                                class="ymm-record-image"></t-image>
+                            <t-tooltip v-else content="暂无标注图">
+                                <div class="ymm-record-image-empty">
+                                    <t-icon name="image"></t-icon>
+                                </div>
+                            </t-tooltip>
+                        </template>
+                        <template #plot="{ row }">
+                            <div class="ymm-record-context">
+                                <span class="ymm-primary-text">[[ row.plot_name ]]</span>
+                                <span class="ymm-secondary-text">[[ row.area_name ]]</span>
+                            </div>
+                        </template>
+                        <template #record_model="{ row }">
+                            <div class="ymm-record-context">
+                                <span class="ymm-primary-text">[[ row.model_name ]]</span>
+                                <span class="ymm-secondary-text">[[ row.model_version || '未标版本' ]]</span>
+                            </div>
+                        </template>
+                        <template #result="{ row }">
+                            <div v-if="row.labels.length" class="ymm-tag-summary">
+                                <t-tag v-for="label in row.labels.slice(0, 2)" :key="label"
+                                    theme="primary" variant="light">[[ label ]]</t-tag>
+                                <t-tag v-if="row.labels.length > 2" theme="default" variant="light">
+                                    +[[ row.labels.length - 2 ]]
+                                </t-tag>
+                            </div>
+                            <span v-else class="ymm-secondary-text">未识别到目标</span>
+                        </template>
+                        <template #confidence="{ row }">
+                            <span>[[ formatConfidence(row.max_confidence) ]]</span>
+                        </template>
+                        <template #record_actions="{ row }">
+                            <t-button variant="text" theme="primary" size="small"
+                                @click="openRecordDetail(row)">详情</t-button>
+                        </template>
+                        <template #empty>
+                            <t-empty description="暂无识别记录"></t-empty>
+                        </template>
+                    </t-table>
+                </div>
+            </t-tab-panel>
+
+            <t-tab-panel value="models" label="模型管理">
+                <div class="ymm-tab-body">
+                    <div class="card-header-toolbar">
+                        <div class="card-header-toolbar-left">
+                            <t-button v-permission="'yolo_model_manager:create'" theme="primary"
+                                :disabled="!uploadPolicyReady" @click="openUpload">
+                                <template #icon><t-icon name="upload"></t-icon></template>
+                                上传模型
+                            </t-button>
+                        </div>
+                        <div class="card-header-toolbar-right ymm-filters">
+                            <t-input v-model="filters.keyword" clearable placeholder="搜索名称、版本、文件名或标签"
+                                class="ymm-search" @enter="searchModels"></t-input>
+                            <t-select v-model="filters.format" :options="formatOptions" clearable
+                                placeholder="全部格式" class="ymm-filter"></t-select>
+                            <t-select v-model="filters.binding_status" :options="bindingStatusOptions" clearable
+                                placeholder="全部绑定状态" class="ymm-filter"></t-select>
+                            <t-button theme="primary" @click="searchModels">
+                                <template #icon><t-icon name="search"></t-icon></template>
+                                查询
+                            </t-button>
+                            <t-button theme="default" @click="resetModels">重置</t-button>
+                            <t-tooltip content="刷新模型列表">
+                                <t-button shape="square" theme="default" @click="fetchModels">
+                                    <template #icon><t-icon name="refresh"></t-icon></template>
+                                </t-button>
+                            </t-tooltip>
+                        </div>
+                    </div>
+
+                    <t-skeleton v-if="loading" :row-col="[8, 8, 8, 8, 8]" animation="gradient"></t-skeleton>
+                    <t-table v-else :data="models" :columns="columns"
+                        :pagination="pagination" row-key="id" hover table-layout="fixed"
+                        @page-change="onPageChange">
+                        <template #model="{ row }">
+                            <div class="ymm-model-name">
+                                <div class="ymm-model-heading">
+                                    <span class="ymm-primary-text">[[ row.name ]]</span>
+                                    <t-tag v-if="row.version" theme="default" variant="light" size="small">
+                                        [[ row.version ]]
+                                    </t-tag>
+                                </div>
+                                <t-tooltip :content="row.origin_name">
+                                    <span class="ymm-secondary-text">[[ row.origin_name ]]</span>
+                                </t-tooltip>
+                                <t-tooltip :content="row.sha256">
+                                    <span class="ymm-hash">SHA-256 [[ shortHash(row.sha256) ]]</span>
+                                </t-tooltip>
+                            </div>
+                        </template>
+                        <template #file="{ row }">
+                            <div class="ymm-file-meta">
+                                <t-tag theme="primary" variant="light">[[ row.file_format.toUpperCase() ]]</t-tag>
+                                <span class="ymm-secondary-text">[[ formatSize(row.file_size) ]]</span>
+                            </div>
+                        </template>
+                        <template #labels="{ row }">
+                            <div v-if="row.labels.length" class="ymm-tag-summary">
+                                <t-tag v-for="label in row.labels.slice(0, 3)" :key="label"
+                                    theme="primary" variant="light">[[ label ]]</t-tag>
+                                <t-tooltip v-if="row.labels.length > 3" :content="row.labels.join('、')">
+                                    <t-tag theme="default" variant="light">+[[ row.labels.length - 3 ]]</t-tag>
+                                </t-tooltip>
+                            </div>
+                            <span v-else class="ymm-secondary-text">未识别</span>
+                        </template>
+                        <template #bindings="{ row }">
+                            <div v-if="row.bindings.length" class="ymm-binding-summary">
+                                <t-tag v-for="item in row.bindings.slice(0, 1)" :key="item.plot_id"
+                                    :theme="item.plot_status === 1 && item.area_status === 1 ? 'success' : 'warning'"
+                                    variant="light">[[ item.area_name ]] / [[ item.plot_name ]]</t-tag>
+                                <t-tag v-if="row.bindings.length > 1" variant="light">
+                                    +[[ row.bindings.length - 1 ]]
+                                </t-tag>
+                            </div>
+                            <span v-else class="ymm-secondary-text">未绑定</span>
+                        </template>
+                        <template #default_confidence="{ row }">
+                            <span>[[ formatConfidence(row.default_confidence) ]]</span>
+                        </template>
+                        <template #actions="{ row }">
+                            <t-space size="small" class="ymm-actions">
+                                <t-button v-permission="'yolo_model_manager:bind'" variant="text"
+                                    theme="primary" size="small" @click="openBindings(row)">绑定</t-button>
+                                <t-button v-permission="'yolo_model_manager:update'" variant="text"
+                                    theme="default" size="small" @click="openEdit(row)">编辑</t-button>
+                                <t-button v-permission="'yolo_model_manager:download'" variant="text"
+                                    theme="default" size="small" @click="downloadModel(row)">下载</t-button>
+                                <t-button v-permission="'yolo_model_manager:delete'" variant="text"
+                                    theme="danger" size="small" @click="confirmDelete(row)">删除</t-button>
+                            </t-space>
+                        </template>
+                        <template #empty>
+                            <t-empty description="暂无模型"></t-empty>
+                        </template>
+                    </t-table>
+                </div>
+            </t-tab-panel>
+        </t-tabs>
+    </t-card>
+
+    <t-dialog v-model:visible="recordDetailVisible" header="识别记录详情" :footer="false"
+        width="840px" placement="center">
+        <t-loading :loading="recordDetailLoading" show-overlay>
+            <div v-if="recordDetail" class="ymm-record-detail">
+                <t-image v-if="recordDetail.annotated_image_url"
+                    :src="recordDetail.annotated_image_url" fit="contain"
+                    class="ymm-record-detail-image"></t-image>
+                <div v-else class="ymm-record-detail-image ymm-record-detail-image-empty">
+                    <t-icon name="image"></t-icon>
+                    <span>暂无标注图</span>
+                </div>
+                <t-descriptions :column="2" bordered size="small" class="ymm-record-detail-meta">
+                    <t-descriptions-item label="地块">
+                        [[ recordDetail.area_name ]] / [[ recordDetail.plot_name ]]
+                    </t-descriptions-item>
+                    <t-descriptions-item label="模型">
+                        [[ recordDetail.model_name ]] [[ recordDetail.model_version ]]
+                    </t-descriptions-item>
+                    <t-descriptions-item label="识别时间">
+                        [[ recordDetail.recognized_at ]]
+                    </t-descriptions-item>
+                    <t-descriptions-item label="目标数量">
+                        [[ recordDetail.detection_count ]]
+                    </t-descriptions-item>
+                </t-descriptions>
+                <section class="ymm-record-detail-section">
+                    <h3 class="ymm-record-detail-section-title">目标明细</h3>
+                    <t-table :data="recordDetailDetections" :columns="detectionColumns"
+                        row-key="row_key" size="small" hover table-layout="fixed">
+                        <template #detection_confidence="{ row }">
+                            [[ formatConfidence(row.confidence) ]]
+                        </template>
+                        <template #bbox="{ row }">
+                            <span class="ymm-secondary-text">[[ formatBbox(row.bbox) ]]</span>
+                        </template>
+                        <template #empty>
+                            <t-empty description="本次未识别到目标"></t-empty>
+                        </template>
+                    </t-table>
+                </section>
+            </div>
+        </t-loading>
+    </t-dialog>
+
+    <t-dialog v-model:visible="modelDialogVisible" :header="modelDialogTitle"
+        :confirm-loading="submitting" :on-confirm="submitModel" width="480px" placement="center">
+        <t-form ref="modelFormRef" :data="modelForm" :rules="modelRules" label-width="90px">
+            <t-form-item v-if="!editingId" label="模型文件" name="upload">
+                <t-upload v-model="uploadFiles" :auto-upload="false" :max="1" theme="file"
+                    :accept="uploadAccept" :placeholder="uploadHint" class="ymm-upload"></t-upload>
+            </t-form-item>
+            <t-form-item label="模型名称" name="name">
+                <t-input v-model="modelForm.name" :maxlength="128"
+                    placeholder="例如：水稻病虫害检测模型"></t-input>
+            </t-form-item>
+            <t-form-item label="模型版本" name="version">
+                <t-input v-model="modelForm.version" :maxlength="64"
+                    placeholder="选填，例如 v1.0"></t-input>
+            </t-form-item>
+            <t-form-item label="默认置信度" name="confidence_percent">
+                <div class="ymm-confidence-control">
+                    <t-input-number v-model="modelForm.confidence_percent"
+                        :min="1" :max="100" :step="1" theme="normal"></t-input-number>
+                    <span>%</span>
+                </div>
+            </t-form-item>
+            <t-form-item label="模型说明" name="description">
+                <t-textarea v-model="modelForm.description" :maxlength="1000"
+                    :autosize="{ minRows: 3, maxRows: 6 }" placeholder="选填"></t-textarea>
+            </t-form-item>
+        </t-form>
+    </t-dialog>
+
+    <t-dialog v-model:visible="bindingDialogVisible" header="绑定地块"
+        :confirm-loading="bindingSubmitting" :on-confirm="submitBindings"
+        width="720px" placement="center">
+        <div class="ymm-binding-context">
+            <span class="ymm-primary-text">[[ bindingModel.name ]]</span>
+            <span class="ymm-secondary-text">每个地块只能绑定一个模型</span>
+        </div>
+        <t-loading :loading="bindingLoading" show-overlay>
+            <t-checkbox-group v-model="bindingForm.plot_ids" class="ymm-area-list">
+                <section v-for="area in bindingAreas" :key="area.id" class="ymm-area-group">
+                    <div class="ymm-area-header">
+                        <span>[[ area.name ]]</span>
+                        <t-tag v-if="area.status !== 1" theme="warning" variant="light">已停用</t-tag>
+                    </div>
+                    <div v-if="area.plots.length" class="ymm-plot-grid">
+                        <t-checkbox v-for="plot in area.plots" :key="plot.id" :value="plot.id"
+                            :disabled="!plot.selectable">
+                            <span>[[ plot.name ]]</span>
+                            <span v-if="plot.model_id && plot.model_id !== bindingModel.id"
+                                class="ymm-occupied">已绑定：[[ plot.model_name ]]</span>
+                            <span v-else-if="plot.status !== 1" class="ymm-occupied">已停用</span>
+                        </t-checkbox>
+                    </div>
+                    <span v-else class="ymm-secondary-text">暂无地块</span>
+                </section>
+            </t-checkbox-group>
+        </t-loading>
+    </t-dialog>
+</div>
+{% endblock %}

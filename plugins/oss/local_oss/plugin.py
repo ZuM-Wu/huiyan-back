@@ -21,7 +21,7 @@ class Plugin(OssPluginBase):
         super().__init__(db_session, config)
         self.name = "local_oss"
         self.title = "本地存储"
-        self.version = "1.0.0"
+        self.version = "1.0.1"
         self.description = "内置本地对象存储，文件存储于服务器本地磁盘"
         self.module = "oss"
 
@@ -43,6 +43,10 @@ class Plugin(OssPluginBase):
     async def uninstall(self) -> bool:
         """内置不可卸载（对标 ZJMF LocalOss.php:39）"""
         logger.warning("[local_oss] 内置存储插件不可卸载")
+        return False
+
+    async def can_uninstall(self) -> bool:
+        """内置本地存储承担系统兜底能力，禁止进入卸载副作用阶段。"""
         return False
 
     async def oss_link(self) -> dict:

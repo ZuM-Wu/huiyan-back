@@ -2,7 +2,7 @@
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from sqlalchemy import select, func, or_
+from sqlalchemy import select, func, or_, update
 
 from core.auth.middleware_chain import check_admin
 from core.auth.rbac import require_permission
@@ -174,6 +174,7 @@ async def update_plot_status(plot_id: int, data: AreaStatusUpdate, request: Requ
 async def delete_plot(plot_id: int, request: Request, _: None = Depends(check_admin)):
     """删除地块（仅当无下级批次时允许，保护未来插件外键）"""
     from core.db.base import async_session_factory
+    from core.db.hardware_device import HardwareDevice
     from core.db.production_area import Plot, PlantingBatch
     async with async_session_factory() as db:
         plot = (await db.execute(
@@ -187,6 +188,9 @@ async def delete_plot(plot_id: int, request: Request, _: None = Depends(check_ad
         )).scalar() or 0
         if batch_count > 0:
             raise HTTPException(status_code=400, detail="该地块下仍有种植批次，请先删除批次或改为停用")
+        await db.execute(update(HardwareDevice).where(
+            HardwareDevice.plot_id == plot_id
+        ).values(area_id=None, plot_id=None, marker_ratio=None))
         await db.delete(plot)
         await db.commit()
         await active_log(f"删除地块: {plot.name}", "plot", rel_id=plot_id,

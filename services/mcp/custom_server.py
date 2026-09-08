@@ -4,7 +4,7 @@ import asyncio
 import json
 import logging
 from dataclasses import dataclass
-from datetime import datetime
+from core.time_utils import china_now
 from urllib.parse import urlsplit
 
 from sqlalchemy import select
@@ -29,7 +29,7 @@ class ParsedMcpConfig:
     config: dict
 
 
-def _validate_url(url: str) -> str:
+def _validate_url(url: object) -> str:
     """仅允许带主机的 HTTP/HTTPS Streamable HTTP 地址。"""
     value = str(url or "").strip()
     parsed = urlsplit(value)
@@ -229,7 +229,7 @@ async def discover_tools(server) -> tuple[list, str | None]:
 async def test_and_cache_tools(server, db) -> dict:
     """测试单个 MCP，统一持久化工具缓存和最近测试状态。"""
     tools, error = await discover_tools(server)
-    server.last_test_time = datetime.now()
+    server.last_test_time = china_now()
     if error:
         server.last_test_status = 2
         server.last_error = error

@@ -42,7 +42,7 @@ class Plugin(WeatherPluginBase):
         super().__init__(db_session, config)
         self.name = PLUGIN_NAME
         self.title = "和风天气"
-        self.version = "1.1.0"
+        self.version = "1.1.1"
         self.description = "和风天气数据源（点位实况+逐时+预报+官方预警）"
         self.module = "weather"
 

@@ -1,0 +1,21 @@
+{
+  "key": "classic",
+  "name": "经典主题",
+  "module": "admin",
+  "theme_id": "classic",
+  "surface": "admin",
+  "compatible_app_versions": [">=3.4.0"],
+  "template_overrides": [],
+  "static_assets": [{"key": "preview.svg", "path": "assets/preview.svg", "type": "preview"}],
+  "component_tokens": {},
+  "dependencies": [],
+  "conflicts": [],
+  "fallback_theme": "vue_default",
+  "owner": "theme:admin:classic",
+  "enabled": true,
+  "version": "1.0.0",
+  "author": "HuiYan",
+  "preview": "preview.svg",
+  "min_app_version": "3.4.0",
+  "description": "后台管理端经典主题，保留旧版布局和组件外观"
+}

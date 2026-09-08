@@ -6,7 +6,7 @@
   从 knowledge.html 迁出的勘误审核区：状态 Tabs（待处理/已采纳/已驳回/全部）
   + 勘误表格 + 采纳/驳回处理弹窗，收录全部分类下的勘误。
   要点：
-  1. 继承核心 base.html；页面脚本外提至共享 js/pages（插件不挂 /static）
+  1. 继承插件公共页面壳；页面脚本由 manifest 本地资源声明加载
   2. 根节点 #page-app + v-cloak；Vue 分隔符 [[ ]]；t-* 组件禁止自闭合
   3. 接口复用 /api/admin/v1/knowledge/corrections，权限码 knowledge:correction
 #}
@@ -61,6 +61,4 @@
 
 {% block scripts %}
 {{ super() }}
-<!-- 页面脚本外提至共享 js/pages（与 knowledge.js 同范式） -->
-<script src="/static/js/pages/knowledge_corrections.js?v={{ config.app_version }}"></script>
 {% endblock %}

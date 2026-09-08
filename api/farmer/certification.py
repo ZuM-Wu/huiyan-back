@@ -14,7 +14,7 @@
 """
 import json
 import logging
-from datetime import datetime
+from core.time_utils import china_now
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import select, update
@@ -192,7 +192,7 @@ async def submit_certification(data: FarmerCertSubmit, request: Request,
             back_image=data.back_image,
             status=0,
             channel=channel_name,
-            submit_time=datetime.now(),
+            submit_time=china_now(),
         )
         db.add(record)
         await db.commit()
@@ -335,7 +335,7 @@ async def _query_via_plugin(record, db, request):
             })
         # 直接通过（条件 UPDATE 防并发覆盖）
         if await _update_record_status(
-            db, record.id, {"status": 1, "review_time": datetime.now()}
+            db, record.id, {"status": 1, "review_time": china_now()}
         ):
             await active_log(
                 "实名认证通过", "farmer_cert", rel_id=record.id, request=request

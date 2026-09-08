@@ -1,0 +1,36 @@
+{
+  "name": "yolo_model_manager",
+  "title": "智能识别",
+  "version": "1.1.0",
+  "description": "执行生长记录仪快捷检测，查询识别记录并管理 YOLO 模型与地块绑定",
+  "author": "HuiYan Team",
+  "module": "addon",
+  "owner_id": "yolo_model_manager",
+  "surface": "admin",
+  "enabled": true,
+  "default_order": 110,
+  "compatible_app_versions": [">=3.4.0"],
+  "dependencies": [],
+  "conflicts": [],
+  "permissions": ["yolo_model_manager:list", "yolo_model_manager:record:create", "yolo_model_manager:detect", "yolo_model_manager:analysis"],
+  "capabilities": ["yolo_model.manage", "yolo.recognition.record", "yolo.recognition.detect", "yolo.recognition.analysis"],
+  "pages": [
+    {
+      "page_key": "plugin_yolo_model_manager",
+      "surface": "admin",
+      "route": "/admin/plugin/yolo_model_manager/yolo_model_manager",
+      "template": "yolo_model_manager.html",
+      "permission": "yolo_model_manager:list",
+      "styles": ["yolo_model_manager.css"],
+      "scripts": ["yolo_model_manager.js"]
+    }
+  ],
+  "resources": [
+    "static/yolo_model_manager.css",
+    "static/yolo_model_manager.js"
+  ],
+  "tasks": ["yolo_recognition_detect"],
+  "events": [],
+  "health": {"check": "plugin.yolo_model_manager"},
+  "config": {}
+}

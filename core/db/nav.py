@@ -8,6 +8,7 @@ hy_menu 记录"侧边栏怎么排列"（布局层）。
 from sqlalchemy import DateTime, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 from datetime import datetime
+from core.time_utils import china_now
 from core.db.base import Base
 
 
@@ -27,4 +28,4 @@ class Nav(Base):
     group_name: Mapped[str] = mapped_column(String(64), default="", comment="分组名称（供导航管理下拉按分组展示）")
     page_type: Mapped[str] = mapped_column(String(32), default="system", comment="页面类型：system=系统页，custom=自定义路由")
     sort_order: Mapped[int] = mapped_column(Integer, default=0, comment="排序")
-    create_time: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, comment="创建时间")
+    create_time: Mapped[datetime] = mapped_column(DateTime, default=china_now, comment="创建时间")

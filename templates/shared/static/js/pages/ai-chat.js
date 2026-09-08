@@ -1,302 +1,405 @@
-/**
- * AI 对话页（管理员端）
- *
- * 布局：左侧会话列表 + 右侧消息流（自建聊天 UI 组件）
- * 关键机制：
- * - SSE 流式：fetch + getReader 解析统一事件信封（AiChatUtils.readSseStream）
- * - 消息段模型：每条 assistant 消息的 content 为段数组
- *   {type:'reasoning'|'tool'|'markdown', ...}，按事件类型增量写入（AiChatUtils.handleEvent）
- * - 技能双通道：输入框首字符 "/" 弹技能面板（按名称过滤，Enter 选中首项）；
- *   发送区工具栏技能按钮弹同一面板；选中后以可移除标签展示
- * - 共享组件：AiMessageList / AiChatSender 等由 ai-*-.js 组件文件注册到 HuiYanComponents
- */
-
 (function () {
-HuiYan.createPage({
-    setup() {
-        const { ref, computed, watch, onMounted, nextTick } = Vue;
-        const { MessagePlugin, DialogPlugin } = TDesign;
-        const Utils = window.AiChatUtils;
+    'use strict';
+    var RUNTIME_AGENT_MARKER = 'huiyan.runtime.agent.v3';
+    var LEGACY_RUNTIME_AGENT_MARKERS = ['huiyan.runtime.agent.v1', 'huiyan.runtime.agent.v2'];
+    var RUNTIME_AGENT_PROMPT = RUNTIME_AGENT_MARKER + '\n你是慧眼护农系统的运行时助手。普通文本和代码必须直接在聊天中完整返回。系统会自动向当前会话提供可用工具；当任务需要且工具已出现在工具列表时，应自主选择并调用，不得要求用户手动绑定 MCP、会话或天气资源。工具列表缺少所需能力时，按实际缺失项说明，不得自行推断用户未绑定产区。';
+    var CHAT_MODEL_TYPES = { deepseek_credential: 'deepseek_chat', glm_credential: 'glm_chat', openai_credential: 'openai_chat' };
+    var MAX_IMAGES = 4;
+    var IMAGE_ONLY_MARKER = String.fromCharCode(8203);
+    var STREAM_READY_EVENT = 'huiyan_stream_ready';
 
-        // 封装 DialogPlugin.confirm 为 Promise（TDesign 原生是回调式）
-        function confirmAsync(options) {
-            return new Promise(function (resolve) {
-                var instance = DialogPlugin.confirm({
-                    header: options.header,
-                    body: options.body,
-                    onConfirm: function () { instance.destroy(); resolve(true); },
-                    onClose: function () { instance.destroy(); resolve(false); },
-                    onCancel: function () { instance.destroy(); resolve(false); }
-                });
-            });
-        }
+    var SenderSuffix = Vue.defineComponent({ props: { renderPresets: { type: Function, required: true }, actions: { type: Array, required: true } },
+        setup: function (props) { return function () { return props.renderPresets(props.actions); }; } });
 
-        /* ===== 会话列表 ===== */
-        const conversations = ref([]);
-        const conversationId = ref(0);
+    HuiYan.createPage({
+        components: { SenderSuffix: SenderSuffix },
+        setup: function () {
+            var ref = Vue.ref, computed = Vue.computed, onMounted = Vue.onMounted, onBeforeUnmount = Vue.onBeforeUnmount;
+            var MessagePlugin = TDesign.MessagePlugin;
+            var loading = ref(false), modelsLoading = ref(false), sending = ref(false), running = ref(false);
+            var error = ref(''), replyError = ref(''), uploadPolicyError = ref('');
+            var sessions = ref([]), chatItems = ref([]), models = ref([]), attachments = ref([]);
+            var selectedAgent = ref(''), selectedSession = ref(''), selectedModelKey = ref(''), draft = ref(''), deletingSession = ref('');
+            var reasoningEffort = ref('');
+            var messageList = ref(null), uploadLimits = ref(null);
+            var streamController = null, streamReady = null, streamSession = '', streamPump = null, recovering = false;
+            var rejectedConfirmations = new Set();
 
-        async function fetchConversations() {
-            try {
-                const res = await request.get('/ai/conversations', { params: { page: 1, page_size: 50 } });
-                conversations.value = (res.data.data || {}).list || [];
-            } catch (e) { /* 列表失败静默，不阻断聊天 */ }
-        }
-
-        function newConversation() {
-            if (isStreaming.value) { MessagePlugin.warning('请等待当前回复结束'); return; }
-            conversationId.value = 0;
-            chatList.value = [];
-            selectedSkill.value = null;
-            uploadedImages.value = [];
-        }
-
-        async function openConversation(conv) {
-            if (isStreaming.value) { MessagePlugin.warning('请等待当前回复结束'); return; }
-            conversationId.value = conv.id;
-            uploadedImages.value = [];
-            try {
-                const res = await request.get('/ai/conversations/' + conv.id + '/messages',
-                    { params: { page: 1, page_size: 200 } });
-                const data = res.data.data || {};
-                chatList.value = [];
-                await nextTick();
-                chatList.value = Utils.mapHistory(data.list || []);
-                scrollToBottom();
-            } catch (e) {
-                MessagePlugin.error('加载历史消息失败');
+            function body(response) { var value = response && response.data; return value && value.status !== undefined && Object.prototype.hasOwnProperty.call(value, 'data') ? value.data : (value === undefined ? response : value); }
+            function scope(method, path, data, config) { return request.agentScope[method].call(request.agentScope, path, data, config).then(body); }
+            function resource(method, path, data, config) { return request[method].call(request, '/ai-resources' + path, data, config).then(body); }
+            function list(value, key) { return Array.isArray(value) ? value : (value && (value[key] || value.items)) || []; }
+            function errorText(err, fallback) { var data = err && err.response && err.response.data, detail = data && (data.detail || data.msg);
+                if (detail && typeof detail === 'object') detail = detail.message || detail.detail; return detail || (err && err.message) || fallback; }
+            function fail(err, fallback) { MessagePlugin.error(errorText(err, fallback)); }
+            function record(row) { return (row && row.data) || row || {}; }
+            function agentId(row) { return row && (row.id || row.agent_id) || record(row).id || ''; }
+            function sessionRecord(row) { return (row && row.session) || row || {}; }
+            function sessionId(row) { return sessionRecord(row).id || ''; }
+            function sessionConfig(row) { return sessionRecord(row).config || {}; }
+            function sessionName(row) { return sessionConfig(row).name || '新对话'; }
+            function formatTime(value) {
+                if (!value) return '';
+                var source = String(value).trim();
+                if (!/(?:Z|[+-]\d{2}:?\d{2})$/i.test(source)) source = source.replace(' ', 'T') + 'Z';
+                var date = new Date(source);
+                return Number.isNaN(date.getTime()) ? '' : date.toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
             }
-        }
+            function sessionTime(row) { var item = sessionRecord(row); return formatTime(item.updated_at || item.created_at || sessionConfig(row).created_at); }
 
-        async function removeConversation(conv) {
-            var yes = await confirmAsync({ header: '删除会话', body: '确定删除会话「' + (conv.title || '未命名会话') + '」吗？' });
-            if (!yes) return;
-            try {
-                await request.delete('/ai/conversations/' + conv.id);
-                MessagePlugin.success('会话已删除');
-                if (conv.id === conversationId.value) newConversation();
-                fetchConversations();
-            } catch (e) {
-                MessagePlugin.error(e.response?.data?.detail || '删除失败');
-            }
-        }
+            function modelKey(row) { return row.credential_id + '::' + row.model_name; }
+            function modelConfig(row, existing) { var type = row.provider === 'glm_credential' ? 'glm_chat' : (row.protocol === 'openai_responses' ? 'openai_response' : (CHAT_MODEL_TYPES[row.provider] || row.provider)); return { type: type, credential_id: row.credential_id, model: row.model_name, parameters: existing && existing.parameters || {} }; }
+            var modelOptions = computed(function () { return models.value.map(function (row) { return { value: modelKey(row), label: row.vendor + ' · ' + (row.label || row.model_name) }; }); });
+            function selectedModel() { return models.value.find(function (row) { return modelKey(row) === selectedModelKey.value; }) || null; }
+            function sameModel(left, right) { return Boolean(left && right && left.type === right.type && left.credential_id === right.credential_id && left.model === right.model); }
 
-        /* ===== 模型与技能 ===== */
-        const models = ref([]);
-        const selectedModel = ref('');
-        const modelReady = ref(false);
-        const modelMessage = ref('模型接口尚未完成配置');
-        let modelCapabilities = {};
-        const skills = ref([]);
-        const selectedSkill = ref(null);
-        const skillPanelVisible = ref(false);
-        const skillFilter = ref('');
-        const uploadedImages = ref([]);
-
-        const filteredSkills = computed(function () {
-            const kw = skillFilter.value.trim().toLowerCase();
-            if (!kw) return skills.value;
-            return skills.value.filter(function (s) { return s.name.toLowerCase().indexOf(kw) >= 0; });
-        });
-
-        // 面板按内置能力与插件能力分组，兼容后端未来返回的 group/category 字段。
-        const skillGroups = computed(function () {
-            var groups = [];
-            filteredSkills.value.forEach(function (skill) {
-                var rawGroup = String(skill.group || skill.category || '').toLowerCase();
-                // 当前接口使用 name 承载技能标识，兼容旧版 id 字段。
-                var skillId = String(skill.id || '');
-                var skillName = String(skill.name || '');
-                var isPlugin = rawGroup === 'plugin' || rawGroup === 'plugins'
-                    || skillId.indexOf('ext__') === 0 || skillName.indexOf('ext__') === 0;
-                var groupName = isPlugin ? '插件' : '内置技能';
-                var group = groups.find(function (item) { return item.name === groupName; });
-                if (!group) {
-                    group = { name: groupName, items: [] };
-                    groups.push(group);
-                }
-                group.items.push(skill);
-            });
-            return groups;
-        });
-
-        async function fetchModels() {
-            try {
-                const res = await request.get('/ai/models');
-                const data = res.data.data || {};
-                models.value = data.list || [];
-                modelReady.value = data.ready === true && models.value.length > 0;
-                modelMessage.value = data.message || '模型接口尚未完成配置';
-                modelCapabilities = {};
-                models.value.forEach(function (m) { modelCapabilities[m.name] = m; });
-                var defaultModel = data.default_model || '';
-                selectedModel.value = models.value.some(function (m) {
-                    return m.name === defaultModel;
-                }) ? defaultModel : (models.value[0] || {}).name || '';
-            } catch (e) {
-                models.value = [];
-                selectedModel.value = '';
-                modelReady.value = false;
-                modelMessage.value = '模型状态读取失败，请前往 AI 设置检查';
-            }
-        }
-
-        async function fetchSkills() {
-            try {
-                const res = await request.get('/ai/skills');
-                skills.value = (res.data.data || {}).list || [];
-            } catch (e) { /* 静默 */ }
-        }
-
-        function toggleSkillPanel() {
-            skillFilter.value = '';
-            if (!skillPanelVisible.value) fetchSkills();
-            skillPanelVisible.value = !skillPanelVisible.value;
-        }
-
-        function selectSkill(skill) {
-            selectedSkill.value = skill;
-            skillPanelVisible.value = false;
-            if (senderValue.value.charAt(0) === '/') senderValue.value = '';
-        }
-
-        function goAiSettings() {
-            window.location.href = '/admin/ai-setting?tab=interfaces';
-        }
-
-        /* ===== 发送区（"/" 技能通道监听） ===== */
-        const senderValue = ref('');
-        watch(senderValue, function (val) {
-            if (val.charAt(0) === '/') {
-                skillFilter.value = val.slice(1);
-                skillPanelVisible.value = true;
-            } else if (skillPanelVisible.value) {
-                skillFilter.value = '';
-                skillPanelVisible.value = false;
-            }
-        });
-
-        /* ===== 消息流与 SSE ===== */
-        const chatList = ref([]);
-        const messageListRef = ref(null);
-        const loading = ref(false);
-        const isStreaming = ref(false);
-        const uploadingImages = ref(false);
-        let abortController = null;
-
-        // rAF 节流的滚动到底部：多 token 同帧只触发一次 DOM 写入
-        var _scrollRafPending = false;
-        function scrollToBottom() {
-            if (!messageListRef.value || _scrollRafPending) return;
-            _scrollRafPending = true;
-            requestAnimationFrame(function () {
-                _scrollRafPending = false;
-                if (messageListRef.value && messageListRef.value.scrollToBottom) {
-                    messageListRef.value.scrollToBottom();
-                }
-            });
-        }
-
-        // SSE 事件处理上下文（传给 AiChatUtils.handleEvent）
-        var chatCtx = {
-            chatList: chatList,
-            loading: loading,
-            conversationId: conversationId,
-            onMeta: function () { fetchConversations(); },
-            onError: function (msg) { MessagePlugin.error(msg); },
-            onScroll: function () { scrollToBottom(); }
-        };
-
-        async function onSend(text) {
-            text = (text || '').trim();
-            var files = uploadedImages.value || [];
-            if (!modelReady.value) {
-                MessagePlugin.warning(modelMessage.value || '请先配置可用模型');
-                return;
-            }
-            if (isStreaming.value || uploadingImages.value || (!text && !files.length)) return;
-            // "/" 面板打开时 Enter 表示选中首个技能而非发送
-            if (skillPanelVisible.value && text.charAt(0) === '/') {
-                if (filteredSkills.value.length) selectSkill(filteredSkills.value[0]);
-                return;
-            }
-            skillPanelVisible.value = false;
-            var imageUrls = [];
-            var attachments = [];
-            if (files.length) {
-                uploadingImages.value = true;
+            async function loadModelCatalog() {
+                modelsLoading.value = true;
                 try {
-                    imageUrls = await Utils.readFilesAsDataUrls(files);
-                    attachments = await Utils.uploadImages(
-                        files, '/api/admin/v1/upload/image', 'admin_token');
-                } catch (e) {
-                    MessagePlugin.error(e.message || '图片上传失败');
-                    return;
-                } finally {
-                    uploadingImages.value = false;
-                }
-            }
-            senderValue.value = '';
-            uploadedImages.value = [];
-            var content = [];
-            if (text) content.push({ type: 'text', text: text });
-            imageUrls.forEach(function (url) {
-                content.push({ type: 'image_url', image_url: { url: url } });
-            });
-            var userSegments = [];
-            if (attachments.length) userSegments.push({ type: 'images', items: attachments });
-            userSegments.push({ type: 'markdown', data: text || '已上传图片，请分析图片内容。' });
-            chatList.value.push({ role: 'user', name: '我', datetime: '', content: userSegments });
-            chatList.value.push({ role: 'assistant', name: 'AI 助手', datetime: '', content: [] });
-            loading.value = true;
-            isStreaming.value = true;
-            scrollToBottom();
-
-            abortController = new AbortController();
-            try {
-                await Utils.fetchSse('/api/admin/v1/ai/chat', {
-                    body: {
-                        conversation_id: conversationId.value,
-                        content: content,
-                        attachments: attachments,
-                        model: selectedModel.value || '',
-                        skill_id: 0
-                    },
-                    signal: abortController.signal,
-                    onEvent: function (ev) {
-                        Utils.handleEvent(ev, chatCtx);
+                    var result = await Promise.all([resource('get', '/connections'), resource('get', '/model-cards')]);
+                    var enabled = {};
+                    list(result[0], 'list').forEach(function (connection) { if (connection.status === 1 && connection.credential_id) enabled[connection.id] = connection; });
+                    models.value = list(result[1], 'list').filter(function (card) { return card.status === 1 && enabled[card.connection_id]; }).map(function (card) {
+                        var connection = enabled[card.connection_id];
+                        return {
+                            credential_id: connection.credential_id, provider: connection.provider, protocol: connection.protocol,
+                            vendor: connection.vendor || connection.name || connection.provider,
+                            model_name: card.model_name, label: card.label || card.model_name,
+                            support_tools: Boolean(card.support_tools), support_vision: Boolean(card.support_vision), support_reasoning: Boolean(card.support_reasoning),
+                            reasoning_efforts: Array.isArray(card.reasoning_efforts) ? card.reasoning_efforts : [], default_reasoning_effort: card.default_reasoning_effort || '',
+                            default: Boolean(connection.is_default && connection.default_model === card.model_name)
+                        };
+                    });
+                    if (!models.value.some(function (row) { return modelKey(row) === selectedModelKey.value; })) {
+                        var preferred = models.value.find(function (row) { return row.default; }) || models.value[0];
+                        selectedModelKey.value = preferred ? modelKey(preferred) : '';
                     }
-                });
-            } catch (e) {
-                if (e.name !== 'AbortError') {
-                    MessagePlugin.error(e.message || '发送失败');
-                    Utils.handleEvent({ type: 'error', data: { message: e.message || '发送失败' } }, chatCtx);
-                }
-            } finally {
-                loading.value = false;
-                isStreaming.value = false;
-                abortController = null;
-                fetchConversations();
+                    resetTurnReasoning();
+                } finally { modelsLoading.value = false; }
             }
+
+            async function ensureRuntimeAgent() {
+                var rows = list(await scope('get', '/agent/'), 'agents');
+                var runtime = rows.find(function (row) {
+                    var data = record(row), prompt = String(data.system_prompt || '');
+                    return data.name === '__huiyan_runtime_agent__' || prompt.indexOf(RUNTIME_AGENT_MARKER) !== -1 || LEGACY_RUNTIME_AGENT_MARKERS.some(function (marker) { return prompt.indexOf(marker) !== -1; });
+                });
+                if (!runtime) {
+                    var created = await scope('post', '/agent/', {
+                        name: '__huiyan_runtime_agent__', system_prompt: RUNTIME_AGENT_PROMPT,
+                        context_config: {}, react_config: {}
+                    });
+                    runtime = { id: created && created.agent_id };
+                } else if (record(runtime).system_prompt !== RUNTIME_AGENT_PROMPT) {
+                    await scope('patch', '/agent/' + encodeURIComponent(agentId(runtime)), { system_prompt: RUNTIME_AGENT_PROMPT });
+                }
+                selectedAgent.value = agentId(runtime);
+                if (!selectedAgent.value) throw new Error('对话服务初始化失败');
+            }
+
+            function selectedSessionModel(row) { var config = sessionConfig(row).chat_model_config;
+                return config && models.value.find(function (model) { return model.credential_id === config.credential_id && model.model_name === config.model; }) || null; }
+            async function normalizeSessionModel() { var row = sessions.value.find(function (item) { return sessionId(item) === selectedSession.value; });
+                var model = selectedSessionModel(row), config = row && sessionConfig(row).chat_model_config;
+                if (model && config && !sameModel(config, modelConfig(model, config))) await applyModelToSession(model, true); return model; }
+            function syncModelFromSession() { var row = sessions.value.find(function (item) { return sessionId(item) === selectedSession.value; }), model = selectedSessionModel(row);
+                if (model) selectedModelKey.value = modelKey(model); }
+
+            async function scrollBottom() {
+                await Vue.nextTick();
+                if (messageList.value && messageList.value.scrollToBottom) messageList.value.scrollToBottom({ behavior: 'auto' });
+            }
+            function replyFailure(event) { var value = event && event.error || {}, type = String(value.type || '').toLowerCase(), text = String(value.message || '模型生成失败，请重试');
+                var messages = { permission: '模型权限不足，请到 AI 设置检查账号权限和模型权限', rate_limit: '模型调用频率或额度已达到上限，请稍后重试', setup: '会话初始化失败，请到 AI 设置检查模型、工具和知识库', connection: '模型请求失败，请检查模型服务网络或稍后重试', model: '模型请求失败，请检查模型服务网络或稍后重试', provider: '模型请求失败，请检查模型服务网络或稍后重试' };
+                if (type === 'authentication' || /authentication failed|api key|credential|鉴权/i.test(text)) text = '模型鉴权失败，请到 AI 设置检查 API Key'; else if (messages[type]) text = messages[type];
+                replyError.value = text; return text; }
+            var messageState = window.HuiYanAiChatMessageState.create({
+                chatItems: chatItems, running: running, sending: sending, replyError: replyError,
+                formatTime: formatTime, scrollBottom: scrollBottom, replyFailure: replyFailure
+            });
+            async function loadMessages(showFailure) {
+                if (!selectedAgent.value || !selectedSession.value) { chatItems.value = []; running.value = false; return; }
+                try {
+                    var result = await scope('get', '/sessions/' + encodeURIComponent(selectedSession.value) + '/messages', { params: { agent_id: selectedAgent.value, limit: 200 } });
+                    var messages = list(result, 'messages');
+                    chatItems.value = messageState.normalizeMessages(messages);
+                    running.value = Boolean(result && result.is_running);
+                    await scrollBottom();
+                    return messageState.pendingConfirmations(messages);
+                } catch (err) { if (showFailure !== false) fail(err, '消息读取失败'); throw err; }
+            }
+
+            function closeStream() {
+                if (streamPump) streamPump.cancel();
+                if (streamController) streamController.abort();
+                streamController = null; streamReady = null; streamSession = ''; streamPump = null;
+            }
+            function confirmationKey(replyId, call) {
+                return String(replyId) + ':' + String(call && call.id || '');
+            }
+            async function rejectConfirmation(event) {
+                if (!event || !event.reply_id || !(event.tool_calls || []).length) return;
+                var pendingCalls = event.tool_calls.filter(function (call) {
+                    return !rejectedConfirmations.has(confirmationKey(event.reply_id, call));
+                });
+                if (!pendingCalls.length) return;
+                pendingCalls.forEach(function (call) { rejectedConfirmations.add(confirmationKey(event.reply_id, call)); });
+                running.value = true;
+                try {
+                    await scope('post', '/chat/', {
+                        agent_id: selectedAgent.value,
+                        session_id: selectedSession.value,
+                        input: {
+                            type: 'USER_CONFIRM_RESULT', reply_id: event.reply_id,
+                            confirm_results: pendingCalls.map(function (call) { return { confirmed: false, tool_call: call, rules: null }; })
+                        }
+                    });
+                } catch (err) {
+                    pendingCalls.forEach(function (call) { rejectedConfirmations.delete(confirmationKey(event.reply_id, call)); });
+                    markStreamError('未授权工具已阻止，但回复恢复失败，请刷新后重试');
+                }
+            }
+            function handleStreamEvent(event) {
+                messageState.handleEvent(event);
+                if (event && event.type === 'REQUIRE_USER_CONFIRM') rejectConfirmation(event);
+            }
+            async function rejectLegacyConfirmations(events) {
+                for (var index = 0; index < events.length; index += 1) await rejectConfirmation(events[index]);
+            }
+            function markStreamError(message) { messageState.markStreamError(message); }
+            async function recoverStream(session) {
+                if (recovering || session !== selectedSession.value) return;
+                recovering = true;
+                try {
+                    var pending = await loadMessages(false);
+                    await openStream(session, false);
+                    await rejectLegacyConfirmations(pending || []);
+                } catch (err) { markStreamError('实时连接已中断，请刷新后重试'); }
+                finally { recovering = false; }
+            }
+            function openStream(session, recover) {
+                if (!session || !selectedAgent.value) return Promise.resolve(false);
+                if (streamController && streamSession === session) return streamReady;
+                closeStream();
+                var controller = new AbortController(), token = localStorage.getItem('admin_token') || '';
+                streamController = controller; streamSession = session;
+                var url = '/api/ai/sessions/' + encodeURIComponent(session) + '/stream?agent_id=' + encodeURIComponent(selectedAgent.value);
+                streamReady = fetch(url, { headers: { Accept: 'text/event-stream', Authorization: 'Bearer ' + token }, signal: controller.signal }).then(function (response) {
+                    if (!response.ok || !response.body) throw new Error('实时连接建立失败');
+                    return new Promise(function (resolve, reject) {
+                        var ready = false;
+                        streamPump = window.HuiYanAiChatEventStream.create({ onEvent: function (event) {
+                            if (event && event.type === 'CUSTOM' && event.name === STREAM_READY_EVENT) {
+                                ready = true; resolve(true); return;
+                            }
+                            handleStreamEvent(event);
+                        } });
+                        streamPump.read(response, controller.signal).catch(function (err) {
+                            if (!ready) {
+                                if (controller.signal.aborted || session !== selectedSession.value) resolve(false);
+                                else reject(err);
+                                return;
+                            }
+                            if (controller.signal.aborted || session !== selectedSession.value) return;
+                            if (streamController === controller) { streamController = null; streamReady = null; streamSession = ''; }
+                            if (recover !== false) recoverStream(session); else markStreamError(errorText(err, '实时连接已断开'));
+                        });
+                    });
+                }).catch(function (err) {
+                    if (streamController === controller) { streamController = null; streamReady = null; streamSession = ''; }
+                    throw err;
+                });
+                return streamReady;
+            }
+
+            async function loadSessions() {
+                if (!selectedAgent.value) { sessions.value = []; selectedSession.value = ''; return; }
+                sessions.value = list(await scope('get', '/sessions/', { params: { agent_id: selectedAgent.value } }), 'sessions');
+                if (!sessions.value.some(function (row) { return sessionId(row) === selectedSession.value; })) selectedSession.value = sessions.value[0] ? sessionId(sessions.value[0]) : '';
+                syncModelFromSession();
+                if (selectedSession.value) await normalizeSessionModel();
+                var pending = await loadMessages();
+                if (selectedSession.value) await openStream(selectedSession.value, true);
+                await rejectLegacyConfirmations(pending || []);
+            }
+            async function applyModelToSession(model, silent) {
+                if (!model || !selectedSession.value) return;
+                var currentConfig = sessionConfig(sessions.value.find(function (item) { return sessionId(item) === selectedSession.value; })).chat_model_config;
+                var sameTarget = currentConfig && currentConfig.credential_id === model.credential_id && currentConfig.model === model.model_name;
+                var nextConfig = modelConfig(model, sameTarget ? currentConfig : null);
+                await scope('patch', '/sessions/' + encodeURIComponent(selectedSession.value), { chat_model_config: nextConfig }, { params: { agent_id: selectedAgent.value } });
+                var row = sessions.value.find(function (item) { return sessionId(item) === selectedSession.value; });
+                if (row) sessionConfig(row).chat_model_config = nextConfig;
+                if (!silent) MessagePlugin.success('模型已切换');
+            }
+            async function selectModel(value) {
+                selectedModelKey.value = value || ''; resetTurnReasoning();
+                if (attachments.value.length && selectedModel() && !selectedModel().support_vision) MessagePlugin.warning('当前模型不支持图片，请移除图片或切换视觉模型');
+                try { if (selectedModel() && selectedSession.value) await applyModelToSession(selectedModel(), false); } catch (err) { fail(err, '模型切换失败'); }
+            }
+            async function createSession(silent) {
+                var model = selectedModel();
+                if (!silent) resetTurnReasoning();
+                if (!selectedAgent.value || !model) { MessagePlugin.warning(model ? '对话服务尚未就绪' : '请先启用并选择模型'); return ''; }
+                try {
+                    var result = await scope('post', '/sessions/', { agent_id: selectedAgent.value, name: '新对话', chat_model_config: modelConfig(model) });
+                    selectedSession.value = result && result.session_id || '';
+                    await loadSessions();
+                    if (!silent) MessagePlugin.success('新对话已创建');
+                    return selectedSession.value;
+                } catch (err) { fail(err, '新对话创建失败'); return ''; }
+            }
+            async function selectSession(value) {
+                selectedSession.value = value || ''; closeStream(); syncModelFromSession(); resetTurnReasoning();
+                if (selectedSession.value) await normalizeSessionModel();
+                var pending = await loadMessages(); if (selectedSession.value) await openStream(selectedSession.value, true);
+                await rejectLegacyConfirmations(pending || []);
+            }
+            var deleteSession = window.HuiYanAiChatSessionActions.createDeleteHandler({
+                sessions: sessions, selectedSession: selectedSession, chatItems: chatItems, running: running, deletingSession: deletingSession, replyError: replyError,
+                message: MessagePlugin, sessionId: sessionId, closeStream: closeStream, selectSession: selectSession, fail: fail,
+                remove: function (target) { return scope('delete', '/sessions/' + encodeURIComponent(target), { params: { agent_id: selectedAgent.value } }); }, exists: function (target) { return scope('get', '/sessions/', { params: { agent_id: selectedAgent.value } }).then(function (result) { return list(result, 'sessions').some(function (row) { return sessionId(row) === target; }); }); },
+                restoreStream: function (target) { openStream(target, true).catch(function () {}); }
+            });
+
+            async function loadUploadPolicy() {
+                try {
+                    if (window.UploadPolicyClient) uploadLimits.value = await window.UploadPolicyClient.getImageLimits();
+                    else uploadLimits.value = await request.get('/upload/limits').then(body);
+                    uploadPolicyError.value = '';
+                }
+                catch (err) { uploadPolicyError.value = '图片上传策略读取失败，暂时无法选择图片'; }
+            }
+            function imageAccept() {
+                if (!uploadLimits.value) return 'image/*';
+                if (window.UploadPolicyClient) return window.UploadPolicyClient.toAccept(uploadLimits.value.image_extensions);
+                return uploadLimits.value.image_extensions.map(function (ext) { return '.' + ext; }).join(',');
+            }
+            var canUseImages = computed(function () { return Boolean(selectedModel() && selectedModel().support_vision && uploadLimits.value); });
+            var reasoningSupported = computed(function () { return Boolean(selectedModel() && selectedModel().support_reasoning); });
+            var reasoningEffortOptions = computed(function () { return selectedModel() ? selectedModel().reasoning_efforts : []; });
+            var reasoningControlsDisabled = computed(function () { return sending.value || running.value; });
+            function resetTurnReasoning() { var model = selectedModel(), options = model ? model.reasoning_efforts : []; reasoningEffort.value = model && model.default_reasoning_effort || (options[0] && options[0].value) || ''; }
+            var imageActions = computed(function () { return [{ name: 'uploadImage', uploadProps: {
+                multiple: true, accept: imageAccept(), disabled: !canUseImages.value
+            }, action: function (data) { selectFiles(data); } }]; });
+            var attachmentProps = computed(function () { return { items: attachments.value, overflow: 'scrollX' }; });
+            var hasAttachmentError = computed(function () { return attachments.value.some(function (item) { return item.status === 'fail' || !item.modelUrl; }); });
+            var composerWarning = computed(function () {
+                if (selectedModel() && !selectedModel().support_vision) return '当前模型不支持图片输入';
+                if (uploadPolicyError.value) return uploadPolicyError.value;
+                if (replyError.value) return replyError.value + '，可修改内容后重试';
+                return '';
+            });
+            var sendDisabled = computed(function () {
+                return sending.value || running.value || hasAttachmentError.value || (!draft.value.trim() && !attachments.value.length)
+                    || (attachments.value.length && !canUseImages.value);
+            });
+            function filePayload(value) { return value && value.files ? value : value && value.detail && value.detail.files ? value.detail : { files: [] }; }
+            async function uploadAttachment(item, file) {
+                var form = new FormData(); form.append('file', file);
+                try {
+                    var uploaded = await scope('post', '/upload/image', form);
+                    if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
+                    item.remoteUrl = new URL(uploaded.url, window.location.origin).href;
+                    item.modelUrl = uploaded.model_url || item.remoteUrl;
+                    item.url = item.remoteUrl; item.name = uploaded.name || item.name; item.size = uploaded.size || item.size;
+                    item.mimeType = uploaded.mime_type || file.type; item.status = 'success';
+                    attachments.value = attachments.value.slice();
+                } catch (err) {
+                    item.status = 'fail'; item.error = errorText(err, '图片上传失败'); attachments.value = attachments.value.slice();
+                    fail(err, '图片上传失败');
+                }
+            }
+            async function selectFiles(value) {
+                if (!canUseImages.value) { MessagePlugin.warning(composerWarning.value || '当前模型不支持图片'); return; }
+                var files = Array.from(filePayload(value).files || []);
+                if (attachments.value.length + files.length > MAX_IMAGES) { MessagePlugin.warning('每次最多上传 4 张图片'); files = files.slice(0, MAX_IMAGES - attachments.value.length); }
+                var allowed = uploadLimits.value.image_extensions, maxBytes = uploadLimits.value.image_max_size_mb * 1024 * 1024, jobs = [];
+                files.forEach(function (file) {
+                    var ext = String(file.name || '').split('.').pop().toLowerCase();
+                    if (allowed.indexOf(ext) === -1 || file.size > maxBytes) { MessagePlugin.warning('图片格式或大小不符合上传策略'); return; }
+                    var item = { key: 'image-' + Date.now() + '-' + Math.random(), name: file.name, size: file.size, fileType: 'image', status: 'progress', previewUrl: URL.createObjectURL(file) };
+                    item.url = item.previewUrl; attachments.value.push(item); jobs.push(uploadAttachment(item, file));
+                });
+                if (attachments.value.length && !draft.value.trim()) draft.value = IMAGE_ONLY_MARKER;
+                await Promise.all(jobs);
+            }
+            function removeAttachment(value) {
+                var target = value && value.detail || value && value.item || value;
+                var index = attachments.value.findIndex(function (item) { return item === target || item.key === target.key || item.name === target.name; });
+                if (index >= 0) { var removed = attachments.value.splice(index, 1)[0]; if (removed.previewUrl) URL.revokeObjectURL(removed.previewUrl); }
+                if (!attachments.value.length && draft.value === IMAGE_ONLY_MARKER) draft.value = '';
+            }
+
+            function sendText(value) {
+                if (typeof value === 'string' || typeof value === 'number') return String(value).split(IMAGE_ONLY_MARKER).join('').trim();
+                var detail = value && value.detail;
+                var text = typeof detail === 'string' ? detail : (detail && typeof detail.value === 'string' ? detail.value : draft.value);
+                return String(text || '').split(IMAGE_ONLY_MARKER).join('').trim();
+            }
+            async function ensureSessionModel() {
+                var row = sessions.value.find(function (item) { return sessionId(item) === selectedSession.value; }), model = selectedModel();
+                if (model && !sameModel(sessionConfig(row).chat_model_config, modelConfig(model, sessionConfig(row).chat_model_config))) await applyModelToSession(model, true);
+                return Boolean(model);
+            }
+            async function sendMessage(value) {
+                var text = sendText(value), readyImages = attachments.value.filter(function (item) { return item.status === 'success' && item.modelUrl; });
+                var turnThinking = reasoningSupported.value, turnEffort = turnThinking ? reasoningEffort.value || null : null;
+                if (sending.value || running.value || (!text && !readyImages.length)) return;
+                if (!selectedModel()) { MessagePlugin.warning('请先选择模型'); return; }
+                if (attachments.value.length && (!canUseImages.value || hasAttachmentError.value)) { MessagePlugin.warning('请先处理无法发送的图片'); return; }
+                if (!selectedSession.value && !(await createSession(true))) return;
+                try {
+                    if (!(await ensureSessionModel())) return;
+                    await openStream(selectedSession.value, true);
+                    sending.value = true; running.value = true; replyError.value = '';
+                    var blocks = [];
+                    if (text) blocks.push({ type: 'text', text: text });
+                    readyImages.forEach(function (item) { blocks.push({ type: 'data', name: item.name || '图片', source: { type: 'url', url: item.modelUrl, media_type: item.mimeType || 'image/jpeg' } }); });
+                    chatItems.value.push({ id: 'local-user-' + Date.now(), role: 'user', status: '', replyStatus: 'complete', content: blocks.map(function (block, index) { return messageState.normalizeBlock(block, 'user', index); }).filter(Boolean) });
+                    chatItems.value.push({ id: 'pending-' + Date.now(), role: 'assistant', status: 'pending', content: [], pendingPlaceholder: true });
+                    await scrollBottom();
+                    await scope('post', '/chat/turn', { agent_id: selectedAgent.value, session_id: selectedSession.value, input: { name: 'user', role: 'user', content: blocks }, thinking_enable: turnThinking, reasoning_effort: turnEffort });
+                    resetTurnReasoning();
+                    draft.value = ''; attachments.value.forEach(function (item) { if (item.previewUrl) URL.revokeObjectURL(item.previewUrl); }); attachments.value = [];
+                } catch (err) {
+                    chatItems.value = chatItems.value.filter(function (item) { return !item.pendingPlaceholder; });
+                    markStreamError(errorText(err, '消息发送失败，请重试')); fail(err, '消息发送失败');
+                } finally { sending.value = false; }
+            }
+            async function interruptMessage() {
+                if (!selectedSession.value || !running.value) return;
+                sending.value = true;
+                try {
+                    await scope('post', '/sessions/' + encodeURIComponent(selectedSession.value) + '/interrupt', null, { params: { agent_id: selectedAgent.value } });
+                    await new Promise(function (resolve) { window.setTimeout(resolve, 500); });
+                    if (running.value) await loadMessages(false);
+                } catch (err) { fail(err, '停止生成失败'); }
+                finally { sending.value = false; }
+            }
+
+            async function refreshAll() {
+                loading.value = true; error.value = ''; replyError.value = ''; closeStream();
+                try { await Promise.all([loadModelCatalog(), loadUploadPolicy()]); await ensureRuntimeAgent(); await loadSessions(); }
+                catch (err) { error.value = '对话资源读取失败，请刷新重试'; fail(err, error.value); }
+                finally { loading.value = false; }
+            }
+            function isToolBlock(block) { return messageState.isToolBlock(block); }
+            var markdownProps = { engine: 'marked', options: {} };
+
+            onMounted(refreshAll);
+            onBeforeUnmount(function () { closeStream(); attachments.value.forEach(function (item) { if (item.previewUrl) URL.revokeObjectURL(item.previewUrl); }); });
+            return {
+                loading: loading, modelsLoading: modelsLoading, sending: sending, running: running, error: error, sessions: sessions, chatItems: chatItems,
+                selectedSession: selectedSession, selectedModelKey: selectedModelKey, draft: draft, deletingSession: deletingSession, messageList: messageList,
+                modelOptions: modelOptions, attachmentProps: attachmentProps, imageActions: imageActions, sendDisabled: sendDisabled, composerWarning: composerWarning, markdownProps: markdownProps,
+                reasoningEffort: reasoningEffort, reasoningSupported: reasoningSupported, reasoningEffortOptions: reasoningEffortOptions, reasoningControlsDisabled: reasoningControlsDisabled,
+                refreshAll: refreshAll, createSession: function () { return createSession(false); }, selectSession: selectSession, deleteSession: deleteSession, selectModel: selectModel, sendMessage: sendMessage, interruptMessage: interruptMessage, selectFiles: selectFiles, removeAttachment: removeAttachment,
+                sessionId: sessionId, sessionName: sessionName, sessionTime: sessionTime, isToolBlock: isToolBlock,
+                toolTitle: messageState.toolTitle, toolExpandValue: messageState.toolExpandValue,
+                setBlockCollapsed: messageState.setBlockCollapsed, setToolExpanded: messageState.setToolExpanded
+            };
         }
-
-        function onStop() {
-            if (abortController) abortController.abort();
-        }
-
-        onMounted(function () {
-            fetchConversations();
-            fetchModels();
-            fetchSkills();
-        });
-
-        return {
-            conversations, conversationId, newConversation, openConversation, removeConversation,
-            models, selectedModel, modelReady, modelMessage, skills, selectedSkill,
-            skillPanelVisible, filteredSkills, skillGroups,
-            toggleSkillPanel, selectSkill, goAiSettings,
-            senderValue, chatList, messageListRef, loading, isStreaming, onSend, onStop,
-            uploadedImages, uploadingImages
-        };
-    }
-});
+    });
 })();

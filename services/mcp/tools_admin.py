@@ -15,7 +15,7 @@
 按 user_id 反查 Admin 表补齐（claims 不含用户名）。
 """
 import logging
-from datetime import datetime
+from core.time_utils import china_now
 
 from sqlalchemy import select, desc, func, or_
 from fastmcp.exceptions import ToolError
@@ -203,7 +203,7 @@ async def system_overview() -> dict:
         ))
         # 预警口径与 weather_alerts 一致: 结束时间未过即生效
         alert_active = await _count(db, select(func.count(WeatherAlert.id)).where(
-            WeatherAlert.end_time >= datetime.now(),
+            WeatherAlert.end_time >= china_now(),
         ))
 
     return {

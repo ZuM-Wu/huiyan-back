@@ -1,0 +1,44 @@
+.hardware-map-marker {
+    position: relative;
+    width: 48px;
+    height: 48px;
+    pointer-events: none;
+}
+.hardware-map-marker.is-draggable { pointer-events: auto; cursor: grab; }
+.hardware-map-marker.is-draggable:active { cursor: grabbing; }
+.hardware-map-marker__drop {
+    position: absolute;
+    left: 7px;
+    top: 7px;
+    width: 34px;
+    height: 34px;
+    overflow: hidden;
+    transform: rotate(-45deg);
+    transform-origin: 50% 50%;
+    border: 2px solid var(--app-brand-color);
+    border-radius: 50% 50% 50% 0;
+    background: var(--app-bg-card);
+    box-shadow: var(--app-shadow-2);
+}
+.hardware-map-marker__media {
+    position: absolute;
+    inset: -7px;
+    width: 48px;
+    height: 48px;
+    transform: rotate(45deg);
+    object-fit: cover;
+    user-select: none;
+    -webkit-user-drag: none;
+}
+.hardware-map-marker__fallback {
+    position: absolute;
+    inset: -5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    transform: rotate(45deg);
+    color: var(--app-brand-color);
+    background: var(--app-bg-card);
+}

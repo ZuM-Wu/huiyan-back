@@ -1,0 +1,226 @@
+.yolo-model-page {
+    min-width: 0;
+}
+
+.yolo-model-page .ymm-main-card {
+    height: var(--app-card-max-height);
+}
+
+.yolo-model-page .ymm-tab-body {
+    padding-top: var(--app-spacing-md);
+}
+
+.yolo-model-page .ymm-tab-body > .card-header-toolbar {
+    margin-bottom: var(--app-spacing-md);
+}
+
+.yolo-model-page .ymm-filters,
+.yolo-model-page .ymm-model-heading,
+.yolo-model-page .ymm-file-meta,
+.yolo-model-page .ymm-binding-summary,
+.yolo-model-page .ymm-tag-summary,
+.yolo-model-page .ymm-area-header,
+.yolo-model-page .ymm-binding-context {
+    display: flex;
+    align-items: center;
+}
+
+.yolo-model-page .ymm-filters {
+    gap: var(--app-spacing-sm);
+}
+
+.yolo-model-page .ymm-search {
+    width: 240px;
+}
+
+.yolo-model-page .ymm-filter {
+    width: 140px;
+}
+
+.yolo-model-page .ymm-record-filter {
+    width: 220px;
+}
+
+.yolo-model-page .ymm-model-name,
+.yolo-model-page .ymm-file-meta,
+.yolo-model-page .ymm-record-context {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--app-spacing-xs);
+    min-width: 0;
+}
+
+.yolo-model-page .ymm-model-heading {
+    gap: var(--app-spacing-sm);
+    max-width: 100%;
+}
+
+.yolo-model-page .ymm-primary-text {
+    color: var(--app-text-primary);
+    font-weight: 600;
+}
+
+.yolo-model-page .ymm-secondary-text,
+.yolo-model-page .ymm-hash,
+.yolo-model-page .ymm-occupied {
+    color: var(--app-text-secondary);
+    font-size: var(--app-font-size-sm);
+}
+
+.yolo-model-page .ymm-secondary-text,
+.yolo-model-page .ymm-hash,
+.yolo-model-page .ymm-primary-text {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.yolo-model-page .ymm-binding-summary,
+.yolo-model-page .ymm-tag-summary {
+    flex-wrap: wrap;
+    gap: var(--app-spacing-xs);
+}
+
+.yolo-model-page .ymm-hash {
+    font-family: monospace;
+}
+
+.yolo-model-page .ymm-upload {
+    width: 100%;
+}
+
+.yolo-model-page .ymm-confidence-control {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    gap: var(--app-spacing-sm);
+    color: var(--app-text-secondary);
+}
+
+.yolo-model-page .ymm-confidence-control .t-input-number {
+    flex: 1;
+}
+
+.yolo-model-page .ymm-record-image,
+.yolo-model-page .ymm-record-image-empty {
+    width: 56px;
+    height: 44px;
+    border-radius: var(--app-radius-sm);
+}
+
+.yolo-model-page .ymm-record-image {
+    overflow: hidden;
+}
+
+.yolo-model-page .ymm-record-image-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--app-border);
+    background: var(--app-bg-container);
+    color: var(--app-text-secondary);
+}
+
+.yolo-model-page .ymm-record-detail {
+    display: flex;
+    flex-direction: column;
+    gap: var(--app-spacing-md);
+    min-height: 160px;
+}
+
+.yolo-model-page .ymm-record-detail-image {
+    width: 100%;
+    height: 400px;
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-md);
+    overflow: hidden;
+    background: var(--app-bg-container);
+}
+
+.yolo-model-page .ymm-record-detail-image-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--app-spacing-sm);
+    color: var(--app-text-secondary);
+}
+
+.yolo-model-page .ymm-record-detail-image-empty .t-icon {
+    font-size: 32px;
+}
+
+.yolo-model-page .ymm-record-detail-meta {
+    width: 100%;
+}
+
+.yolo-model-page .ymm-record-detail-meta .t-descriptions__label {
+    width: 104px;
+    color: var(--app-text-secondary);
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.yolo-model-page .ymm-record-detail-meta .t-descriptions__content {
+    color: var(--app-text-primary);
+    font-weight: 600;
+}
+
+.yolo-model-page .ymm-record-detail-section {
+    min-width: 0;
+}
+
+.yolo-model-page .ymm-record-detail-section-title {
+    margin: 0 0 var(--app-spacing-sm);
+    color: var(--app-text-primary);
+    font-size: var(--app-font-size-md);
+    font-weight: 600;
+    line-height: var(--app-line-height);
+}
+
+.yolo-model-page .ymm-binding-context {
+    justify-content: space-between;
+    gap: var(--app-spacing-md);
+    margin-bottom: var(--app-spacing-md);
+}
+
+.yolo-model-page .ymm-area-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--app-spacing-sm);
+    max-height: 460px;
+    overflow-y: auto;
+}
+
+.yolo-model-page .ymm-area-group {
+    padding: var(--app-spacing-md);
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-md);
+    background: var(--app-bg-container);
+}
+
+.yolo-model-page .ymm-area-header {
+    justify-content: space-between;
+    gap: var(--app-spacing-sm);
+    margin-bottom: var(--app-spacing-sm);
+    color: var(--app-text-primary);
+    font-weight: 600;
+}
+
+.yolo-model-page .ymm-plot-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--app-spacing-sm) var(--app-spacing-md);
+}
+
+.yolo-model-page .ymm-plot-grid .t-checkbox {
+    min-width: 0;
+}
+
+.yolo-model-page .ymm-occupied {
+    display: block;
+    margin-left: var(--app-spacing-xs);
+}

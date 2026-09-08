@@ -6,8 +6,7 @@
 ORM 模型仅用于业务代码中的查询与序列化，不参与系统启动时的 create_all。
 实际建表由 plugin.install() → migrations/install.sql 完成。
 """
-from datetime import datetime
-
+from core.time_utils import china_now
 from sqlalchemy import Column, DateTime, Integer, BigInteger, String, Text, JSON, SmallInteger
 
 from core.db.base import Base
@@ -42,8 +41,8 @@ class PushTask(Base):
     last_exec_time = Column(DateTime, comment="上次执行时间")
     status = Column(String(16), default="Wait", comment="状态:Wait/Exec/Suspended/Expired/Finish")
     admin_id = Column(Integer, default=0, comment="创建人ID")
-    create_time = Column(DateTime, default=datetime.now, comment="创建时间")
-    update_time = Column(DateTime, default=datetime.now, onupdate=datetime.now, comment="更新时间")
+    create_time = Column(DateTime, default=china_now, comment="创建时间")
+    update_time = Column(DateTime, default=china_now, onupdate=china_now, comment="更新时间")
 
 
 class PushLog(Base):
@@ -59,7 +58,7 @@ class PushLog(Base):
     type = Column(String(16), nullable=False, comment="通知类型:sms/email/inbox")
     status = Column(String(16), default="Pending", comment="状态:Pending/Success/Failed")
     reason = Column(Text, comment="失败原因")
-    create_time = Column(DateTime, default=datetime.now, comment="创建时间")
+    create_time = Column(DateTime, default=china_now, comment="创建时间")
 
 
 class PushCenterTask(Base):
@@ -83,8 +82,8 @@ class PushCenterTask(Base):
     last_exec_time = Column(DateTime, comment="上次执行时间")
     status = Column(String(16), default="Wait", comment="状态:Draft/Wait/Exec/Suspended/Finish/Expired")
     admin_id = Column(Integer, default=0, comment="创建人ID")
-    create_time = Column(DateTime, default=datetime.now, comment="创建时间")
-    update_time = Column(DateTime, default=datetime.now, onupdate=datetime.now, comment="更新时间")
+    create_time = Column(DateTime, default=china_now, comment="创建时间")
+    update_time = Column(DateTime, default=china_now, onupdate=china_now, comment="更新时间")
 
 
 class PushCenterDeliveryLog(Base):
@@ -101,4 +100,4 @@ class PushCenterDeliveryLog(Base):
     status = Column(String(16), default="Pending", comment="状态:Pending/Success/Failed")
     reason = Column(Text, comment="失败原因")
     notification_log_id = Column(BigInteger, comment="通知中心日志ID")
-    create_time = Column(DateTime, default=datetime.now, comment="创建时间")
+    create_time = Column(DateTime, default=china_now, comment="创建时间")

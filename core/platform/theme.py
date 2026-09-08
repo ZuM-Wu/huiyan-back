@@ -12,7 +12,7 @@ from core.platform.event import publish_lifecycle_event
 from core.platform.health import platform_health
 from core.platform.lock import platform_lock
 from core.platform.resource import resource_registry
-from core.theme_manager import DEFAULT_THEME, THEME_MODULES, theme_manager
+from core.theme_manager import THEME_MODULES, theme_manager
 
 
 class ThemePlatform:
@@ -89,7 +89,6 @@ class ThemePlatform:
             await publish_lifecycle_event("theme.activated", {
                 "surface": surface, "theme_id": resolved,
                 "version": snapshot["version"], "operation_id": operation_id,
-                "request_id": "",
             }, correlation_id=operation_id)
             return snapshot
         except Exception as exc:
@@ -155,7 +154,8 @@ class ThemePlatform:
         if declared and normalized_key not in [str(item).replace("\\", "/") for item in declared]:
             raise ValueError(f"主题模板未声明: {normalized_key}")
         active_path = theme_manager.theme_dir(surface, snapshot["theme_id"]) / normalized_key
-        fallback_path = theme_manager.theme_dir(surface, DEFAULT_THEME) / normalized_key
+        fallback_theme = theme_manager.default_theme(surface)
+        fallback_path = theme_manager.theme_dir(surface, fallback_theme) / normalized_key
         if not active_path.is_file() and not fallback_path.is_file():
             raise FileNotFoundError(f"主题模板不存在: {surface}/{normalized_key}")
         return normalized_key
@@ -166,10 +166,11 @@ class ThemePlatform:
         if not asset_key or ".." in asset_key.split("/"):
             raise ValueError("主题资源 key 无效")
         asset_path = theme_manager.theme_dir(surface, snapshot["theme_id"]) / "assets" / asset_key
-        fallback_path = theme_manager.theme_dir(surface, DEFAULT_THEME) / "assets" / asset_key
+        fallback_theme = theme_manager.default_theme(surface)
+        fallback_path = theme_manager.theme_dir(surface, fallback_theme) / "assets" / asset_key
         selected_theme = snapshot["theme_id"]
         if not asset_path.is_file() and fallback_path.is_file():
-            selected_theme = DEFAULT_THEME
+            selected_theme = fallback_theme
         if not asset_path.is_file() and not fallback_path.is_file():
             raise FileNotFoundError(f"主题资源不存在: {surface}/{asset_key}")
         manifest = theme_manager._read_manifest(surface, selected_theme) or {}
@@ -268,7 +269,7 @@ class ThemePlatform:
             "theme_id": theme_id,
             "version": str(manifest.get("version") or ""),
             "resource_version": self._resource_versions.get(surface, 0),
-            "fallback_theme": manifest.get("fallback_theme") or DEFAULT_THEME,
+            "fallback_theme": manifest.get("fallback_theme") or theme_manager.default_theme(surface),
             "operation_id": operation_id,
         }
 
@@ -278,7 +279,7 @@ class ThemePlatform:
         if manifest is None:
             raise ValueError(f"主题 '{theme_id}' manifest 无效")
         self._validate_manifest(manifest, surface)
-        fallback_theme = str(manifest.get("fallback_theme") or DEFAULT_THEME)
+        fallback_theme = str(manifest.get("fallback_theme") or theme_manager.default_theme(surface))
         if not theme_manager.theme_exists(surface, fallback_theme):
             raise ValueError(f"主题回退主题不存在: {surface}/{fallback_theme}")
         root = theme_manager.theme_dir(surface, theme_id)

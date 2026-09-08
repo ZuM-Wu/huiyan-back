@@ -14,6 +14,8 @@ async def begin_uninstall(name: str, router_manager=None) -> None:
     try:
         await cancel_owner(name)
     except Exception as exc:
+        if router_manager:
+            router_manager.mark_enabled(name)
         raise RuntimeError(f"插件 '{name}' 任务取消失败: {exc}") from exc
     resource_registry.invalidate_owner(name)
 
@@ -31,11 +33,14 @@ def register_plugin_resources(name: str, load_metadata) -> None:
 
 async def pause_plugin_owner(name: str, router_manager=None) -> bool:
     """禁用前暂停 owner 任务；失败时恢复 owner gate。"""
+    from core.hardware_provider import hardware_provider_registry
+    await hardware_provider_registry.block_owner(name)
     if router_manager:
         router_manager.mark_disabled(name)
     try:
         await pause_owner(name)
     except Exception:
+        hardware_provider_registry.unblock_owner(name)
         if router_manager:
             router_manager.mark_enabled(name)
         return False

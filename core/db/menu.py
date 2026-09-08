@@ -5,6 +5,7 @@
 from sqlalchemy import DateTime, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 from datetime import datetime
+from core.time_utils import china_now
 from core.db.base import Base
 
 
@@ -25,4 +26,4 @@ class Menu(Base):
     nav_type: Mapped[str] = mapped_column(String(32), default="admin", comment="导航类型：admin=后台导航，frontend=前台导航")
     page_type: Mapped[str] = mapped_column(String(32), default="system", comment="页面类型：system/url/separator/list")
     target_type: Mapped[str] = mapped_column(String(16), default="", comment="外链打开方式：空=内部页面，_blank=新标签页，iframe=内嵌iframe")
-    create_time: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, comment="创建时间")
+    create_time: Mapped[datetime] = mapped_column(DateTime, default=china_now, comment="创建时间")

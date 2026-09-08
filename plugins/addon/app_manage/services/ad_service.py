@@ -12,6 +12,7 @@ App管理插件 — 开屏广告业务服务
 import logging
 import uuid
 from datetime import datetime
+from core.time_utils import china_now
 from pathlib import Path
 
 from sqlalchemy import select
@@ -192,7 +193,7 @@ class AdService:
         # 启用与时间窗过滤在请求时执行（实现过期自动下线）
         if not raw or raw.get("enabled") != 1:
             return None
-        now = datetime.now()
+        now = china_now()
         if not _in_window(_parse_dt(raw.get("start_time")), _parse_dt(raw.get("end_time")), now):
             return None
         return {

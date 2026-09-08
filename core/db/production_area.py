@@ -8,7 +8,7 @@
 AreaFarmer；产区/地块采用软停用（status=0）优先，保护未来插件外键不悬空。
 """
 from datetime import datetime
-
+from core.time_utils import china_now
 from sqlalchemy import DateTime, Float, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -36,8 +36,8 @@ class ProductionArea(Base):
     status: Mapped[int] = mapped_column(Integer, default=1, comment="状态: 0=停用, 1=正常")
     sort_order: Mapped[int] = mapped_column(Integer, default=0, comment="排序")
     description: Mapped[str] = mapped_column(String(512), default="", comment="备注说明")
-    create_time: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, comment="创建时间")
-    update_time: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, onupdate=datetime.now, comment="更新时间")
+    create_time: Mapped[datetime] = mapped_column(DateTime, default=china_now, comment="创建时间")
+    update_time: Mapped[datetime] = mapped_column(DateTime, default=china_now, onupdate=china_now, comment="更新时间")
 
 
 class Plot(Base):
@@ -58,8 +58,8 @@ class Plot(Base):
     status: Mapped[int] = mapped_column(Integer, default=1, comment="状态: 0=停用, 1=正常")
     sort_order: Mapped[int] = mapped_column(Integer, default=0, comment="排序")
     description: Mapped[str] = mapped_column(String(512), default="", comment="备注说明")
-    create_time: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, comment="创建时间")
-    update_time: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, onupdate=datetime.now, comment="更新时间")
+    create_time: Mapped[datetime] = mapped_column(DateTime, default=china_now, comment="创建时间")
+    update_time: Mapped[datetime] = mapped_column(DateTime, default=china_now, onupdate=china_now, comment="更新时间")
 
 
 class AreaFarmer(Base):
@@ -74,7 +74,7 @@ class AreaFarmer(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True, comment="关联ID")
     area_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True, default=0, comment="产区ID")
     farmer_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True, default=0, comment="农户ID")
-    create_time: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, comment="绑定时间")
+    create_time: Mapped[datetime] = mapped_column(DateTime, default=china_now, comment="绑定时间")
 
 
 class PlantingBatch(Base):
@@ -96,5 +96,5 @@ class PlantingBatch(Base):
     plant_count: Mapped[int] = mapped_column(Integer, default=0, comment="种植株数（摄像头抽样的样本基数）")
     status: Mapped[int] = mapped_column(Integer, default=1, comment="状态: 0=未开始, 1=种植中, 2=已采收, 3=异常")
     description: Mapped[str] = mapped_column(String(512), default="", comment="备注说明")
-    create_time: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, comment="创建时间")
-    update_time: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, onupdate=datetime.now, comment="更新时间")
+    create_time: Mapped[datetime] = mapped_column(DateTime, default=china_now, comment="创建时间")
+    update_time: Mapped[datetime] = mapped_column(DateTime, default=china_now, onupdate=china_now, comment="更新时间")

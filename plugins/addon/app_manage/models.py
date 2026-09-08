@@ -10,8 +10,7 @@ App管理插件数据模型
 注意：插件业务表由 plugin.install() 通过 migrations/install.sql 建表，
 此 ORM 模型仅用于业务代码中的查询与序列化，不参与系统启动时的 create_all。
 """
-from datetime import datetime
-
+from core.time_utils import china_now
 from sqlalchemy import BigInteger, Column, DateTime, Integer, String, Text
 
 from core.db.base import Base
@@ -34,8 +33,8 @@ class AppManageVersion(Base):
     update_policy = Column(Integer, nullable=False, default=1, comment="更新策略 0可忽略 1提示可稍后 2强制")
     status = Column(Integer, nullable=False, default=1, comment="状态 1发布 0下架")
     admin_id = Column(Integer, nullable=False, default=0, comment="操作管理员ID")
-    create_time = Column(DateTime, default=datetime.now, comment="创建时间")
-    update_time = Column(DateTime, default=datetime.now, onupdate=datetime.now, comment="更新时间")
+    create_time = Column(DateTime, default=china_now, comment="创建时间")
+    update_time = Column(DateTime, default=china_now, onupdate=china_now, comment="更新时间")
 
 
 class AppManageAd(Base):
@@ -53,7 +52,7 @@ class AppManageAd(Base):
     duration = Column(Integer, nullable=False, default=3, comment="开屏展示秒数")
     enabled = Column(Integer, nullable=False, default=0, comment="是否启用 0禁用 1启用")
     admin_id = Column(Integer, nullable=False, default=0, comment="最后操作管理员ID")
-    update_time = Column(DateTime, default=datetime.now, onupdate=datetime.now, comment="更新时间")
+    update_time = Column(DateTime, default=china_now, onupdate=china_now, comment="更新时间")
 
 
 class AppManageNotice(Base):
@@ -71,5 +70,5 @@ class AppManageNotice(Base):
     enabled = Column(Integer, nullable=False, default=1, comment="是否启用 0禁用 1启用")
     sort_order = Column(Integer, nullable=False, default=0, comment="排序值(越小越靠前)")
     admin_id = Column(Integer, nullable=False, default=0, comment="操作管理员ID")
-    create_time = Column(DateTime, default=datetime.now, comment="创建时间")
-    update_time = Column(DateTime, default=datetime.now, onupdate=datetime.now, comment="更新时间")
+    create_time = Column(DateTime, default=china_now, comment="创建时间")
+    update_time = Column(DateTime, default=china_now, onupdate=china_now, comment="更新时间")

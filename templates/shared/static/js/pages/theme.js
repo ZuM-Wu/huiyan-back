@@ -61,10 +61,7 @@
                     .then((res) => {
                         const body = res.data.data || {};
                         siteThemeVisible.value = body.value !== 'false' && body.value !== false;
-                    })
-                    .catch(() => {
-                        // 默认显示
-                        siteThemeVisible.value = true;
+                        return siteThemeVisible.value;
                     });
             };
 
@@ -78,18 +75,23 @@
                         : '确定要禁用官网主题吗？禁用后访问根路径将直接跳转至农户首页。',
                     onConfirm: () => {
                         togglingSiteTheme.value = true;
-                        request.post('/config/site_theme_visible', { value: enable ? 'true' : 'false' })
-                            .then(() => {
+                        return request.post('/config/site_theme_visible', { value: enable ? 'true' : 'false' })
+                            .then(() => loadSiteThemeVisible())
+                            .then((persisted) => {
+                                if (persisted !== enable) {
+                                    throw new Error('官网入口状态保存后校验不一致');
+                                }
                                 MessagePlugin.success('官网主题已' + action);
-                                siteThemeVisible.value = enable;
                                 instance.destroy();
                             })
                             .catch((err) => {
-                                const detail = err && err.response && err.response.data && err.response.data.detail;
-                                MessagePlugin.error(detail || '操作失败');
+                                const data = err && err.response && err.response.data;
+                                MessagePlugin.error((data && (data.msg || data.detail)) || (err && err.message) || '操作失败');
                             })
                             .finally(() => { togglingSiteTheme.value = false; });
-                    }
+                    },
+                    onCancel: () => { instance.destroy(); },
+                    onClose: () => { instance.destroy(); }
                 });
             };
 
@@ -109,9 +111,10 @@
                         activating.value = module + ':' + item.key;
                         request.post('/theme/activate', { module: module, theme: item.key })
                             .then(() => {
-                                MessagePlugin.success('主题已切换为「' + item.name + '」');
+                                MessagePlugin.success('主题已切换为「' + item.name + '」，页面即将刷新');
                                 instance.destroy();
-                                loadModule(module);
+                                // 主题切换会替换页面壳和主题自带组件，必须整页刷新才能清理旧 Vue 实例。
+                                window.setTimeout(function () { window.location.reload(); }, 300);
                             })
                             .catch((err) => {
                                 const detail = err && err.response && err.response.data && err.response.data.detail;
@@ -146,13 +149,9 @@
 
             onMounted(() => {
                 // 先加载官网主题可见性配置
-                loadSiteThemeVisible().then(() => {
-                    // 根据配置决定初始显示的模块
-                    if (!siteThemeVisible.value && activeModule.value === 'site') {
-                        activeModule.value = 'admin';
-                    }
-                    loadModule(activeModule.value);
-                });
+                loadSiteThemeVisible()
+                    .catch(() => { siteThemeVisible.value = true; })
+                    .finally(() => { loadModule(activeModule.value); });
                 loadAllCounts();
             });
 

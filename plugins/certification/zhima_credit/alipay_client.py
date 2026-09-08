@@ -16,7 +16,7 @@ import logging
 import urllib.error
 import urllib.parse
 import urllib.request
-from datetime import datetime
+from core.time_utils import china_now
 
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes, serialization
@@ -169,7 +169,7 @@ class AlipayClient:
             "format": "JSON",
             "charset": "utf-8",
             "sign_type": "RSA2",
-            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "timestamp": china_now().strftime("%Y-%m-%d %H:%M:%S"),
             "version": "1.0",
         }
 

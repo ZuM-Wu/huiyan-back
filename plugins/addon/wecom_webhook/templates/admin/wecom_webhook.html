@@ -2,7 +2,6 @@
 {% block title %}企业微信通知 - 慧眼护农{% endblock %}
 {% block head %}
 {{ super() }}
-<link rel="stylesheet" href="/static/css/wecom-webhook.css?v={{ config.app_version }}">
 {% endblock %}
 {% block content %}
 <div id="page-app" v-cloak class="system-settings-page wecom-webhook-page">
@@ -101,5 +100,4 @@
 {% endblock %}
 {% block scripts %}
 {{ super() }}
-<script src="/static/js/pages/wecom_webhook.js?v={{ config.app_version }}"></script>
 {% endblock %}

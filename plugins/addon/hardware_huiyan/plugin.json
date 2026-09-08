@@ -1,0 +1,42 @@
+{
+  "name": "hardware_huiyan",
+  "title": "慧眼物联网设备管理",
+  "version": "1.0.2",
+  "description": "学习测试用自有设备接入，仅名称注册、免 Token 上报及最新数据查询",
+  "author": "HuiYan Team",
+  "module": "addon",
+  "owner_id": "hardware_huiyan",
+  "surface": "admin",
+  "enabled": true,
+  "default_order": 100,
+  "compatible_app_versions": [
+    ">=3.4.0"
+  ],
+  "dependencies": [],
+  "conflicts": [],
+  "permissions": [],
+  "capabilities": [
+    "hardware.provider",
+    "hardware.api"
+  ],
+  "pages": [
+    {
+      "page_key": "plugin_hardware_huiyan",
+      "surface": "admin",
+      "route": "/admin/plugin/hardware_huiyan/index",
+      "template": "index.html",
+      "styles": [],
+      "scripts": [
+        "index.js"
+      ]
+    }
+  ],
+  "resources": [
+    {
+      "key": "hardware_huiyan.management",
+      "path": "static/index.js",
+      "type": "script"
+    }
+  ],
+  "config": {}
+}

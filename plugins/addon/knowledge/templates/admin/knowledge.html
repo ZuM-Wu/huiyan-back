@@ -6,7 +6,7 @@
   布局：左栏分类树（大类>子类，增删改），右侧知识条目表格 + 新增/编辑弹窗。
   勘误审核已迁至独立页 knowledge_corrections.html。
   要点：
-  1. 继承核心 base.html；页面脚本外提至共享 js/pages（插件不挂 /static）
+  1. 继承插件公共页面壳；页面脚本由 manifest 本地资源声明加载
   2. 根节点 #page-app + v-cloak；Vue 分隔符 [[ ]]；t-* 组件禁止自闭合
   3. 按钮 v-permission 控显隐，权限码与 auth.py / router_admin 一一对应
   4. 典型图片复用全局 image-upload 组件（调 /api/admin/v1/upload/image）
@@ -212,6 +212,4 @@
 
 {% block scripts %}
 {{ super() }}
-<!-- 页面脚本外提至共享 js/pages（与 file_download 同范式），控制模板有效行数 <=400 -->
-<script src="/static/js/pages/knowledge.js?v={{ config.app_version }}"></script>
 {% endblock %}

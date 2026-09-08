@@ -4,9 +4,10 @@
 """
 
 import logging
-from typing import Optional
+from collections.abc import Iterable
+from typing import Any, Optional
 
-from sqlalchemy import select
+from sqlalchemy import delete, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.db.configuration import ConfigurationModel
@@ -88,3 +89,31 @@ class ConfigManager:
         )
         records = result.scalars().all()
         return {r.key[len(prefix):]: r.value for r in records}
+
+    async def delete_plugin_config(
+        self,
+        plugin_name: str,
+        db: AsyncSession,
+        extra_prefixes: Iterable[str] = (),
+    ) -> int:
+        """
+        删除插件配置及显式登记的兼容前缀。
+
+        插件卸载由 PluginManager 统一提交事务，因此本方法只执行删除，
+        不 commit。extra_prefixes 用于兼容历史上未使用插件名作为根前缀的配置，
+        例如 push 插件的 ``push_center.*``。
+        """
+        conditions: list[Any] = [ConfigurationModel.key.like(f"{plugin_name}.%")]
+        for prefix in extra_prefixes:
+            if not prefix:
+                continue
+            if prefix.endswith("."):
+                conditions.append(ConfigurationModel.key.like(f"{prefix}%"))
+            else:
+                conditions.append(ConfigurationModel.key == prefix)
+        if not conditions:
+            return 0
+        result = await db.execute(delete(ConfigurationModel).where(or_(*conditions)))
+        deleted = int(getattr(result, "rowcount", 0) or 0)
+        logger.debug("插件配置清理: %s (%d 条)", plugin_name, deleted)
+        return deleted

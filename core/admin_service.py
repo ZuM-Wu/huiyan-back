@@ -3,7 +3,7 @@
 封装 core.db.admin 的查询，供 api 层和插件层调用。
 """
 import logging
-from datetime import datetime
+from core.time_utils import china_now
 
 from sqlalchemy import select, update, delete, func
 
@@ -138,7 +138,7 @@ async def update_admin_login_state(
     password_hash: str | None = None,
 ) -> None:
     """更新登录 IP、操作时间，并可在登录时迁移旧密码哈希。"""
-    values = {"last_login_ip": ip, "last_action_time": datetime.now()}
+    values = {"last_login_ip": ip, "last_action_time": china_now()}
     if password_hash is not None:
         values["password"] = password_hash
     async with async_session_factory() as db:

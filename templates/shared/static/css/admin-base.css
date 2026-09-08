@@ -1,7 +1,7 @@
-/* 慧眼护农 V4 管理后台样式（拆分 1/4）：Reset & Base + Layout + 页面通用 + 卡片头部工具栏 + 可滚动表格 */
+/* 慧眼护农 3.4.0 管理后台样式（拆分 1/4）：Reset & Base + Layout + 页面通用 + 卡片头部工具栏 + 可滚动表格 */
 /* 由 admin.css 等价拆分而来，模板按原顺序 <link> 顺次引入，整体等价单文件 */
 
-/* 慧眼护农 V4 管理后台全局样式 */
+/* 慧眼护农 3.4.0 管理后台全局样式 */
 
 /* ========== Reset & Base ========== */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -416,19 +416,28 @@ a.sidebar-logo__link { cursor: pointer; }
     flex-shrink: 0;
 }
 
-/* 表格统一样式（横线分割 + 无边框 + 禁止横向滚动） */
+/* 表格统一样式（横线分割 + 无边框 + 超宽时仅内容区横向滚动） */
 .t-table, .t-table--bordered { 
     border-radius: var(--app-radius-md); 
     border: none !important; 
     width: 100%;
-    table-layout: fixed;
 }
-.t-table__content { overflow-x: hidden !important; }
-.t-table th { background: var(--app-bg-container) !important; font-weight: 600; color: var(--app-text-primary); }
+.t-table__content { overflow-x: auto !important; }
+.t-table__content > table {
+    width: max-content;
+    min-width: 100%;
+    table-layout: auto;
+}
+.t-table th {
+    background: var(--app-bg-container) !important;
+    color: var(--app-text-primary);
+    font-weight: 600;
+    white-space: nowrap;
+}
 .t-table td { 
     color: var(--app-text-secondary); 
     border-bottom: 1px solid var(--app-border);
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    white-space: nowrap;
 }
 .t-table .t-table__row--hover { background: var(--app-row-hover) !important; }
 /* 去掉表格内部单元格边框 */

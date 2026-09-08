@@ -1,0 +1,57 @@
+{
+  "name": "hardware_jjr",
+  "title": "jjr物联网设备管理",
+  "version": "1.0.1",
+  "description": "JJR 设备协议、实时卡片、历史图表与拍照接入公共硬件管理",
+  "author": "HuiYan Team",
+  "module": "addon",
+  "owner_id": "hardware_jjr",
+  "surface": "admin",
+  "enabled": true,
+  "default_order": 100,
+  "compatible_app_versions": [
+    ">=3.4.0"
+  ],
+  "dependencies": [],
+  "conflicts": [],
+  "permissions": [],
+  "capabilities": [
+    "hardware.provider",
+    "hardware.detail"
+  ],
+  "pages": [
+    {
+      "page_key": "plugin_hardware_jjr",
+      "surface": "admin",
+      "route": "/admin/plugin/hardware_jjr/index",
+      "template": "index.html",
+      "styles": [],
+      "scripts": [
+        "index.js"
+      ]
+    }
+  ],
+  "resources": [
+    {
+      "key": "hardware_jjr.detail",
+      "path": "static/detail.js",
+      "type": "script"
+    },
+    {
+      "key": "hardware_jjr.style",
+      "path": "static/detail.css",
+      "type": "style"
+    },
+    {
+      "key": "hardware_jjr.template",
+      "path": "static/detail-template.js",
+      "type": "script"
+    },
+    {
+      "key": "hardware_jjr.management",
+      "path": "static/index.js",
+      "type": "script"
+    }
+  ],
+  "config": {}
+}

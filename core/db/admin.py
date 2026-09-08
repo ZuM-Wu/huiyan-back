@@ -5,6 +5,7 @@
 from sqlalchemy import DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 from datetime import datetime
+from core.time_utils import china_now
 from core.db.base import Base
 
 
@@ -22,7 +23,7 @@ class Admin(Base):
     status: Mapped[int] = mapped_column(Integer, default=1, comment="状态: 0=禁用, 1=启用")
     last_login_ip: Mapped[str] = mapped_column(String(50), default="", comment="最后登录IP")
     last_action_time: Mapped[datetime | None] = mapped_column(DateTime, comment="最后操作时间")
-    create_time: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, comment="创建时间")
+    create_time: Mapped[datetime] = mapped_column(DateTime, default=china_now, comment="创建时间")
 
 
 class AdminLogin(Base):
@@ -34,7 +35,7 @@ class AdminLogin(Base):
     admin_id: Mapped[int] = mapped_column(Integer, nullable=False, comment="管理员ID")
     last_login_ip: Mapped[str] = mapped_column(String(50), default="", comment="登录IP")
     last_action_time: Mapped[datetime | None] = mapped_column(DateTime, comment="最后操作时间")
-    create_time: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, comment="创建时间")
+    create_time: Mapped[datetime] = mapped_column(DateTime, default=china_now, comment="创建时间")
 
 
 class AdminRole(Base):
@@ -46,7 +47,7 @@ class AdminRole(Base):
     name: Mapped[str] = mapped_column(String(64), nullable=False, comment="角色名称")
     description: Mapped[str] = mapped_column(String(256), default="", comment="描述")
     is_system: Mapped[int] = mapped_column(Integer, default=0, comment="是否系统内置")
-    create_time: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, comment="创建时间")
+    create_time: Mapped[datetime] = mapped_column(DateTime, default=china_now, comment="创建时间")
 
 
 class AdminRoleLink(Base):

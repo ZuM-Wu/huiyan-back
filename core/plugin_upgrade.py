@@ -9,6 +9,16 @@ from typing import Any, List
 _VALID_NAV_TYPES = frozenset({"admin", "frontend"})
 logger = logging.getLogger(__name__)
 
+PLUGIN_DEFAULT_ORDER = 100
+
+
+def _manifest_default_order(meta: dict) -> int:
+    """读取并校验插件菜单默认排序权重。"""
+    value = meta.get("default_order", PLUGIN_DEFAULT_ORDER)
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        raise ValueError("插件 manifest 的 default_order 必须是非负整数")
+    return value
+
 
 class PluginUpgradeMixin:
     """封装版本迁移、运行态暂停与导航注册，保持 PluginManager 公共 API 不变。"""
@@ -125,7 +135,17 @@ class PluginUpgradeMixin:
                 upgrade_result = await upgrade_result
             if upgrade_result is False:
                 raise ValueError(f"插件 '{name}' upgrade() 返回失败")
-            await db.execute(sa_update(plugin_model).where(plugin_model.name == name).values(version=new_version))
+            metadata = self.load_metadata(name)
+            if instance.get_pages():
+                await self._register_plugin_nav(name, instance, metadata, db, preserve_menu_layout=True)
+            if instance.get_hardware_providers():
+                from core.db.hardware_device import HardwareDevice
+                await db.execute(sa_update(HardwareDevice).where(HardwareDevice.provider_id == name).values(
+                    provider_title=metadata.get("title") or instance.title or name,
+                ))
+            await db.execute(sa_update(plugin_model).where(plugin_model.name == name).values(
+                version=new_version, title=metadata.get("title") or instance.title or name,
+            ))
             await db.commit()
             persisted = await db.execute(sa_select(plugin_model.version).where(plugin_model.name == name))
             if persisted.scalar_one_or_none() != new_version:
@@ -172,8 +192,9 @@ class PluginUpgradeMixin:
         except Exception:
             logger.exception("插件 '%s' 升级回滚后的运行态恢复失败", name)
 
-    async def _register_plugin_nav(self, name: str, instance, meta: dict, db) -> None:
-        """将插件页面声明幂等写入导航表。"""
+    async def _register_plugin_nav(self, name: str, instance, meta: dict, db, *, preserve_menu_layout: bool = False) -> None:
+        """将 addon 页面声明幂等写入导航表，并将后台页面加入应用菜单。"""
+        from core.db.menu import Menu
         from core.db.nav import Nav
         from sqlalchemy import select as sa_select
 
@@ -181,20 +202,97 @@ class PluginUpgradeMixin:
             return
         pages = instance.get_pages() or []
         self._validate_plugin_pages(name, pages)
-        from core.plugin_page_validator import validate_plugin_page_sources
+        default_order = _manifest_default_order(meta)
+        from core.plugin_page_validator import (
+            validate_plugin_manifest_pages,
+            validate_plugin_page_sources,
+        )
         plugin_root = self.plugins_dir / self._find_plugin_path(name)
+        validate_plugin_manifest_pages(plugin_root, meta, pages)
         validate_plugin_page_sources(plugin_root, pages)
-        for page in pages:
-            if page.get("hidden"):
-                continue
+
+        visible_pages = [page for page in pages if not page.get("hidden")]
+        admin_pages = [
+            page for page in visible_pages
+            if page.get("nav_type", "admin") == "admin"
+        ]
+        application_menu_id = 0
+        if admin_pages:
+            parent_result = await db.execute(
+                sa_select(Menu).where(
+                    Menu.name == "plugin",
+                    Menu.nav_type == "admin",
+                    Menu.plugin == "",
+                ).with_for_update()
+            )
+            parent_rows = parent_result.scalars().all()
+            if len(parent_rows) != 1:
+                raise ValueError("后台侧边栏缺少唯一的'应用'父菜单")
+            application_menu_id = int(parent_rows[0].id)
+
+        for page in visible_pages:
             nav_type = page.get("nav_type", "admin")
-            key = page.get("key") or f"plugin_{name}"
-            existing = (await db.execute(sa_select(Nav).where(Nav.key == key, Nav.nav_type == nav_type))).scalar_one_or_none()
-            if existing:
+            key = page["key"]
+            title = page.get("title") or meta.get("title", name)
+            nav_rows = (
+                await db.execute(
+                    sa_select(Nav).where(Nav.key == key, Nav.nav_type == nav_type)
+                )
+            ).scalars().all()
+            if len(nav_rows) > 1:
+                raise ValueError(f"插件页面导航键冲突且不唯一: {key}/{nav_type}")
+            existing_nav = nav_rows[0] if nav_rows else None
+            if existing_nav and (
+                existing_nav.source != "plugin" or existing_nav.plugin != name
+            ):
+                raise ValueError(f"插件页面导航键已被其他来源占用: {key}/{nav_type}")
+            if existing_nav:
+                existing_nav.title = title
+                existing_nav.path = page.get("path", "")
+                existing_nav.icon = page.get("icon", "app")
+                existing_nav.group_name = meta.get("title", name)
+                existing_nav.page_type = "system"
+            else:
+                db.add(Nav(
+                    key=key, title=title, path=page.get("path", ""),
+                    icon=page.get("icon", "app"), nav_type=nav_type,
+                    source="plugin", plugin=name,
+                    group_name=meta.get("title", name), page_type="system",
+                ))
+
+            if nav_type != "admin":
                 continue
-            db.add(Nav(key=key, title=page.get("title") or meta.get("title", name), path=page.get("path", ""),
-                       icon=page.get("icon", "app"), nav_type=nav_type, source="plugin", plugin=name,
-                       group_name=meta.get("title", name), page_type="system"))
+            menu_rows = (
+                await db.execute(
+                    sa_select(Menu).where(
+                        Menu.name == key,
+                        Menu.nav_type == "admin",
+                    )
+                )
+            ).scalars().all()
+            if len(menu_rows) > 1:
+                raise ValueError(f"插件页面菜单键冲突且不唯一: {key}/admin")
+            existing_menu = menu_rows[0] if menu_rows else None
+            if existing_menu and existing_menu.plugin != name:
+                raise ValueError(f"插件页面菜单键已被其他来源占用: {key}/admin")
+            if existing_menu:
+                existing_menu.title = title
+                existing_menu.path = page.get("path", "")
+                existing_menu.icon = page.get("icon", "app")
+                if not preserve_menu_layout:
+                    existing_menu.visible = 1
+                existing_menu.page_type = "system"
+                existing_menu.target_type = ""
+                if not preserve_menu_layout and existing_menu.parent_id != application_menu_id:
+                    existing_menu.parent_id = application_menu_id
+                    existing_menu.sort_order = default_order
+                continue
+            db.add(Menu(
+                name=key, title=title, path=page.get("path", ""),
+                icon=page.get("icon", "app"), parent_id=application_menu_id,
+                sort_order=default_order, plugin=name, visible=1,
+                nav_type="admin", page_type="system", target_type="",
+            ))
 
     @staticmethod
     def _validate_plugin_pages(name: str, pages: List[dict]) -> None:

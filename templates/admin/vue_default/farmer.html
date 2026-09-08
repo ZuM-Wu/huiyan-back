@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+{% block title %}农户列表 - 慧眼护农{% endblock %}
+{% block content %}
+<div id="page-app" v-cloak class="farmer-list-page">
+    <t-card title="农户列表">
+        <template #header>
+            <div class="card-header-toolbar">
+                <div class="card-header-toolbar-left">
+                    <t-button v-permission="'farmer:create'" theme="primary" @click="openCreate">新增农户</t-button>
+                </div>
+                <div class="card-header-toolbar-right">
+                    <t-select v-model="searchField" style="width: 120px;" @change="fetchData">
+                        <t-option value="" label="全部"></t-option>
+                        <t-option value="username" label="用户名"></t-option>
+                        <t-option value="nickname" label="昵称"></t-option>
+                        <t-option value="phone" label="手机号"></t-option>
+                        <t-option value="email" label="邮箱"></t-option>
+                        <t-option value="company" label="公司/农场"></t-option>
+                    </t-select>
+                    <t-input v-model="searchKeyword" :placeholder="searchPlaceholder" clearable class="search-input" @change="fetchData" @enter="fetchData"></t-input>
+                </div>
+            </div>
+        </template>
+        <t-skeleton v-if="loading" :row-col="[6]" animation="gradient"></t-skeleton>
+        <t-table v-else :data="tableData" :columns="columns" :pagination="pagination"
+            row-key="id" hover @page-change="onPageChange">
+            <template #username="{ row }">
+                <t-popup placement="right" trigger="hover" :show-arrow="true" :destroy-on-close="true">
+                    <a class="farmer-name-link" @click.prevent="goDetail(row)" href="#">
+                        [[ row.username ]]
+                    </a>
+                    <template #content>
+                        <div class="farmer-popup-card">
+                            <div class="popup-header">
+                                <span class="popup-username">[[ row.username ]]</span>
+                                <t-tag theme="default" variant="light" size="small">ID [[ row.id ]]</t-tag>
+                            </div>
+                            <div class="popup-body">
+                                <div class="popup-col">
+                                    <div class="popup-row">
+                                        <span class="popup-label">昵称</span>
+                                        <span class="popup-val">[[ row.nickname || '--' ]]</span>
+                                    </div>
+                                    <div class="popup-row">
+                                        <span class="popup-label">手机号</span>
+                                        <span class="popup-val">[[ row.phone || '--' ]]</span>
+                                    </div>
+                                    <div class="popup-row">
+                                        <span class="popup-label">注册时间</span>
+                                        <span class="popup-val">[[ row.create_time || '--' ]]</span>
+                                    </div>
+                                    <div class="popup-row">
+                                        <span class="popup-label">最后登录</span>
+                                        <span class="popup-val">[[ row.last_login_ip || '--' ]]</span>
+                                    </div>
+                                </div>
+                                <div class="popup-col">
+                                    <div class="popup-row">
+                                        <span class="popup-label">头像</span>
+                                        <span class="popup-val">
+                                            <img v-if="row.avatar" :src="row.avatar" style="width:32px;height:32px;border-radius:50%;object-fit:cover;" alt="头像" />
+                                            <span v-else>--</span>
+                                        </span>
+                                    </div>
+                                    <div class="popup-row">
+                                        <span class="popup-label">邮箱</span>
+                                        <span class="popup-val">[[ row.email || '--' ]]</span>
+                                    </div>
+                                    <div class="popup-row">
+                                        <span class="popup-label">公司/农场</span>
+                                        <span class="popup-val">[[ row.company || '--' ]]</span>
+                                    </div>
+                                    <div class="popup-row">
+                                        <span class="popup-label">产区绑定</span>
+                                        <span class="popup-val">[[ (row.areas && row.areas.length) ? row.areas.join('、') : '--' ]]</span>
+                                    </div>
+                                    <div class="popup-row">
+                                        <span class="popup-label">实名状态</span>
+                                        <t-tag v-if="row.cert_status === 1" theme="success" variant="light" size="small">已认证</t-tag>
+                                        <t-tag v-else-if="row.cert_status === 0" theme="warning" variant="light" size="small">待审核</t-tag>
+                                        <t-tag v-else-if="row.cert_status === 2" theme="danger" variant="light" size="small">未通过</t-tag>
+                                        <t-tag v-else theme="default" variant="light" size="small">未认证</t-tag>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="popup-footer">
+                                <div class="popup-footer-actions">
+                                    <t-button theme="primary" block @click="goDetail(row)">查看详情</t-button>
+                                    <t-button theme="default" block @click="doQuickLogin(row)">快捷登录</t-button>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </t-popup>
+            </template>
+            <template #region="{ row }">
+                <!-- 绑定产区来自 hy_area_farmer：显示首个产区名，超出部分以 +N 汇总，title 提示全量 -->
+                <span v-if="row.areas && row.areas.length" :title="row.areas.join('、')">
+                    <t-tag theme="primary" variant="light">[[ row.areas[0] ]]</t-tag>
+                    <t-tag v-if="row.areas.length > 1" theme="default" variant="light"
+                        style="margin-left: var(--app-spacing-xs);">+[[ row.areas.length - 1 ]]</t-tag>
+                </span>
+                <t-tag v-else theme="default" variant="light">--</t-tag>
+            </template>
+            <template #status="{ row }">
+                <t-tag :theme="row.status === 1 ? 'success' : 'danger'" variant="light">
+                    [[ row.status === 1 ? '正常' : '禁用' ]]
+                </t-tag>
+            </template>
+        </t-table>
+    </t-card>
+
+    <!-- 新增/编辑弹窗 -->
+    <t-dialog v-model:visible="dialogVisible" :header="isEdit ? '编辑农户' : '新增农户'"
+        :confirm-btn="{content:'保存',theme:'primary',loading:submitLoading}"
+        :cancel-btn="{content:'取消'}" @confirm="doSubmit" @close="resetForm">
+        <t-form ref="formRef" :data="formData" :rules="formRules">
+            <t-form-item label="头像">
+                <image-upload v-model="formData.avatar" hint="农户头像" :max-size="2"></image-upload>
+            </t-form-item>
+            <t-form-item label="用户名" name="username">
+                <t-input v-model="formData.username" placeholder="请输入用户名" :disabled="isEdit"/>
+            </t-form-item>
+            <t-form-item label="密码" :name="!isEdit ? 'password' : ''">
+                <t-input v-model="formData.password" type="password" :placeholder="isEdit ? '留空则不修改' : '请输入密码'"/>
+            </t-form-item>
+            <t-form-item label="昵称" name="nickname">
+                <t-input v-model="formData.nickname" placeholder="请输入昵称"/>
+            </t-form-item>
+            <t-form-item label="手机号">
+                <t-input v-model="formData.phone" placeholder="请输入手机号"/>
+            </t-form-item>
+            <t-form-item label="邮箱">
+                <t-input v-model="formData.email" placeholder="请输入邮箱"/>
+            </t-form-item>
+            <t-form-item label="公司/农场">
+                <t-input v-model="formData.company" placeholder="请输入公司或农场名称"/>
+            </t-form-item>
+            <t-form-item label="状态" v-if="isEdit">
+                <t-radio-group v-model="formData.status">
+                    <t-radio :value="1">正常</t-radio>
+                    <t-radio :value="0">禁用</t-radio>
+                </t-radio-group>
+            </t-form-item>
+        </t-form>
+    </t-dialog>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="/static/js/pages/farmer.js?v={{ config.app_version }}"></script>
+{% endblock %}

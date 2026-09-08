@@ -1,7 +1,7 @@
 {
   "name": "zhima_credit",
   "title": "芝麻信用实名认证",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "基于支付宝芝麻信用官方API的实名认证插件，支持快捷认证、人脸识别、身份证识别等多种认证方式",
   "author": "HuiYan Team",
   "module": "certification",
@@ -9,7 +9,7 @@
   "surface": "platform",
   "enabled": true,
   "default_order": 100,
-  "compatible_app_versions": [">=4.0.0"],
+  "compatible_app_versions": [">=3.4.0"],
   "dependencies": [],
   "conflicts": [],
   "permissions": [],

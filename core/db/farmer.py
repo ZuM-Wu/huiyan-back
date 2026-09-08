@@ -5,6 +5,7 @@
 from sqlalchemy import DateTime, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 from datetime import datetime
+from core.time_utils import china_now
 from core.db.base import Base
 
 
@@ -38,7 +39,7 @@ class Farmer(Base):
     status: Mapped[int] = mapped_column(Integer, default=1, comment="状态: 0=禁用, 1=启用")
     last_login_ip: Mapped[str] = mapped_column(String(50), default="", comment="最后登录IP")
     last_action_time: Mapped[datetime | None] = mapped_column(DateTime, comment="最后操作时间")
-    create_time: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, comment="注册时间")
+    create_time: Mapped[datetime] = mapped_column(DateTime, default=china_now, comment="注册时间")
 
 
 class FarmerLogin(Base):
@@ -50,4 +51,4 @@ class FarmerLogin(Base):
     farmer_id: Mapped[int] = mapped_column(Integer, nullable=False, comment="农户ID")
     last_login_ip: Mapped[str] = mapped_column(String(50), default="", comment="登录IP")
     last_action_time: Mapped[datetime | None] = mapped_column(DateTime, comment="最后操作时间")
-    create_time: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, comment="创建时间")
+    create_time: Mapped[datetime] = mapped_column(DateTime, default=china_now, comment="创建时间")

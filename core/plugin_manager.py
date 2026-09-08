@@ -1,5 +1,5 @@
 """
-插件管理器 — 慧眼护农 V4 核心骨架
+插件管理器 — 慧眼护农 3.4.0 核心骨架
 
 BasePlugin: 插件抽象基类，install() 必须完成五步操作
 PluginManager: 插件发现、安装、卸载、启用、禁用、升级
@@ -14,10 +14,8 @@ import sys
 from pathlib import Path
 from typing import Dict, List
 
-from sqlalchemy import delete
-
 from core.config import BASE_DIR, settings
-from core.hook_events import emit_plugin_installed, emit_plugin_uninstalled
+from core.hook_events import emit_plugin_installed
 from core.plugin_base import BasePlugin
 from core.plugin_upgrade import PluginUpgradeMixin
 
@@ -204,7 +202,7 @@ class PluginManager(PluginUpgradeMixin):
             type_dir = self.plugins_dir / module_name
             if not type_dir.is_dir():
                 continue
-            for plugin_dir in type_dir.iterdir():
+            for plugin_dir in sorted(type_dir.iterdir(), key=lambda path: path.name.casefold()):
                 if not plugin_dir.is_dir():
                     continue
                 if plugin_dir.name.startswith("_") or plugin_dir.name.startswith("."):
@@ -261,6 +259,8 @@ class PluginManager(PluginUpgradeMixin):
         from core.events import event_registry, pipeline_engine
         from services.task.definitions import task_registry
 
+        from core.hardware_provider import hardware_provider_registry
+        hardware_provider_registry.unregister_owner(name)
         event_registry.unregister_owner(name)
         pipeline_engine.unregister_owner(name)
         task_registry.unregister_owner(name)
@@ -280,13 +280,26 @@ class PluginManager(PluginUpgradeMixin):
         pages = instance.get_pages() or []
         if pages:
             self._validate_plugin_pages(name, pages)
-            from core.plugin_page_validator import validate_plugin_page_sources
+            from core.plugin_page_validator import (
+                validate_plugin_manifest_pages,
+                validate_plugin_page_sources,
+            )
             plugin_root = self.plugins_dir / self._find_plugin_path(name)
+            validate_plugin_manifest_pages(plugin_root, self.load_metadata(name), pages)
             validate_plugin_page_sources(plugin_root, pages)
         self._unregister_runtime_capabilities(name)
         from core.platform.plugin_lifecycle import register_plugin_resources
         register_plugin_resources(name, self.load_metadata)
         try:
+            from core.hardware_provider import hardware_provider_registry
+            hardware = instance.get_hardware_providers()
+            if not isinstance(hardware, list):
+                raise ValueError("硬件来源声明必须返回列表")
+            if hardware:
+                hardware_provider_registry.register(
+                    name, hardware,
+                    self.plugins_dir / self._find_plugin_path(name), self.load_metadata(name),
+                )
             for definition in definitions:
                 if definition.owner != name:
                     raise ValueError(f"事件定义 owner 必须为插件名: {definition.name}")
@@ -306,6 +319,8 @@ class PluginManager(PluginUpgradeMixin):
             self._register_mcp_tools_runtime(name, instance)
         except Exception:
             self._unregister_runtime_capabilities(name)
+            from core.platform.resource import resource_registry
+            resource_registry.invalidate_owner(name)
             raise
 
     def restore_capabilities(self, name: str) -> bool:
@@ -351,6 +366,18 @@ class PluginManager(PluginUpgradeMixin):
         except Exception as e:
             logger.warning(f"插件 '{name}' MCP 工具注销失败: {e}", exc_info=True)
 
+    @staticmethod
+    async def _sync_mcp_tool_policies(name: str, db) -> None:
+        """在插件生命周期事务中登记该插件当前声明的工具策略。"""
+        from services.agentscope.tools import sync_tool_policies
+        from services.mcp.registry import list_registered_tool_declarations
+
+        declarations = [
+            item for item in list_registered_tool_declarations()
+            if item.get("owner") == name
+        ]
+        await sync_tool_policies(db, declarations)
+
     async def install(self, name: str, db) -> bool:
         """
         安装插件（事务安全）
@@ -392,6 +419,7 @@ class PluginManager(PluginUpgradeMixin):
             # 运行时能力与驻留使用无会话新实例（会话安全，见方法注释）
             runtime_instance = plugin_cls(None, meta.get("config", {}))
             self._register_runtime_capabilities(name, runtime_instance)
+            await self._sync_mcp_tool_policies(name, db)
 
             # 注册插件权限树（传入主事务会话，随 install 事务一起提交/回滚）
             perm_tree = instance.get_permissions()
@@ -419,92 +447,10 @@ class PluginManager(PluginUpgradeMixin):
             return False
 
     async def uninstall(self, name: str, db, router_manager=None) -> bool:
-        """
-        卸载插件
+        """通过统一编排清理插件私有数据、框架记录与运行时能力。"""
+        from core.plugin_uninstall import _uninstall_plugin
 
-        流程（考虑 MySQL DDL 隐式提交）:
-        1. 框架层先执行所有 DML 清理（菜单/导航/旧元数据/权限/插件记录）
-        2. 再调用 instance.uninstall()（可能含 DDL，会隐式提交）
-        3. 注销全部运行时能力
-
-        参数:
-            router_manager: 可选，传入时将插件加入路由禁用集合，
-                已挂载路由卸载后即时 404（路由本身无法运行时移除）
-
-        注意: MySQL 的 DROP TABLE 等 DDL 语句会触发隐式提交，
-        因此不能用单一事务包裹整个卸载流程。
-        框架层 DML 先执行并提交，确保即使插件 DDL 失败，
-        菜单/权限/插件记录也已清理。
-        """
-        try:
-            from core.platform.plugin_lifecycle import begin_uninstall
-            await begin_uninstall(name, router_manager)
-            instance = self._loaded.get(name)
-            # 若插件不在 _loaded（如服务器重启后），临时实例化以执行卸载清理
-            if not instance:
-                plugin_cls, meta = self._load_plugin_class(name)
-                if plugin_cls:
-                    instance = plugin_cls(db, meta.get("config", {}))
-                else:
-                    logger.warning(f"临时实例化插件 '{name}' 失败，跳过插件自身卸载逻辑")
-
-            # === 第一步：框架层 DML 清理（单一事务） ===
-            try:
-                from sqlalchemy import delete as sa_delete
-
-                # 注销插件权限树
-                from core.auth.rbac import unregister_plugin_permissions
-                await unregister_plugin_permissions(name)
-
-                # 清理插件菜单（框架层兜底）
-                from core.db.menu import Menu
-                from sqlalchemy import or_
-                # 同时按 plugin 字段和路径匹配，清理导航管理手动添加的插件页面（plugin=''但path含插件名）
-                await db.execute(
-                    sa_delete(Menu).where(
-                        or_(
-                            Menu.plugin == name,
-                            Menu.path.like(f"%/plugin/{name}/%"),
-                        )
-                    )
-                )
-
-                # 清理插件页面注册（hy_nav）
-                from core.db.nav import Nav
-                await db.execute(sa_delete(Nav).where(Nav.plugin == name))
-
-                # 删除 hy_plugin 记录
-                from core.db.plugin import PluginModel
-                await db.execute(
-                    delete(PluginModel).where(PluginModel.name == name)
-                )
-
-                await db.commit()
-
-            except Exception as e:
-                await db.rollback()
-                logger.error(f"插件 '{name}' 框架层清理失败: {e}", exc_info=True)
-                return False
-
-            # === 第二步：插件自身卸载（可能含 DDL，会隐式提交） ===
-            if instance:
-                try:
-                    await instance.uninstall()
-                except Exception as e:
-                    logger.warning(f"插件 '{name}' 自身卸载失败(框架层已清理): {e}", exc_info=True)
-
-            # === 第三步：按 owner 清理全部运行时能力 ===
-            self._unregister_runtime_capabilities(name)
-            self._loaded.pop(name, None)
-            from core.platform.plugin_lifecycle import finalize_lifecycle
-            await finalize_lifecycle(name, "uninstalled")
-            # 发布插件卸载瞬时事件。
-            await emit_plugin_uninstalled(name)
-            return True
-
-        except Exception as e:
-            logger.error(f"插件 '{name}' 卸载异常: {e}", exc_info=True)
-            return False
+        return await _uninstall_plugin(self, name, db, router_manager)
 
     async def enable(self, name: str, db, router_manager=None) -> bool:
         """
@@ -522,17 +468,19 @@ class PluginManager(PluginUpgradeMixin):
             sa_select(PluginModel).where(PluginModel.name == name)
         )).scalar_one_or_none()
         if record and record.status == 1 and name in self._loaded:
+            await self._sync_mcp_tool_policies(name, db)
+            await db.commit()
             logger.info(f"插件 '{name}' 已处于启用状态，幂等返回")
             return True
         await db.execute(
             update(PluginModel).where(PluginModel.name == name).values(status=1)
         )
-        await db.commit()
         # 运行时恢复：显式能力重新注册 + 路由门禁放行。
         if not self.restore_capabilities(name):
-            await db.execute(update(PluginModel).where(PluginModel.name == name).values(status=2))
-            await db.commit()
+            await db.rollback()
             return False
+        await self._sync_mcp_tool_policies(name, db)
+        await db.commit()
         from core.platform.plugin_lifecycle import finalize_lifecycle, resume_plugin_owner_or_disable
         if not await resume_plugin_owner_or_disable(name, db, self, PluginModel, update):
             return False

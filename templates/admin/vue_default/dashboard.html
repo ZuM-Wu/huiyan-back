@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}控制台 - 慧眼护农{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="/static/css/dashboard.css?v={{ config.app_version }}">
+{% endblock %}
+{% block content %}
+<div id="page-app" v-cloak class="dashboard-page">
+    <!-- 顶部工具栏 -->
+    <div class="dashboard-toolbar">
+        <h2>控制台</h2>
+        <t-popup placement="bottom-left" trigger="click" overlay-class-name="widget-popup">
+            <t-button theme="default" variant="outline" :loading="loading">
+                <template #icon><t-icon name="setting"/></template>
+                挂件管理
+            </t-button>
+            <template #content>
+                <div class="widget-config-panel">
+                    <p>选择要显示的挂件</p>
+                    <t-checkbox v-for="w in allWidgets" :key="w.name"
+                        v-model="w.checked" @change="onToggle(w)">
+                        [[ w.title ]]
+                    </t-checkbox>
+                </div>
+            </template>
+        </t-popup>
+    </div>
+
+    <!-- 挂件网格容器（可拖拽） -->
+    <div ref="gridRef" class="dashboard-grid" v-if="showWidgets.length > 0">
+        <div v-for="w in showWidgets" :key="w.name"
+             :class="['widget-item', 'col-' + w.columns]"
+             :data-id="w.name">
+            <div class="widget-drag-handle"><t-icon name="move" size="16px"/></div>
+
+            <!-- stat_card 类型 -->
+            <div v-if="w.widget_type === 'stat_card'" class="widget-stat-card">
+                <div class="stat-icon">
+                    <t-icon :name="w.data.icon || 'chart-bar'" size="24px"/>
+                </div>
+                <div class="stat-content">
+                    <div class="stat-value">[[ formatStatValue(w) ]]</div>
+                    <div class="stat-title">[[ w.title ]]</div>
+                    <div v-if="w.data.sub" class="stat-sub">[[ w.data.sub ]]</div>
+                </div>
+            </div>
+
+            <!-- list 类型 -->
+            <div v-else-if="w.widget_type === 'list'" class="widget-list-card">
+                <div class="list-header">
+                    <t-icon :name="w.data.icon || 'file'" size="18px"/>
+                    <span class="list-title">[[ w.title ]]</span>
+                </div>
+                <div class="list-body">
+                    <div v-for="log in (w.data.logs || [])" :key="log.id" class="log-row">
+                        <span class="log-type">[[ log.type ]]</span>
+                        <span class="log-desc">[[ log.description ]]</span>
+                        <span class="log-user">[[ log.user_name ]]</span>
+                        <span class="log-time">[[ log.create_time ]]</span>
+                    </div>
+                    <div v-if="!(w.data.logs && w.data.logs.length)" class="log-row">
+                        <span class="log-desc" style="text-align:center;flex:1;">暂无数据</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- chart 类型（ECharts 容器，由 dashboard.js 按挂件标识初始化与轮播） -->
+            <div v-else-if="w.widget_type === 'chart'" class="widget-chart-card">
+                <div class="chart-header">
+                    <span class="chart-title">[[ w.title ]]</span>
+                    <span class="chart-area-label" :id="'chart-label-' + w.name"></span>
+                </div>
+                <template v-if="w.data && w.data.areas && w.data.areas.length">
+                    <div class="widget-chart-body" :id="'widget-chart-' + w.name"></div>
+                    <!-- 条状翻页指示器（多产区轮播进度，dashboard.js 动态填充） -->
+                    <div class="chart-indicator" :id="'chart-indicator-' + w.name"></div>
+                </template>
+                <div v-else class="chart-empty">暂无积温数据（产区接入天气服务后自动展示）</div>
+            </div>
+
+            <!-- todo 类型（待办事项：网格平铺各待办计数，点击直达对应管理页） -->
+            <div v-else-if="w.widget_type === 'todo'" class="widget-todo-card">
+                <div class="todo-header">[[ w.title ]]</div>
+                <div class="todo-grid">
+                    <div v-for="item in (w.data.items || [])" :key="item.key"
+                         class="todo-tile" @click="goTodo(item)">
+                        <span class="todo-tile-icon"><t-icon :name="item.icon" size="20px"></t-icon></span>
+                        <span class="todo-tile-label">[[ item.label ]]</span>
+                        <span class="todo-tile-count">[[ item.count ]]</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 未知类型兜底 -->
+            <div v-else class="widget-stat-card">
+                <div class="stat-title">[[ w.title ]]</div>
+                <div class="stat-sub">该挂件类型暂未实现</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 空状态 -->
+    <div v-else class="dashboard-empty">
+        <t-icon name="info-circle" size="48px"/>
+        <p style="margin-top:16px;">暂无显示的挂件，请点击右上角"挂件管理"选择要显示的挂件</p>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="/static/vendor/sortable/Sortable.min.js?v={{ config.app_version }}"></script>
+<script src="/static/vendor/echarts/echarts.min.js"></script>
+<script src="/static/js/pages/dashboard.js?v={{ config.app_version }}"></script>
+{% endblock %}

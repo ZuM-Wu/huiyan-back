@@ -10,6 +10,7 @@
 """
 import logging
 from datetime import date, datetime, timedelta
+from core.time_utils import china_now
 
 from sqlalchemy import select, desc
 from fastmcp.exceptions import ToolError
@@ -94,7 +95,7 @@ async def weather_alerts(area_id: int) -> list[dict]:
         alerts = (await db.execute(
             select(WeatherAlert).where(
                 WeatherAlert.area_id == area_id,
-                WeatherAlert.end_time >= datetime.now(),
+                WeatherAlert.end_time >= china_now(),
             ).order_by(desc(WeatherAlert.start_time)).limit(20)
         )).scalars().all()
 

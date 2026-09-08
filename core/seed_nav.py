@@ -32,6 +32,7 @@ async def seed_nav(db):
         ("navigation",  "导航管理",   "/admin/navigation",  "menu",      "系统设置"),
         ("theme",       "主题设置",   "/admin/theme",       "palette",   "系统设置"),
         ("production-area", "产区列表", "/admin/production-area", "location", "产区管理"),
+        ("hardware-device", "硬件管理", "/admin/hardware-device", "control-platform", "产区管理"),
         ("planting-batch", "种植批次", "/admin/planting-batch", "list",   "产区管理"),
         ("area-binding", "农户绑定", "/admin/area-binding", "usergroup", "产区管理"),
         ("weather",      "天气服务", "/admin/weather",      "cloudy-day", "产区管理"),
@@ -51,7 +52,6 @@ async def seed_nav(db):
         ("cache",   "缓存管理", "/farmer/cache",   "file",         "系统管理"),
         ("system",  "系统信息", "/farmer/system",  "setting",      "系统管理"),
         ("production-area", "我的产区", "/farmer/production-area", "location", "农户端"),
-        ("ai",      "AI 助手", "/farmer/ai",      "chat",         "农户端"),
     ]
 
     inserted = 0
@@ -123,6 +123,16 @@ async def seed_nav(db):
     )).rowcount
     if stale_notice:
         logger.info("[Nav种子] 清理旧版通知页注册 %d 条", stale_notice)
+
+    # AgentScope 硬切后只清理旧框架记录；新的后台 AgentScope 对话页保留为系统入口。
+    stale_ai = (await db.execute(
+        delete(Nav).where(
+            (Nav.key.in_(["ai", "ai_setting"]))
+            | Nav.path.in_(["/farmer/ai", "/farmer/ai-chat"])
+        )
+    )).rowcount
+    if stale_ai:
+        logger.info("[Nav种子] 清理旧 AI 对话导航记录 %d 条", stale_ai)
 
     # 清理非 addon 插件在 hy_nav 中的残留页面注册（sms/mail 等服务型插件不应注册页面）
     from core.plugin_manager import PLUGIN_MODULES

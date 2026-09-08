@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% block title %}发送设置 - 慧眼护农{% endblock %}
+{% block head %}
+<style>
+.send-settings-page .type-tabs { margin-bottom: var(--app-spacing-md); }
+.send-settings-page .type-tabs .t-tabs__content { padding: 0; }
+.send-settings-page .bottom-bar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--app-spacing-sm);
+    margin-top: var(--app-spacing-lg);
+    padding: var(--app-spacing-md) 0 24px;
+    border-top: 1px solid var(--app-border);
+}
+</style>
+{% endblock %}
+{% block content %}
+<div id="page-app" v-cloak class="send-settings-page">
+    <t-card title="通知发送">
+        <template #header>
+            <div class="card-header-toolbar">
+                <div class="card-header-toolbar-left">
+                    <t-button theme="default" @click="openBatchConfig">
+                        <template #icon><t-icon name="setting"></t-icon></template>
+                        批量配置接口
+                    </t-button>
+                </div>
+                <div class="card-header-toolbar-right">
+                    <t-input v-model="searchKeyword" placeholder="搜索通知动作" clearable
+                        style="width: 240px;" @enter="fetchActions"></t-input>
+                    <t-button theme="primary" @click="fetchActions">查询</t-button>
+                </div>
+            </div>
+        </template>
+
+        <!-- 类型筛选 Tab -->
+        <t-tabs v-model="activeType" theme="normal" class="type-tabs">
+            <t-tab-panel value="" label="全部"></t-tab-panel>
+            <t-tab-panel value="user" label="用户账户"></t-tab-panel>
+            <t-tab-panel value="production" label="产区相关"></t-tab-panel>
+            <t-tab-panel value="order" label="订单"></t-tab-panel>
+            <t-tab-panel value="other" label="其他"></t-tab-panel>
+        </t-tabs>
+
+        <!-- 主表格 -->
+        <t-skeleton v-if="loading" :row-col="[6]" animation="gradient"></t-skeleton>
+        <t-table v-else :data="filteredActions" :columns="columns"
+            row-key="action_key" hover size="medium">
+            <!-- 类型 -->
+            <template #action_type="{ row }">
+                <t-tag size="small" theme="default">[[ typeLabel(row.action_type) ]]</t-tag>
+            </template>
+            <!-- 短信接口 -->
+            <template #sms_interface="{ row }">
+                <t-select v-model="row.sms_interface" clearable placeholder="选择"
+                    style="width: 150px;" @change="saveRow(row)">
+                    <t-option v-for="p in smsPluginList" :key="p.name" :value="p.name" :label="p.title"></t-option>
+                </t-select>
+            </template>
+            <!-- 短信模板 -->
+            <template #sms_template_id="{ row }">
+                <t-select v-model="row.sms_template_id" clearable placeholder="选择"
+                    style="width: 170px;" @change="saveRow(row)">
+                    <t-option v-for="t in filterSmsTemplates(row.sms_interface)" :key="t.id" :value="t.id" :label="t.title"></t-option>
+                </t-select>
+            </template>
+            <!-- 短信启用 -->
+            <template #sms_enabled="{ row }">
+                <t-switch v-model="row.sms_enabled" @change="saveRow(row)"></t-switch>
+            </template>
+            <!-- 邮件接口 -->
+            <template #email_interface="{ row }">
+                <t-select v-model="row.email_interface" clearable placeholder="选择"
+                    style="width: 150px;" @change="saveRow(row)">
+                    <t-option v-for="p in emailPluginList" :key="p.name" :value="p.name" :label="p.title"></t-option>
+                </t-select>
+            </template>
+            <!-- 邮件模板（邮件模板不绑定接口，展示全部） -->
+            <template #email_template_id="{ row }">
+                <t-select v-model="row.email_template_id" clearable placeholder="选择"
+                    style="width: 170px;" @change="saveRow(row)">
+                    <t-option v-for="t in allEmailTemplates" :key="t.id" :value="t.id" :label="t.name"></t-option>
+                </t-select>
+            </template>
+            <!-- 邮件启用 -->
+            <template #email_enabled="{ row }">
+                <t-switch v-model="row.email_enabled" @change="saveRow(row)"></t-switch>
+            </template>
+        </t-table>
+
+        <!-- 底部保存栏 -->
+        <div class="bottom-bar">
+            <t-button theme="primary" :loading="batchSaving" @click="batchSave">保存全部</t-button>
+        </div>
+    </t-card>
+
+    <!-- 批量配置接口弹窗 -->
+    <t-dialog v-model:visible="batchDialogVisible" header="批量配置接口" width="480px" :footer="false">
+        <t-form label-width="100px">
+            <t-form-item label="短信接口">
+                <t-select v-model="batchForm.sms_interface" clearable placeholder="选择短信接口（可选）">
+                    <t-option v-for="p in smsPluginList" :key="p.name" :value="p.name" :label="p.title"></t-option>
+                </t-select>
+            </t-form-item>
+            <t-form-item label="邮件接口">
+                <t-select v-model="batchForm.email_interface" clearable placeholder="选择邮件接口（可选）">
+                    <t-option v-for="p in emailPluginList" :key="p.name" :value="p.name" :label="p.title"></t-option>
+                </t-select>
+            </t-form-item>
+            <div style="display:flex;gap:var(--app-spacing-sm);justify-content:flex-end;margin-top:var(--app-spacing-md);">
+                <t-button theme="primary" @click="applyBatchConfig">应用</t-button>
+                <t-button theme="default" @click="batchDialogVisible = false">取消</t-button>
+            </div>
+        </t-form>
+    </t-dialog>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="/static/js/pages/notice-send.js?v={{ config.app_version }}"></script>
+{% endblock %}

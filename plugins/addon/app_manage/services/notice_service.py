@@ -9,7 +9,7 @@ App管理插件 — App公告业务服务
 - 公开API仅暴露白名单字段，最多返回 20 条
 """
 import logging
-from datetime import datetime
+from core.time_utils import china_now
 
 from sqlalchemy import delete, func, select
 
@@ -142,7 +142,7 @@ class NoticeService:
             await cache_set(CACHE_KEY_NOTICES, {"rows": rows}, ttl)
 
         # 生效时间窗在请求时过滤（实现过期自动下线）
-        now = datetime.now()
+        now = china_now()
         result = []
         for raw in rows:
             if not _in_window(_parse_dt(raw.get("start_time")), _parse_dt(raw.get("end_time")), now):

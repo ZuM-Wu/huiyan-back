@@ -1,0 +1,104 @@
+/**
+ * Vue 默认主题专属布局样式。
+ * 颜色、间距和状态语义全部来自现有设计令牌。
+ */
+.vue-default-theme {
+    background: var(--app-bg-page);
+    color: var(--app-text-primary);
+    font-family: var(--app-font-family);
+}
+
+.vue-default-layout {
+    min-height: 100vh;
+    background: var(--app-bg-page);
+}
+
+.vue-default-theme .sidebar {
+    background: var(--app-bg-card);
+    border-right: 1px solid var(--app-border);
+    box-shadow: var(--app-shadow-1);
+}
+
+.vue-default-theme .sidebar-logo {
+    min-height: var(--app-header-height);
+    border-bottom: 1px solid var(--app-border);
+    background: var(--app-bg-card);
+}
+
+.vue-default-theme .sidebar-menu {
+    padding: var(--app-spacing-sm);
+}
+
+.vue-default-theme .sidebar-user {
+    border-top: 1px solid var(--app-border);
+    background: var(--app-bg-card);
+}
+
+.vue-default-theme .main-area,
+.vue-default-theme .page-content {
+    background: var(--app-bg-page);
+}
+
+.vue-default-theme .topbar {
+    min-height: var(--app-header-height);
+    border-bottom: 1px solid var(--app-border);
+    background: var(--app-bg-card);
+}
+
+.vue-default-theme .page-content {
+    min-height: calc(100vh - var(--app-header-height));
+    padding: var(--app-page-padding);
+}
+
+.vue-default-theme #page-app > .t-card,
+.vue-default-theme #page-app > .page-card {
+    border-color: var(--app-border);
+    box-shadow: var(--app-shadow-1);
+}
+
+.vue-default-theme .t-card__title {
+    font-weight: 600;
+}
+
+/* AgentScope 消息和资源说明共用的 Markdown 输出样式。 */
+.vue-ai-markdown-body {
+    color: var(--app-text-primary);
+    line-height: 1.7;
+}
+
+.vue-ai-markdown-body p,
+.vue-ai-markdown-body ul,
+.vue-ai-markdown-body ol {
+    margin: 0 0 var(--app-spacing-sm);
+}
+
+.vue-ai-markdown-body ul,
+.vue-ai-markdown-body ol {
+    padding-left: 1.5em;
+}
+
+.vue-ai-markdown-body pre {
+    overflow-x: auto;
+    padding: var(--app-spacing-sm);
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-md);
+    background: var(--app-bg-container);
+}
+
+.vue-ai-markdown-body table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0 0 var(--app-spacing-sm);
+}
+
+.vue-ai-markdown-body th,
+.vue-ai-markdown-body td {
+    padding: var(--app-spacing-sm);
+    border: 1px solid var(--app-border);
+    text-align: left;
+}
+
+.vue-ai-markdown-body th {
+    background: var(--app-bg-container);
+    font-weight: 600;
+}

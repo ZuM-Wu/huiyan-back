@@ -2,7 +2,7 @@
 """由 EventRegistry 派生企业微信卡片动作及可外发字段。"""
 
 from collections.abc import Mapping
-from datetime import datetime
+from core.time_utils import china_now
 from typing import Any, Dict, Iterator
 
 from core.events import event_registry
@@ -106,7 +106,7 @@ def sanitize_variables(action_key: str, variables: Dict[str, Any] | None) -> Dic
     allowed = set(COMMON_VARIABLES) | set(definition["variables"])
     source = variables or {}
     result = {key: str(source.get(key) if source.get(key) is not None else "") for key in allowed}
-    result["event_time"] = str(source.get("event_time") or datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+    result["event_time"] = str(source.get("event_time") or china_now().strftime("%Y-%m-%d %H:%M:%S"))
     return result
 
 

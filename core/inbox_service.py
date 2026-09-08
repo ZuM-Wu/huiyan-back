@@ -5,7 +5,7 @@
 涵盖农户端和管理端两套读写场景，所有函数返回纯 dict/list/int/bool。
 """
 import logging
-from datetime import datetime
+from core.time_utils import china_now
 from typing import Any, Sequence, cast
 
 from sqlalchemy import select, func, and_, delete, update
@@ -167,7 +167,7 @@ async def mark_read(
                 InboxMessage.id == message_id,
                 InboxMessage.receiver_id == receiver_id,
                 InboxMessage.receiver_type == receiver_type,
-            ).values(is_read=1, read_time=datetime.now())
+            ).values(is_read=1, read_time=china_now())
         ))
         if result.rowcount == 0:
             return False
@@ -188,7 +188,7 @@ async def mark_all_read(receiver_id: int, receiver_type: str) -> int:
                 InboxMessage.receiver_id == receiver_id,
                 InboxMessage.receiver_type == receiver_type,
                 InboxMessage.is_read == 0,
-            ).values(is_read=1, read_time=datetime.now())
+            ).values(is_read=1, read_time=china_now())
         ))
         await db.commit()
         return result.rowcount

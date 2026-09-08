@@ -14,8 +14,6 @@
 import logging
 from pathlib import Path
 
-from sqlalchemy import delete
-
 from core.config_manager import ConfigManager
 from core.plugin_manager import BasePlugin
 
@@ -40,7 +38,7 @@ class Plugin(BasePlugin):
         super().__init__(db_session, config)
         self.name = PLUGIN_NAME
         self.title = "推送中心"
-        self.version = "3.0.0"
+        self.version = "1.0.1"
         self.description = "统一管理站内信、短信、邮件推送，支持目标筛选、预览、调度和投递日志"
         self.module = "addon"
         self._config_manager = ConfigManager()
@@ -87,9 +85,9 @@ class Plugin(BasePlugin):
         卸载插件（五步逆操作）：
         1. 删除数据表
         2. 注销钩子（无）
-        3. 级联删除权限（PluginManager 处理）
-        4. 清理配置
-        5. 删除菜单
+        3. 级联删除权限、配置、导航和菜单（PluginManager 处理）
+        4. 注销运行时能力（PluginManager 处理）
+        5. 返回 True
         """
         if not self.db:
             return False
@@ -98,20 +96,7 @@ class Plugin(BasePlugin):
         await self._run_sql_file("uninstall.sql")
 
         # 2. 注销钩子（无）
-        # 3. 级联删除权限（PluginManager 处理）
-
-        # 4. 清理配置
-        from core.db.configuration import ConfigurationModel
-        await self.db.execute(
-            delete(ConfigurationModel).where(
-                ConfigurationModel.key.like(f"{PLUGIN_NAME}.%")
-                | ConfigurationModel.key.like("push_center.%")
-            )
-        )
-
-        # 5. 删除菜单
-        from core.db.menu import Menu
-        await self.db.execute(delete(Menu).where(Menu.plugin == PLUGIN_NAME))
+        # 3-5. 权限、配置、导航、菜单和运行时能力由 PluginManager 统一清理。
 
         logger.info("[push] 插件卸载完成")
         return True
@@ -168,6 +153,7 @@ class Plugin(BasePlugin):
                 "path": "/admin/plugin/push/push-task-form",
                 "icon": "edit", "nav_type": "admin", "hidden": True,
                 "template": "push-task-form.html", "audience": "admin",
+                "scripts": ["push-task-form.js"],
                 "permission": "push:create", "api_base": "/api/admin/v1/push",
             },
         ]
