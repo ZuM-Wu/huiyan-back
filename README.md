@@ -113,6 +113,12 @@ pip install -r requirements.txt
 uvicorn main:app --host 127.0.0.1 --port 8000
 ```
 
+## 后台管理
+
+>默认管理员账号密码
+| 账号 | 密码 |
+| admin | 123456 |
+
 ## 部署约束
 
 - 仅支持单 worker 部署，严禁使用 `--workers > 1`。系统内的防重复提交缓存、频控计数、插件禁用集合等均为进程内内存状态，多 worker 会导致状态漂移与安全机制失效。
