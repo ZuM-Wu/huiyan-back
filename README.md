@@ -6,25 +6,62 @@
 
 > 本项目用于学习、教学与非商业用途，开源协议见 [LICENSE](LICENSE)。禁止任何形式的商业使用，二次开发须保留原作者署名。
 
-## 功能特性
+## 功能特性（模块化）
 
-- 硬件管理与物联网：统一接入协议来源、设备列表、地块绑定、地图标记、实时/历史数据与详情抽屉。
-- 智能识别：基于 YOLO（Ultralytics）的模型管理、地块绑定、置信度控制与识别记录。
-- AI 对话：AgentScope 2.0.7 作为 AI 运行时，支持多模型、会话、MCP 工具与 Skill 装配。
-- 系统 MCP：对外提供只读 Tools / Resources / Prompts，账户级 API Key 鉴权与频控。
-- 对象存储与上传：本地与七牛云对象存储插件，统一存储调度与文件迁移。
-- 插件体系：Addon / 认证 / 邮件 / 天气 / OSS / 短信等多类插件，支持运行时启用、停用与升级。
-- 认证与权限：Admin / 农户双体系，RBAC 权限节点与 JWT 双密钥隔离。
+系统以可卸载插件（模块）方式组织业务能力，核心平台与各类插件模块如下：
+
+**核心平台**
+
+- 认证与权限：Admin / 农户双体系，RBAC 权限节点，JWT 双密钥隔离，验证码登录。
+- 插件框架：插件扫描装配、启用停用、运行时升级、插件数据库体检。
+- 任务调度：APScheduler 周期任务 + 任务队列 Worker。
+- 事件与管道：可靠事件 Outbox、Pipeline 扩展点。
+
+**业务插件（Addon）**
+
+- 硬件管理与物联网：慧眼 / JJR 设备，协议来源接入、设备列表、地块绑定、地图标记、实时与历史数据。
+- 智能识别：YOLO（Ultralytics）模型管理、地块绑定、置信度控制、识别记录与分析。
+- 知识与政策：知识库检索、政策资讯订阅。
+- 应用管理：应用与 APK 包管理。
+- 文件下载：文件共享与下载。
+- 消息推送：站内推送、企业微信机器人、管理员通知。
+
+**AI 与 MCP**
+
+- AI 对话：AgentScope 2.0.7 运行时，多模型、会话、Skill 与 MCP 装配。
+- 大模型网关：DeepSeek、GLM 视觉等模型插件。
+- 小智连接桥：WSS 连接、工具缓存与自定义 MCP。
+- 系统 MCP：只读 Tools / Resources / Prompts，账户级 API Key 鉴权与频控。
+
+**存储与外部服务**
+
+- 对象存储：本地 / 七牛云，统一存储调度、私密签名、文件迁移。
+- 短信：IDC 短信发送。
+- 邮件：SMTP 邮件与模板。
+- 天气：高德 / 和风天气拉取与订阅。
+- 三方认证：芝麻信用认证。
 
 ## 技术栈
+
+**后端**
 
 - Python 3.12
 - FastAPI + Uvicorn（单 worker）
 - SQLAlchemy（异步）+ aiomysql + MySQL 8
 - pydantic-settings（环境配置）
+- python-jose + bcrypt / passlib（JWT 与密码哈希）
+- FastMCP + WebSocket（系统 MCP / 小智连接）
 - AgentScope 2.0.7（AI 运行时）
 - Ultralytics 8（目标检测）
 - APScheduler（任务调度）
+- Jinja2（模板渲染）
+- httpx / qrcode / Qiniu SDK（外部服务集成）
+
+**前端**
+
+- 三端页面：管理端 / 农户端 / 站点
+- TDesign Vue Next（统一组件库）
+- 原生 JavaScript（SPA 导航、组件与仪表盘挂件）
 
 ## 目录结构
 

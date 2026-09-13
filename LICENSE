@@ -1,14 +1,78 @@
-慧眼护农 非商业学习许可协议 v1.0
-HuiYan-HuNong Non-Commercial Learning License v1.0
+# HuiYan-HuNong Non-Commercial Learning License v1.0
+
+Copyright © 2026 ZuM-Wu (ZM Wu)
+
+## 1. Definitions
+
+"This Software" refers to the "HuiYan-HuNong Smart Agriculture Business System",
+including all of its source code, documentation, and related resources, as well
+as any modified versions or derivative works based on it (collectively, the
+"Derivative Works").
+
+## 2. Grant of License
+
+Subject to full compliance with all terms of this License, the copyright holder
+hereby grants, free of charge, to any person or organization the following rights:
+
+1. To copy and distribute the original or copies of this Software;
+2. To modify this Software and use it for personal learning, teaching, scientific
+   research, or other non-commercial purposes;
+3. To develop Derivative Works based on this Software and distribute them.
+
+## 3. Non-Commercial Use Only
+
+1. Without the written authorization of the copyright holder, no person or
+   organization may use this Software or its Derivative Works for any direct or
+   indirect commercial purpose, including but not limited to: selling, renting,
+   commercial hosting, providing paid services, embedding this Software or its
+   Derivative Works into commercial products or services, or using it for
+   for-profit training or for-profit external technical support.
+2. Deployment solely for internal non-profit management and research purposes
+   does not constitute a commercial use under this section.
+
+## 4. Attribution
+
+Any copying, modification, secondary development, or redistribution of this
+Software or its Derivative Works must:
+
+1. Retain, in a prominent position, the copyright notice and original author
+   attribution of this License, i.e. "Copyright © 2026 ZuM-Wu (ZM Wu)";
+2. Clearly and reasonably indicate the original author information of this
+   Software in the source code, documentation, interface, or release notes;
+3. Not remove, hide, or tamper with any existing copyright notices and author
+   attribution marks contained in this Software.
+
+## 5. Disclaimer of Warranty
+
+This Software is provided "AS IS", without warranty of any kind, express or
+implied, including but not limited to the warranties of merchantability, fitness
+for a particular purpose, security, accuracy, and non-infringement. In no event
+shall the copyright holder be liable for any direct or indirect damages arising
+from the use of, or inability to use, this Software.
+
+## 6. Miscellaneous
+
+1. All rights not expressly granted by this License are reserved by the
+   copyright holder.
+2. This License shall be interpreted and governed by the laws of the People's
+   Republic of China, and any disputes shall be resolved accordingly.
+3. If any provision of this License is held to be invalid or unenforceable, the
+   remaining provisions shall remain in full force and effect.
+
+---
+
+# 慧眼护农 非商业学习许可协议 v1.0
 
 版权所有 © 2026 ZuM-Wu (ZM Wu)
 
-一、定义
+（以下为中文对照，与前述英文条款具有同等效力）
+
+## 一、定义
 
 本协议所称“本软件”，指「慧眼护农智慧农业业务系统」及其全部源代码、
 文档与相关资源，包括由本软件派生出的任何修改版本或二次开发作品（下称“衍生作品”）。
 
-二、授权范围
+## 二、授权范围
 
 著作权人在满足本协议全部条款的前提下，免费授予任何个人或团体以下权利：
 
@@ -16,14 +80,14 @@ HuiYan-HuNong Non-Commercial Learning License v1.0
 2. 修改本软件并用于自身的学习、教学、科研等非商业用途；
 3. 基于本软件进行二次开发，并分发由此产生的衍生作品。
 
-三、禁止商业用途
+## 三、禁止商业用途
 
 1. 未经著作权人书面授权，任何个人或团体不得将本软件或其衍生作品用于任何直接
    或间接的商业行为，包括但不限于：销售、出租、商业托管、提供收费服务、将本软件
    或其衍生作品嵌入商业产品或服务、用于营利性培训或营利性对外提供技术支持。
 2. 为内部非营利性管理与科研目的而自行部署的行为，不属于本条所称商业用途。
 
-四、署名要求
+## 四、署名要求
 
 任何对本软件或其衍生作品的复制、修改、二次开发、再分发，均必须：
 
@@ -31,13 +95,13 @@ HuiYan-HuNong Non-Commercial Learning License v1.0
 2. 在源代码、文档、界面或发布说明中，以合理且清晰的方式注明本软件的原作者信息；
 3. 不得删除、隐藏或篡改本软件中已有的著作权声明与作者署名标识。
 
-五、免责声明
+## 五、免责声明
 
 本软件按“现状”提供，不附带任何明示或默示的担保，包括但不限于对适销性、
 特定用途适用性、安全性、准确性及不侵权的担保。在任何情况下，因使用或无法使用
 本软件而造成的任何直接或间接损失，著作权人均不承担责任。
 
-六、其他
+## 六、其他
 
 1. 本协议未明确授予的权利均由著作权人保留。
 2. 本协议的解释、效力与争议解决适用中华人民共和国法律。
