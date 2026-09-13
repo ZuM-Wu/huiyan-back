@@ -157,9 +157,7 @@ CREATE TABLE IF NOT EXISTS `hy_menu` (
 INSERT IGNORE INTO `hy_plugin` (`name`, `title`, `version`, `module`, `status`) VALUES
 ('system', '系统核心', '4.0.0', 'addon', 1);
 
--- 超级管理员（密码: 123456）
-INSERT IGNORE INTO `hy_admin` (`id`, `username`, `password`, `nickname`, `status`) VALUES
-(1, 'admin', '$12$/3VXJFgyLYddUXVFf0/58OlZSx7v20sWUz5Yn.wa3GhtDtzLS3j3C', '超级管理员', 1);
+-- 超级管理员由应用运行时种子逻辑创建（初始密码通过 .env 的 ADMIN_INIT_PASSWORD 配置），归档不再内嵌任何凭据。
 
 -- 管理员角色
 INSERT IGNORE INTO `hy_admin_role` (`id`, `name`, `description`, `is_system`) VALUES

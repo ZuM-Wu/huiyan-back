@@ -25,6 +25,10 @@ class Settings(BaseSettings):
     JWT_KEY_ADMIN: str = ""
     JWT_KEY_FARMER: str = ""
 
+    # 种子管理员初始密码：不内置默认密码，须通过 .env 的 ADMIN_INIT_PASSWORD 注入；
+    # 为空则跳过创建种子管理员 admin（首次部署需先配置初始密码）。
+    ADMIN_INIT_PASSWORD: str = ""
+
     # JWT 过期时间（秒）
     JWT_EXPIRE_SECONDS: int = 7200
 

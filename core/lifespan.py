@@ -195,7 +195,7 @@ async def startup(app):  # noqa: PLR0915  12步启动流程语句数超限，属
     # 3. 种子数据（仅实际创建种子管理员时才提示初始密码，避免常规启动日志泄露凭据线索）
     admin_created = await _seed_data()
     if admin_created:
-        logger.info("[ 3/12] 种子数据已写入 (已创建管理员 admin，初始密码 123456，请首次登录后修改)")
+        logger.info("[ 3/12] 种子数据已写入 (已创建管理员 admin，初始密码来自 ADMIN_INIT_PASSWORD 配置，请首次登录后修改)")
     else:
         logger.info("[ 3/12] 种子数据已写入 (管理员账号已就绪)")
 
@@ -501,9 +501,13 @@ async def _seed_data() -> bool:
             select(Admin).where(Admin.username == "admin")
         )).scalar_one_or_none()
         if not existing_admin:
-            pw = hash_password("123456")
-            db.add(Admin(id=1, username="admin", password=pw, nickname="超级管理员", status=1))
-            admin_created = True
+            init_password = (settings.ADMIN_INIT_PASSWORD or "").strip()
+            if init_password:
+                pw = hash_password(init_password)
+                db.add(Admin(id=1, username="admin", password=pw, nickname="超级管理员", status=1))
+                admin_created = True
+            else:
+                logger.warning("[种子数据] 未配置 ADMIN_INIT_PASSWORD，跳过创建种子管理员 admin，请先通过 .env 配置初始密码")
         else:
             # 已存在管理员，不覆写密码（避免重置已修改的密码）
             # 旧格式密码将在管理员下次登录时通过渐进式迁移自动升级
