@@ -192,7 +192,7 @@ class PluginUpgradeMixin:
         except Exception:
             logger.exception("插件 '%s' 升级回滚后的运行态恢复失败", name)
 
-    async def _register_plugin_nav(self, name: str, instance, meta: dict, db, *, preserve_menu_layout: bool = False) -> None:
+    async def _register_plugin_nav(self, name: str, instance, meta: dict, db, *, preserve_menu_layout: bool = False) -> None:  # noqa: PLR0912
         """将 addon 页面声明幂等写入导航表，并将后台页面加入应用菜单。"""
         from core.db.menu import Menu
         from core.db.nav import Nav
@@ -246,6 +246,11 @@ class PluginUpgradeMixin:
                 existing_nav.source != "plugin" or existing_nav.plugin != name
             ):
                 raise ValueError(f"插件页面导航键已被其他来源占用: {key}/{nav_type}")
+            nav_owned_by_plugin = bool(
+                existing_nav
+                and existing_nav.source == "plugin"
+                and existing_nav.plugin == name
+            )
             if existing_nav:
                 existing_nav.title = title
                 existing_nav.path = page.get("path", "")
@@ -274,7 +279,15 @@ class PluginUpgradeMixin:
                 raise ValueError(f"插件页面菜单键冲突且不唯一: {key}/admin")
             existing_menu = menu_rows[0] if menu_rows else None
             if existing_menu and existing_menu.plugin != name:
-                raise ValueError(f"插件页面菜单键已被其他来源占用: {key}/admin")
+                legacy_menu_claim = bool(
+                    not existing_menu.plugin
+                    and existing_menu.path == page.get("path", "")
+                    and nav_owned_by_plugin
+                )
+                if legacy_menu_claim:
+                    existing_menu.plugin = name
+                else:
+                    raise ValueError(f"插件页面菜单键已被其他来源占用: {key}/admin")
             if existing_menu:
                 existing_menu.title = title
                 existing_menu.path = page.get("path", "")

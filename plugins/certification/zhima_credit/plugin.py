@@ -43,7 +43,7 @@ class Plugin(BasePlugin):
         super().__init__(db_session, config)
         self.name = PLUGIN_NAME
         self.title = "芝麻信用实名认证"
-        self.version = "1.0.1"
+        self.version = "1.0.2"
         self.description = "基于支付宝芝麻信用官方API的实名认证插件"
         self.module = "certification"
         self._config_manager = ConfigManager()

@@ -92,18 +92,18 @@
                             <template v-else>[[ row.prefix ]]****</template>
                         </template>
                         <template #status="{ row }">
-                            <t-tag :theme="row.status === 1 ? 'success' : 'danger'" variant="light" size="small">
+                            <t-tag :theme="row.status === 1 ? 'success' : 'danger'" variant="light">
                                 [[ row.status === 1 ? '启用中' : '已吊销' ]]
                             </t-tag>
                         </template>
                         <template #op="{ row }">
                             <!-- 操作列规范（视觉规范 14.2）：t-space + 文字按钮；详情复用创建成功弹窗，存量无明文密钥不显示 -->
                             <t-space :size="8">
-                                <t-button v-if="row.key" variant="text" size="small" theme="primary"
+                                <t-button v-if="row.key" variant="text" theme="primary"
                                           @click="openKeyDetail(row)">详情</t-button>
                                 <t-popconfirm content="吊销后该密钥立即失效且不可恢复，确认吊销？"
                                               theme="danger" @confirm="revokeKey(row)">
-                                    <t-button variant="text" size="small" theme="danger"
+                                    <t-button variant="text" theme="danger"
                                               :disabled="row.status === 2">吊销</t-button>
                                 </t-popconfirm>
                             </t-space>

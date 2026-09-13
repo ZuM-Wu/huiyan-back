@@ -34,7 +34,7 @@ class Plugin(BasePlugin):
         super().__init__(db_session, config)
         self.name = PLUGIN_NAME
         self.title = "Hello World 示例插件"
-        self.version = "1.0.1"
+        self.version = "1.0.2"
         self.description = "全量演示插件，供后续插件开发参考"
         self.module = "addon"
         self._config_manager = ConfigManager()
@@ -181,3 +181,5 @@ class Plugin(BasePlugin):
             await self._exec_sql(sql)
 
     # _register_menu 已移除：插件不自动创建菜单，由管理员通过导航管理页面手动添加
+    async def repair_database(self, report: dict) -> dict | bool:
+        return await self._repair_from_install_sql()

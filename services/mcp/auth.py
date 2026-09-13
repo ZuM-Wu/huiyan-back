@@ -5,7 +5,7 @@ Bearer Token 校验流程:
 1. 仅对无效 Key 使用有容量上限的进程内负缓存（60 秒，避免重复刷库）
 2. sha256(token) 查 hy_api_key（status=1 启用中）
 3. 按 user_type 校验所属 Admin/Farmer 账户 status=1
-4. 管理员经 RBAC 取权限 code 列表作为 scopes（沿用其 2 小时缓存，超管 id=1 标记 is_super）
+4. 管理员实时读取 RBAC 权限 code 列表作为 scopes（超管 id=1 标记 is_super）
 5. 回写 last_used_time
 
 有效 Key 不缓存，因此账户禁用、Key 吊销和 RBAC 变更在下一次鉴权立即生效。
@@ -128,7 +128,7 @@ class ApiKeyVerifier(TokenVerifier):
                 if not await _check_account_active(db, key_row.user_type, key_row.user_id):
                     return None
 
-                # 管理员：取 RBAC 权限 code 列表作为 scopes（沿用 2 小时缓存）
+                # 管理员每次读取真实角色关联权限，权限变更无需等待缓存过期。
                 scopes: list[str] = []
                 is_super = False
                 if key_row.user_type == "admin":

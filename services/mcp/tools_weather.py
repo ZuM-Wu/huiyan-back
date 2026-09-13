@@ -116,7 +116,7 @@ async def weather_alerts(area_id: int) -> list[dict]:
 # 天气工具声明列表（tools_core.py 聚合进 CORE_TOOLS）
 WEATHER_TOOLS: list[dict] = [
     {
-        "name": "batch_gdd",
+        "name": "agri_batch_gdd",
         "description": "查询种植批次的积温统计（活动/有效积温，自定植日起算，缺失日跳过）。"
                        "参数 area_id 为产区ID、batch_id 为种植批次ID（可用 core_area_tree 查询）。"
                        "返回作物名/批次号/种植日期/活动积温/有效积温/统计与缺失天数。",
@@ -125,7 +125,7 @@ WEATHER_TOOLS: list[dict] = [
         "permission_code": "weather:view",
     },
     {
-        "name": "weather_daily",
+        "name": "agri_weather_daily",
         "description": "查询产区逐日天气历史。参数 area_id 为产区ID，start/end 为可选日期范围"
                        "（YYYY-MM-DD，不传 start 默认最近30天）。返回逐日列表（最多366条），"
                        "每项含日期/最高最低均温/湿度/降水/风力/天气现象。",
@@ -134,7 +134,7 @@ WEATHER_TOOLS: list[dict] = [
         "permission_code": "weather:view",
     },
     {
-        "name": "weather_alerts",
+        "name": "agri_weather_alerts",
         "description": "查询产区当前生效的气象灾害预警。参数 area_id 为产区ID。"
                        "返回预警列表（最多20条），每项含预警类型/等级/标题/详情/起止时间。",
         "handler": weather_alerts,

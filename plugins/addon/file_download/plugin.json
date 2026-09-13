@@ -1,7 +1,7 @@
 {
   "name": "file_download",
   "title": "文件下载",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "文件下载插件：管理员按文件夹整理并上传文件、控制可见范围，农户在农户端浏览并下载可见文件",
   "author": "HuiYan Team",
   "module": "addon",
@@ -22,6 +22,7 @@
   "tasks": [],
   "events": ["file_download.downloaded"],
   "health": {"check": "plugin.file_download"},
+  "database_schema": {"version": 1, "tables": [{"name": "hy_plugin_file_download_folder", "columns": ["id", "name", "is_default", "admin_id", "create_time", "update_time"], "indexes": [{"name": "PRIMARY", "columns": ["id"], "unique": true}]}, {"name": "hy_plugin_file_download_file", "columns": ["id", "folder_id", "name", "filename", "origin_name", "filetype", "filesize", "visible_range", "hidden", "download_count", "description", "admin_id", "create_time", "update_time"], "indexes": [{"name": "PRIMARY", "columns": ["id"], "unique": true}, {"name": "idx_folder", "columns": ["folder_id"], "unique": false}, {"name": "idx_visible", "columns": ["hidden", "visible_range"], "unique": false}]}, {"name": "hy_plugin_file_download_area", "columns": ["id", "file_id", "area_id"], "indexes": [{"name": "PRIMARY", "columns": ["id"], "unique": true}, {"name": "uk_file_area", "columns": ["file_id", "area_id"], "unique": true}, {"name": "idx_area", "columns": ["area_id"], "unique": false}]}]},
   "config": {
     "file_download.max_size": "50",
     "file_download.extensions": "pdf,doc,docx,xls,xlsx,ppt,pptx,txt,csv,zip,rar,7z,jpg,jpeg,png,mp4"

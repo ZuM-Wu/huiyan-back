@@ -102,7 +102,8 @@
                 tableData.value = filtered.slice(start, start + pagination.pageSize);
             };
 
-            // 拉取已安装插件列表 + 扫描 plugins/ 目录发现的可安装插件列表，合并为同一份数据
+            // 应用管理只读取后端定义的应用范围；短信、邮件、天气、存储等
+            // 独立管理模块由各自设置页维护，不在这里重复展示。
             const fetchData = () => {
                 loading.value = true;
                 Promise.all([
@@ -246,7 +247,7 @@
 
             const scanAllPlugins = () => {
                 syncLoading.value = true;
-                return request.get('/plugin/discover', { params: { scope: 'all' } }).then((res) => {
+                return request.get('/plugin/discover').then((res) => {
                     const data = (res.data && res.data.data) || res.data || {};
                     syncRows.value = data.list || [];
                 }).catch(() => {

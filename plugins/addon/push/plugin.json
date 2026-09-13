@@ -1,7 +1,7 @@
 {
   "name": "push",
   "title": "手动推送",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "推送中心：统一管理站内信、短信、邮件推送，支持目标筛选、预览、调度和投递日志",
   "author": "HuiYan Team",
   "module": "addon",
@@ -22,6 +22,7 @@
   "tasks": ["push_execute"],
   "events": [],
   "health": {"check": "plugin.push"},
+  "database_schema": {"version": 1, "tables": [{"name": "hy_push_center_task", "columns": ["id", "title", "keywords", "content", "subject", "channels", "target_rule", "schedule_rule", "target_count", "send_num", "success_num", "fail_num", "last_exec_time", "status", "admin_id", "create_time", "update_time"], "indexes": [{"name": "PRIMARY", "columns": ["id"], "unique": true}, {"name": "idx_center_status", "columns": ["status"], "unique": false}, {"name": "idx_center_update", "columns": ["update_time"], "unique": false}]}, {"name": "hy_push_center_delivery_log", "columns": ["id", "task_id", "farmer_id", "username", "channel", "status", "reason", "notification_log_id", "create_time"], "indexes": [{"name": "PRIMARY", "columns": ["id"], "unique": true}, {"name": "idx_center_delivery_task", "columns": ["task_id"], "unique": false}, {"name": "idx_center_delivery_farmer", "columns": ["farmer_id"], "unique": false}, {"name": "idx_center_delivery_status", "columns": ["status"], "unique": false}]}]},
   "config": {
     "push_center.scheduler_interval": "60",
     "push_center.max_batch_size": "500"

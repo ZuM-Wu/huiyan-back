@@ -34,6 +34,8 @@
                 <div class="card-header-toolbar">
                     <div class="card-header-toolbar-left">
                         <t-button theme="default" @click="openConfigDialog">队列设置</t-button>
+                        <t-button v-permission="'task_monitor:clear_logs'" theme="danger" variant="outline"
+                            @click="openCleanupDialog">清理日志</t-button>
                     </div>
                     <div class="card-header-toolbar-right">
                         <t-select v-model="logFilter.task_type" placeholder="任务类型" clearable
@@ -72,31 +74,31 @@
                             style="color: var(--app-success); margin-left: var(--app-spacing-xs);"></t-icon>
                         <t-icon v-else name="close-circle"
                             style="color: var(--app-error); margin-left: var(--app-spacing-xs);"></t-icon>
-                        <t-tag v-if="row.is_manual" size="small" theme="warning" style="margin-left: var(--app-spacing-xs);">手动</t-tag>
+                        <t-tag v-if="row.is_manual" theme="warning" style="margin-left: var(--app-spacing-xs);">手动</t-tag>
                     </template>
                     <template #task_type="{ row }">
-                        <t-tag size="small" theme="default">[[ taskTypeLabel(row.task_type) ]]</t-tag>
+                        <t-tag theme="default">[[ taskTypeLabel(row.task_type) ]]</t-tag>
                     </template>
                     <template #duration_ms="{ row }">
                         [[ formatDuration(row.duration_ms) ]]
                     </template>
                     <template #handle_status="{ row }">
-                        <t-tag v-if="row.status === 'success'" size="small" theme="success">正常</t-tag>
-                        <t-tag v-else-if="row.handle_status === 0" size="small" theme="warning">未处理</t-tag>
-                        <t-tag v-else-if="row.handle_status === 1" size="small" theme="success">已处理</t-tag>
-                        <t-tag v-else size="small" theme="default">已忽略</t-tag>
+                        <t-tag v-if="row.status === 'success'" theme="success">正常</t-tag>
+                        <t-tag v-else-if="row.handle_status === 0" theme="warning">未处理</t-tag>
+                        <t-tag v-else-if="row.handle_status === 1" theme="success">已处理</t-tag>
+                        <t-tag v-else theme="default">已忽略</t-tag>
                     </template>
                     <template #op="{ row }">
                         <t-button v-if="row.status === 'failed' && row.handle_status === 0"
-                            variant="text" size="small" theme="primary"
+                            variant="text" theme="primary"
                             @click="retryTask(row)">重试</t-button>
                         <t-button v-if="row.status === 'failed' && row.handle_status === 0"
-                            variant="text" size="small" theme="success"
+                            variant="text" theme="success"
                             @click="handleTask(row)">已处理</t-button>
                         <t-button v-if="row.status === 'failed' && row.handle_status === 0"
-                            variant="text" size="small"
+                            variant="text"
                             @click="ignoreTask(row)">忽略</t-button>
-                        <t-button variant="text" size="small" @click="viewLogDetail(row)">详情</t-button>
+                        <t-button variant="text" @click="viewLogDetail(row)">详情</t-button>
                     </template>
                 </t-table>
             </t-tab-panel>
@@ -129,25 +131,25 @@
                 <t-table v-else :data="queueData" :columns="queueColumns"
                     row-key="id" :pagination="queuePagination" @page-change="onQueuePageChange" hover>
                     <template #type="{ row }">
-                        <t-tag size="small" theme="default">[[ queueTypeLabel(row.type) ]]</t-tag>
+                        <t-tag theme="default">[[ queueTypeLabel(row.type) ]]</t-tag>
                     </template>
                     <template #status="{ row }">
-                        <t-tag v-if="row.status === 'Wait'" size="small" theme="warning">等待中</t-tag>
-                        <t-tag v-else-if="row.status === 'Exec'" size="small" theme="primary">执行中</t-tag>
-                        <t-tag v-else-if="row.status === 'Paused'" size="small" theme="default">已暂停</t-tag>
-                        <t-tag v-else-if="row.status === 'Cancelled'" size="small" theme="default">已取消</t-tag>
-                        <t-tag v-else size="small" theme="danger">死信</t-tag>
+                        <t-tag v-if="row.status === 'Wait'" theme="warning">等待中</t-tag>
+                        <t-tag v-else-if="row.status === 'Exec'" theme="primary">执行中</t-tag>
+                        <t-tag v-else-if="row.status === 'Paused'" theme="default">已暂停</t-tag>
+                        <t-tag v-else-if="row.status === 'Cancelled'" theme="default">已取消</t-tag>
+                        <t-tag v-else theme="danger">死信</t-tag>
                     </template>
                     <template #retry="{ row }">
                         [[ row.attempt ]] / [[ row.max_attempts ]]
                     </template>
                     <template #op="{ row }">
-                        <t-button v-if="row.status === 'Paused'" variant="text" size="small"
+                        <t-button v-if="row.status === 'Paused'" variant="text"
                             theme="primary" @click="resumeQueueTask(row)">恢复</t-button>
                         <t-button v-if="row.status === 'Wait' || row.status === 'Paused'"
-                            variant="text" size="small" theme="danger"
+                            variant="text" theme="danger"
                             @click="cancelQueueTask(row, 'queue')">取消</t-button>
-                        <t-button variant="text" size="small" @click="viewQueueDetail(row)">详情</t-button>
+                        <t-button variant="text" @click="viewQueueDetail(row)">详情</t-button>
                     </template>
                 </t-table>
             </t-tab-panel>
@@ -168,15 +170,15 @@
                 <t-table v-else :data="failedData" :columns="failedColumns"
                     row-key="id" :pagination="failedPagination" @page-change="onFailedPageChange" hover>
                     <template #type="{ row }">
-                        <t-tag size="small" theme="default">[[ queueTypeLabel(row.type) ]]</t-tag>
+                        <t-tag theme="default">[[ queueTypeLabel(row.type) ]]</t-tag>
                     </template>
                     <template #retry="{ row }">
                         [[ row.attempt ]] / [[ row.max_attempts ]]
                     </template>
                     <template #op="{ row }">
-                        <t-button variant="text" size="small" theme="primary"
+                        <t-button variant="text" theme="primary"
                             @click="retryQueueTask(row, 'dead')">重试</t-button>
-                        <t-button variant="text" size="small" @click="viewQueueDetail(row)">详情</t-button>
+                        <t-button variant="text" @click="viewQueueDetail(row)">详情</t-button>
                     </template>
                 </t-table>
             </t-tab-panel>
@@ -196,7 +198,7 @@
             <t-tab-panel value="outbox" label="可靠事件">
                 <t-table :data="outboxData" :columns="outboxColumns" row-key="id" hover>
                     <template #op="{ row }">
-                        <t-button variant="text" size="small" theme="primary"
+                        <t-button variant="text" theme="primary"
                             @click="replayEvent(row)">重放</t-button>
                     </template>
                 </t-table>
@@ -212,8 +214,8 @@
             <div><b>任务描述:</b> [[ logDetailData.task_desc ]]</div>
             <div><b>任务类型:</b> [[ taskTypeLabel(logDetailData.task_type) ]]</div>
             <div><b>执行状态:</b>
-                <t-tag v-if="logDetailData.status === 'success'" size="small" theme="success">成功</t-tag>
-                <t-tag v-else size="small" theme="danger">失败</t-tag>
+                <t-tag v-if="logDetailData.status === 'success'" theme="success">成功</t-tag>
+                <t-tag v-else theme="danger">失败</t-tag>
             </div>
             <div><b>执行耗时:</b> [[ formatDuration(logDetailData.duration_ms) ]]</div>
             <div><b>开始时间:</b> [[ logDetailData.start_time ]]</div>
@@ -222,10 +224,10 @@
                 <div class="code-block">[[ logDetailData.error_msg ]]</div>
             </div>
             <div><b>处理状态:</b>
-                <t-tag v-if="logDetailData.status === 'success'" size="small" theme="success">正常</t-tag>
-                <t-tag v-else-if="logDetailData.handle_status === 0" size="small" theme="warning">未处理</t-tag>
-                <t-tag v-else-if="logDetailData.handle_status === 1" size="small" theme="success">已处理</t-tag>
-                <t-tag v-else size="small" theme="default">已忽略</t-tag>
+                <t-tag v-if="logDetailData.status === 'success'" theme="success">正常</t-tag>
+                <t-tag v-else-if="logDetailData.handle_status === 0" theme="warning">未处理</t-tag>
+                <t-tag v-else-if="logDetailData.handle_status === 1" theme="success">已处理</t-tag>
+                <t-tag v-else theme="default">已忽略</t-tag>
             </div>
             <div v-if="logDetailData.handled_by_name"><b>处理人:</b> [[ logDetailData.handled_by_name ]]</div>
             <div v-if="logDetailData.handle_note"><b>处理备注:</b> [[ logDetailData.handle_note ]]</div>
@@ -258,11 +260,11 @@
             <div><b>队列组:</b> [[ queueDetailData.group ]]</div>
             <div><b>任务描述:</b> [[ queueDetailData.description ]]</div>
             <div><b>状态:</b>
-                <t-tag v-if="queueDetailData.status === 'Wait'" size="small" theme="warning">等待中</t-tag>
-                <t-tag v-else-if="queueDetailData.status === 'Exec'" size="small" theme="primary">执行中</t-tag>
-                <t-tag v-else-if="queueDetailData.status === 'Paused'" size="small" theme="default">已暂停</t-tag>
-                <t-tag v-else-if="queueDetailData.status === 'Cancelled'" size="small" theme="default">已取消</t-tag>
-                <t-tag v-else size="small" theme="danger">死信</t-tag>
+                <t-tag v-if="queueDetailData.status === 'Wait'" theme="warning">等待中</t-tag>
+                <t-tag v-else-if="queueDetailData.status === 'Exec'" theme="primary">执行中</t-tag>
+                <t-tag v-else-if="queueDetailData.status === 'Paused'" theme="default">已暂停</t-tag>
+                <t-tag v-else-if="queueDetailData.status === 'Cancelled'" theme="default">已取消</t-tag>
+                <t-tag v-else theme="danger">死信</t-tag>
             </div>
             <div><b>执行尝试:</b> [[ queueDetailData.attempt ]] / [[ queueDetailData.max_attempts ]]</div>
             <div><b>幂等键:</b> [[ queueDetailData.idempotency_key || '-' ]]</div>
@@ -276,6 +278,20 @@
             <div><b>任务数据:</b>
                 <div class="code-block">[[ JSON.stringify(queueDetailData.task_data, null, 2) ]]</div>
             </div>
+        </div>
+    </t-dialog>
+
+    <!-- 日志清理弹窗 -->
+    <t-dialog v-model:visible="cleanupDialogVisible" header="清理任务日志" width="480px"
+        :footer="false" destroy-on-close>
+        <t-form label-width="120px">
+            <t-form-item label="保留天数">
+                <t-input-number v-model="cleanupRetentionDays" :min="1" :max="3650" theme="normal" />
+            </t-form-item>
+        </t-form>
+        <div class="dialog-footer">
+            <t-button theme="danger" :loading="cleanupLoading" @click="cleanupLogs">确认清理</t-button>
+            <t-button theme="default" :disabled="cleanupLoading" @click="cleanupDialogVisible = false">取消</t-button>
         </div>
     </t-dialog>
 

@@ -102,12 +102,12 @@
                         <t-tag v-else theme="default" variant="light">停用</t-tag>
                     </template>
                     <template #operation="{ row }">
-                        <t-button theme="primary" variant="text" size="small" v-permission="'plot:update'" @click="openEdit(row)">编辑</t-button>
-                        <t-button v-if="mapReady && !row.boundary" theme="primary" variant="text" size="small" v-permission="'plot:update'" @click="drawBoundaryFor(row)">补画边界</t-button>
-                        <t-button :theme="row.status === 1 ? 'warning' : 'success'" variant="text" size="small" v-permission="'plot:update'" @click="toggleStatus(row)">
+                        <t-button theme="primary" variant="text" v-permission="'plot:update'" @click="openEdit(row)">编辑</t-button>
+                        <t-button v-if="mapReady && !row.boundary" theme="primary" variant="text" v-permission="'plot:update'" @click="drawBoundaryFor(row)">补画边界</t-button>
+                        <t-button :theme="row.status === 1 ? 'warning' : 'success'" variant="text" v-permission="'plot:update'" @click="toggleStatus(row)">
                             [[ row.status === 1 ? '停用' : '启用' ]]
                         </t-button>
-                        <t-button theme="danger" variant="text" size="small" v-permission="'plot:delete'" @click="removePlot(row)">删除</t-button>
+                        <t-button theme="danger" variant="text" v-permission="'plot:delete'" @click="removePlot(row)">删除</t-button>
                     </template>
                 </t-table>
             </div>

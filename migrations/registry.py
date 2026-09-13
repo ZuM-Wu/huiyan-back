@@ -138,6 +138,14 @@ from migrations.weather_notice_disable_auto_email import (  # noqa: E402
     probe as _probe_weather_notice_disable,
     apply as _apply_weather_notice_disable,
 )
+from migrations.storage_file_fields import (  # noqa: E402
+    probe as _probe_storage_file_fields,
+    apply as _apply_storage_file_fields,
+)
+from migrations.storage_migration_tables import (  # noqa: E402
+    probe as _probe_storage_migration_tables,
+    apply as _apply_storage_migration_tables,
+)
 from migrations.xiaozhi_global_key_cleanup import (  # noqa: E402
     probe as _probe_xiaozhi_global_key_cleanup,
     apply as _apply_xiaozhi_global_key_cleanup,
@@ -153,6 +161,14 @@ from migrations.plugin_update_plan_legacy_backfill import (  # noqa: E402
 from migrations.plugin_update_plan_package_integrity import (  # noqa: E402
     probe as _probe_plugin_update_plan_integrity,
     apply as _apply_plugin_update_plan_integrity,
+)
+from migrations.plugin_database_state import (  # noqa: E402
+    probe as _probe_plugin_database_state,
+    apply as _apply_plugin_database_state,
+)
+from migrations.plugin_update_plan_repair import (  # noqa: E402
+    probe as _probe_plugin_update_plan_repair,
+    apply as _apply_plugin_update_plan_repair,
 )
 from migrations.plugin_version_track_normalization import (  # noqa: E402
     probe as _probe_plugin_version_track,
@@ -218,6 +234,8 @@ _REGISTRY = [
     ("remove_non_system_menus", _probe_remove_non_system_menus, _apply_remove_non_system_menus),
     ("verify_code_attempt_count", _probe_verify_code_attempt, _apply_verify_code_attempt),
     ("file_log_table", _probe_file_log, _apply_file_log),
+    ("storage_file_fields", _probe_storage_file_fields, _apply_storage_file_fields),
+    ("storage_migration_tables", _probe_storage_migration_tables, _apply_storage_migration_tables),
     ("api_key_table", _probe_api_key, _apply_api_key),
     ("api_key_plain", _probe_api_key_plain, _apply_api_key_plain),
     ("weather_notice_disable_auto_email", _probe_weather_notice_disable, _apply_weather_notice_disable),
@@ -225,6 +243,8 @@ _REGISTRY = [
     ("plugin_update_plan", _probe_plugin_update_plan, _apply_plugin_update_plan),
     ("plugin_update_plan_legacy_backfill", _probe_plugin_update_plan_legacy, _apply_plugin_update_plan_legacy),
     ("plugin_update_plan_package_integrity", _probe_plugin_update_plan_integrity, _apply_plugin_update_plan_integrity),
+    ("plugin_database_state", _probe_plugin_database_state, _apply_plugin_database_state),
+    ("plugin_update_plan_repair", _probe_plugin_update_plan_repair, _apply_plugin_update_plan_repair),
     ("plugin_version_track_normalization", _probe_plugin_version_track, _apply_plugin_version_track),
     ("agentscope_runtime", _probe_agentscope_runtime, _apply_agentscope_runtime),
     ("agentscope_hard_cut", _probe_agentscope_hard_cut, _apply_agentscope_hard_cut),

@@ -6,15 +6,22 @@
         props: ['device', 'context'], delimiters: ['[[', ']]'],
         template: `<div class="hardware-generic-detail">
             <t-alert v-if="!device.provider_available" theme="warning" message="来源不可用，显示上次成功获取的数据" />
-            <t-space><t-button v-if="device.capabilities.includes('realtime')" :disabled="!device.provider_available" @click="load(true)">刷新</t-button>
+            <t-space class="hardware-metric-toolbar"><t-button :loading="loading" v-if="device.capabilities.includes('realtime')" :disabled="!device.provider_available" @click="load(true)">刷新</t-button>
                 <t-button v-if="device.capabilities.includes('take_photo')" :disabled="!device.provider_available || !device.available" @click="photo">拍照</t-button></t-space>
             <t-alert v-if="error" theme="warning" :message="error" />
-            <t-loading :loading="loading"><t-descriptions :column="2" bordered>
-                <t-descriptions-item v-for="metric in metrics" :key="metric.identifier" :label="metric.name || metric.identifier">
-                    <t-image-viewer v-if="isImage(metric)" :images="[metric.value]">
-                        <template #trigger="{ open }"><t-button variant="text" @click="open">查看图片</t-button></template>
-                    </t-image-viewer><span v-else>[[ metric.value ?? '暂无' ]] [[ metric.unit ]]</span>
-                </t-descriptions-item></t-descriptions><t-empty v-if="!metrics.length" description="暂无缓存数据" /></t-loading>
+            <t-loading :loading="loading">
+                <div v-if="metrics.length" class="hardware-metric-grid">
+                    <t-card v-for="metric in metrics" :key="metric.identifier" :title="metric.name || metric.identifier">
+                        <t-image-viewer v-if="isImage(metric)" :images="[metric.value]">
+                            <template #trigger="{ open }"><t-button variant="text" @click="open">查看图片</t-button></template>
+                        </t-image-viewer>
+                        <div v-else class="hardware-metric-reading"><strong>[[ metric.value ?? '暂无' ]]</strong>
+                            <span v-if="metric.value != null">[[ metric.unit ]]</span></div>
+                        <div class="hardware-metric-time">更新时间：[[ metric.lastUpdateTime ? context.formatTime(metric.lastUpdateTime) : '暂无' ]]</div>
+                    </t-card>
+                </div>
+                <t-empty v-else description="暂无缓存数据" />
+            </t-loading>
             <template v-if="device.capabilities.includes('history')">
                 <t-space><t-select v-model="identifier" :options="options" placeholder="选择历史指标" />
                     <t-button :disabled="!identifier || !device.provider_available" @click="history(1)">查询历史</t-button></t-space>

@@ -18,12 +18,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 class Settings(BaseSettings):
     """系统配置类 — 自动从 .env 文件和环境变量加载"""
 
-    # 数据库配置
-    DATABASE_URL: str = "mysql+aiomysql://root:123456@127.0.0.1:3306/huiyan3dot4"
+    # 数据库配置：不内置默认凭据，须通过 .env 的 DATABASE_URL 注入（本地开发示例见部署文档）。
+    DATABASE_URL: str = ""
 
-    # JWT 密钥（Admin/Farmer 双密钥隔离）
-    JWT_KEY_ADMIN: str = "hy_admin_jwt_secret_2026_v4"
-    JWT_KEY_FARMER: str = "hy_farmer_jwt_secret_2026_v4"
+    # JWT 密钥（Admin/Farmer 双密钥隔离）：不携带任何默认密钥，须通过 .env 注入。
+    JWT_KEY_ADMIN: str = ""
+    JWT_KEY_FARMER: str = ""
 
     # JWT 过期时间（秒）
     JWT_EXPIRE_SECONDS: int = 7200

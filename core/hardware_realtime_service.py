@@ -141,6 +141,9 @@ async def _store_snapshot_success(device_id: int, payload: list[dict]) -> Hardwa
         update_time=statement.inserted.update_time,
     )
     async with async_session_factory() as db:
+        # 删除可能发生在采集网络请求期间；锁定父记录，迟到结果不能创建孤立快照。
+        if await db.scalar(select(HardwareDevice.id).where(HardwareDevice.id == device_id).with_for_update()) is None:
+            raise HardwareError("设备不存在", 404)
         await db.execute(statement)
         await db.commit()
     return HardwareRealtimeSnapshot(
@@ -170,6 +173,9 @@ async def _store_snapshot_failure(device_id: int, message: str) -> None:
         update_time=statement.inserted.update_time,
     )
     async with async_session_factory() as db:
+        # 删除可能发生在采集网络请求期间；锁定父记录，迟到结果不能创建孤立快照。
+        if await db.scalar(select(HardwareDevice.id).where(HardwareDevice.id == device_id).with_for_update()) is None:
+            raise HardwareError("设备不存在", 404)
         await db.execute(statement)
         await db.commit()
 

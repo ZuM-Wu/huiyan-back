@@ -42,7 +42,7 @@
                         <template #action_type="{ row }"><t-tag theme="default" variant="light">[[ actionTypeLabel(row.action_type) ]]</t-tag></template>
                         <template #enabled="{ row }"><t-switch v-model="row.enabled" :custom-value="[1, 0]" :loading="actionToggleKey === row.action_key" @change="toggleAction(row, $event)"></t-switch></template>
                         <template #available_variables="{ row }"><div class="wecom-template-preview">[[ variablePreview(row.available_variables) ]]</div></template>
-                        <template #operation="{ row }"><t-button v-permission="'wecom_webhook:config:update'" theme="primary" variant="text" size="small" @click="openActionDialog(row)">编辑</t-button></template>
+                        <template #operation="{ row }"><t-button v-permission="'wecom_webhook:config:update'" theme="primary" variant="text" @click="openActionDialog(row)">编辑</t-button></template>
                         <template #empty><t-empty description="暂无通知动作"></t-empty></template>
                     </t-table>
                 </div>

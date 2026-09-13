@@ -70,14 +70,14 @@
                     </template>
                     <template #operation="{ row }">
                         <template v-if="!row.installed">
-                            <t-button theme="primary" variant="text" size="small" @click="installSource(row)">安装</t-button>
+                            <t-button theme="primary" variant="text" @click="installSource(row)">安装</t-button>
                         </template>
                         <template v-else>
-                            <t-button theme="default" variant="text" size="small" @click="openConfig(row)">配置</t-button>
-                            <t-button theme="default" variant="text" size="small" @click="testSource(row)">测试</t-button>
-                            <t-button v-if="row.status !== 1" theme="primary" variant="text" size="small" @click="toggleSource(row, 1)">启用</t-button>
-                            <t-button v-if="row.status === 1" theme="warning" variant="text" size="small" @click="toggleSource(row, 2)">禁用</t-button>
-                            <t-button theme="danger" variant="text" size="small" @click="uninstallSource(row)">卸载</t-button>
+                            <t-button theme="default" variant="text" @click="openConfig(row)">配置</t-button>
+                            <t-button theme="default" variant="text" @click="testSource(row)">测试</t-button>
+                            <t-button v-if="row.status !== 1" theme="primary" variant="text" @click="toggleSource(row, 1)">启用</t-button>
+                            <t-button v-if="row.status === 1" theme="warning" variant="text" @click="toggleSource(row, 2)">禁用</t-button>
+                            <t-button theme="danger" variant="text" @click="uninstallSource(row)">卸载</t-button>
                         </template>
                     </template>
                 </t-table>
@@ -160,9 +160,9 @@
                         <t-tag v-else theme="default" variant="light">暂无数据</t-tag>
                     </template>
                     <template #operation="{ row }">
-                        <t-button theme="primary" variant="text" size="small" :disabled="!row.has_location"
+                        <t-button theme="primary" variant="text" :disabled="!row.has_location"
                             @click="refreshArea(row)">刷新</t-button>
-                        <t-button theme="default" variant="text" size="small" :disabled="!row.fetch_time"
+                        <t-button theme="default" variant="text" :disabled="!row.fetch_time"
                             @click="viewWeather(row)">查看</t-button>
                     </template>
                 </t-table>
@@ -199,10 +199,10 @@
 
                 <!-- 批次积温统计 -->
                 <template v-if="queryBatchId">
-                    <t-loading v-if="gddLoading" size="small" text="计算中..."></t-loading>
+                    <t-loading v-if="gddLoading" text="计算中..."></t-loading>
                     <t-alert v-else-if="gddError" theme="warning" :title="gddError"></t-alert>
                     <template v-else-if="gddData">
-                        <t-descriptions :column="3" bordered size="small">
+                        <t-descriptions :column="3" bordered>
                             <t-descriptions-item label="作物">[[ gddData.crop_name || '-' ]]</t-descriptions-item>
                             <t-descriptions-item label="批次编号">[[ gddData.batch_no || '-' ]]</t-descriptions-item>
                             <t-descriptions-item label="定植日期">[[ gddData.plant_date ]]</t-descriptions-item>
@@ -228,7 +228,7 @@
                 <t-skeleton v-if="queryAreaId && dailyLoading" :row-col="[6]" animation="gradient"
                     style="margin-top: var(--app-spacing-md);"></t-skeleton>
                 <t-table v-else-if="queryAreaId" :data="dailyRows" :columns="dailyColumns"
-                    row-key="date" size="small" hover table-layout="fixed" max-height="420"
+                    row-key="date" hover table-layout="fixed" max-height="420"
                     style="margin-top: var(--app-spacing-md);">
                 </t-table>
                 <div v-else class="weather-hint">选择产区后展示逐日天气历史（积温计算的数据基础）。</div>
@@ -304,7 +304,7 @@
             <t-loading text="加载中..."></t-loading>
         </div>
         <template v-else-if="weatherDetail">
-            <t-descriptions :column="3" bordered size="small" v-if="weatherDetail.realtime">
+            <t-descriptions :column="3" bordered v-if="weatherDetail.realtime">
                 <t-descriptions-item label="温度">[[ weatherDetail.realtime.temp ]]℃</t-descriptions-item>
                 <t-descriptions-item label="天气">[[ weatherDetail.realtime.text ]]</t-descriptions-item>
                 <t-descriptions-item label="湿度">[[ weatherDetail.realtime.humidity ]]%</t-descriptions-item>
@@ -322,7 +322,7 @@
             </t-alert>
             <!-- 未来预报 -->
             <t-table v-if="(weatherDetail.forecast || []).length" :data="weatherDetail.forecast"
-                :columns="forecastColumns" row-key="date" size="small" style="margin-top: var(--app-spacing-md);" hover>
+                :columns="forecastColumns" row-key="date" style="margin-top: var(--app-spacing-md);" hover>
             </t-table>
             <div class="weather-hint" style="margin-top: var(--app-spacing-sm);">
                 数据来源: [[ weatherDetail.source ]] · 拉取时间: [[ weatherDetail.fetch_time ]]

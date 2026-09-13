@@ -7,14 +7,18 @@
 from __future__ import annotations
 
 import json
+import logging
+import asyncio
 from typing import Any
 
 from core.config import settings
+from services.mcp.compact import compact_tool_list
 from services.mcp.registry import get_tool_meta, list_registered_tool_declarations
 
 PERMISSION_DENIED_TEXT = "没有权限调用该工具"
 _EXT_PREFIX = "ext__"
 _EXT_FARMER_PREFIX = "fext__"
+EXTERNAL_CALL_TIMEOUT_SECONDS = 15
 
 
 def _denied_text(name: str) -> str:
@@ -28,21 +32,16 @@ async def build_access_token(user_type: str, user_id: int, db) -> Any:
     scopes = []
     if user_type == "admin":
         from core.auth.rbac import get_admin_permissions
-        scopes = await get_admin_permissions(user_id, db)
+        scopes = await get_admin_permissions(user_id, db, use_cache=False)
     return AccessToken(
         token="internal-ai-agent", client_id=f"{user_type}:{user_id}", scopes=scopes,
-        claims={"user_type": user_type, "user_id": user_id, "is_super": user_id == SUPER_ADMIN_ID},
+        claims={"user_type": user_type, "user_id": user_id, "is_super": user_type == "admin" and user_id == SUPER_ADMIN_ID},
     )
 
 
 def _allowed(meta: dict | None, token: Any) -> bool:
-    if not meta or not token:
-        return False
-    claims = getattr(token, "claims", None) or {}
-    audience = {item.strip() for item in str(meta.get("audience", "admin")).split(",")}
-    if claims.get("user_type") not in audience:
-        return False
-    return bool(claims.get("is_super") or not meta.get("permission_code") or meta["permission_code"] in (token.scopes or []))
+    from services.mcp.middleware import _capability_allowed
+    return _capability_allowed(meta, token)
 
 
 async def _system_declarations(token: Any) -> list[dict]:
@@ -50,8 +49,9 @@ async def _system_declarations(token: Any) -> list[dict]:
     for item in list_registered_tool_declarations():
         name = item.get("name", "")
         if _allowed(get_tool_meta(name), token):
-            result.append({"type": "function", "function": {"name": name, "description": item.get("description", ""), "parameters": item.get("parameters") or {"type": "object", "properties": {}}}})
-    return result
+            result.append({"name": name, "description": item.get("description", ""), "parameters": item.get("parameters") or {"type": "object", "properties": {}}})
+    core_names = {item["name"] for item in result if (get_tool_meta(item["name"]) or {}).get("owner") == "core"}
+    return [{"type": "function", "function": item} for item in compact_tool_list(result, core_names=core_names)]
 
 
 def _record_declarations(records: list, prefix: str) -> list[dict]:
@@ -87,14 +87,16 @@ async def list_cached_external_declarations(db: Any, model_cls: Any = None, pref
 
 
 async def list_tool_declarations(token: Any, whitelist=None, db=None, system_tools_enabled=True) -> list[dict]:
-    del whitelist, system_tools_enabled
-    result = await _system_declarations(token) if settings.MCP_ENABLED else []
+    del whitelist
+    result = await _system_declarations(token) if settings.MCP_ENABLED and system_tools_enabled else []
     if db is not None:
         from services.agentscope.runtime import agentscope_runtime
         user_type = (token.claims or {}).get("user_type", "admin")
         records = await agentscope_runtime.storage.list_mcps(f"{user_type}:{(token.claims or {}).get('user_id', 1)}")
         result.extend(_record_declarations(records, _EXT_FARMER_PREFIX if user_type == "farmer" else _EXT_PREFIX))
-    return result
+    functions = [item["function"] for item in result]
+    core_names = {item["name"] for item in functions if (get_tool_meta(item["name"]) or {}).get("owner") == "core"}
+    return [{"type": "function", "function": item} for item in compact_tool_list(functions, core_names=core_names)]
 
 
 async def list_admin_external_declarations(db: Any) -> list[dict]:
@@ -109,18 +111,30 @@ async def call_tool(name: str, arguments: dict[str, Any], token: Any, db=None, s
         return await _call_external(name, arguments, token)
     if not settings.MCP_ENABLED or not system_tools_enabled or not _allowed(get_tool_meta(name), token):
         return _denied_text(name), True
-    declaration = next((item for item in list_registered_tool_declarations() if item.get("name") == name), None)
-    if not declaration:
-        return f"工具不存在：{name}", True
     from mcp.server.auth.middleware.auth_context import auth_context_var
     from mcp.server.auth.middleware.bearer_auth import AuthenticatedUser
     reset = auth_context_var.set(AuthenticatedUser(token))
     try:
-        result = await declaration["handler"](**(arguments or {}))
+        from services.mcp.server import mcp
+        result = await asyncio.wait_for(
+            mcp.call_tool(name, arguments or {}),
+            timeout=EXTERNAL_CALL_TIMEOUT_SECONDS,
+        )
+    except asyncio.CancelledError:
+        raise
+    except asyncio.TimeoutError:
+        logging.getLogger(__name__).warning("[MCP] 系统工具调用超时: tool=%s", name)
+        return "工具执行超时，请稍后重试", True
     except Exception as exc:
-        return f"工具执行失败：{exc}", False
+        logging.getLogger(__name__).warning(
+            "[MCP] 系统工具调用失败: tool=%s error=%s", name, type(exc).__name__
+        )
+        return "工具暂不可用，请稍后重试", True
     finally:
         auth_context_var.reset(reset)
+    from fastmcp.tools import ToolResult
+    if isinstance(result, ToolResult):
+        return "\n".join(item.text for item in result.content if hasattr(item, "text")), result.is_error
     return _serialize(result), False
 
 
@@ -135,9 +149,21 @@ async def _call_external(name: str, arguments: dict[str, Any], token: Any) -> tu
         return "MCP 不存在或已停用", True
     try:
         tool = await record.client.get_tool(raw[1])
-        return _serialize(await tool(**(arguments or {}))), False
+        from services.mcp.compact import compact_tool_result
+        result = await asyncio.wait_for(
+            tool(**(arguments or {})), timeout=EXTERNAL_CALL_TIMEOUT_SECONDS
+        )
+        compacted = compact_tool_result(result)
+        return _serialize(compacted), bool(getattr(result, "isError", False) or getattr(result, "is_error", False))
+    except asyncio.CancelledError:
+        raise
+    except asyncio.TimeoutError:
+        logging.getLogger(__name__).warning("[MCP] 外部工具调用超时: tool=%s", name)
+        return "外部 MCP 工具执行超时，请稍后重试", True
     except Exception as exc:
-        return f"外部 MCP 执行失败：{exc}", False
+        logging.getLogger(__name__).warning("[MCP] 外部工具执行失败: client=%s tool=%s error=%s",
+                                            token.client_id, name, type(exc).__name__)
+        return "外部 MCP 工具暂不可用，请稍后重试", True
 
 
 async def call_cached_external_tool(name: str, arguments: dict[str, Any], model_cls: Any = None, prefix: str = _EXT_PREFIX) -> tuple[str, bool]:
@@ -154,11 +180,25 @@ async def call_cached_external_tool(name: str, arguments: dict[str, Any], model_
             from fastmcp import Client
             from fastmcp.client.transports import StreamableHttpTransport
             headers = {"Authorization": f"Bearer {row.api_key}"} if row.api_key else None
-            async with Client(StreamableHttpTransport(row.url, headers=headers)) as client:
-                result = await client.call_tool(tool_name, arguments or {})
-            return _serialize(result), False
+            async with asyncio.timeout(EXTERNAL_CALL_TIMEOUT_SECONDS):
+                async with Client(StreamableHttpTransport(row.url, headers=headers)) as client:
+                    result = await client.call_tool(tool_name, arguments or {})
+            from services.mcp.compact import compact_tool_result
+            return _serialize(compact_tool_result(result)), bool(
+                getattr(result, "isError", False)
+                or getattr(result, "is_error", False)
+            )
+        except asyncio.CancelledError:
+            raise
+        except asyncio.TimeoutError:
+            logging.getLogger(__name__).warning(
+                "[MCP] 缓存外部工具调用超时: tool=%s", name
+            )
+            return "外部 MCP 工具执行超时，请稍后重试", True
         except Exception as exc:
-            return f"外部 MCP 执行失败：{exc}", False
+            logging.getLogger(__name__).warning("[MCP] 缓存外部工具执行失败: tool=%s error=%s",
+                                                name, type(exc).__name__)
+            return "外部 MCP 工具暂不可用，请稍后重试", True
     return await _call_external(name, arguments, type("Token", (), {"claims": {"user_type": "admin", "user_id": 1}})())
 
 
@@ -170,4 +210,6 @@ async def list_cached_external_declarations_for_user(db: Any, user_id: str, pref
 def _serialize(value: Any) -> str:
     if isinstance(value, str):
         return value
+    if hasattr(value, "model_dump"):
+        value = value.model_dump(by_alias=True, exclude_none=True)
     return json.dumps(value, ensure_ascii=False, default=str)

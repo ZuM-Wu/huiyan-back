@@ -82,11 +82,9 @@
                             </t-tag>
                         </template>
                         <template #actions="{ row }">
-                            <t-button v-permission="'app_manage:version'" theme="primary" variant="text"
-                                size="small" @click="openVersionEdit(row)">编辑</t-button>
+                            <t-button v-permission="'app_manage:version'" theme="primary" variant="text" @click="openVersionEdit(row)">编辑</t-button>
                             <t-popconfirm content="确认删除该版本？物理APK文件将一并删除" @confirm="removeVersion(row)">
-                                <t-button v-permission="'app_manage:version'" theme="danger" variant="text"
-                                    size="small">删除</t-button>
+                                <t-button v-permission="'app_manage:version'" theme="danger" variant="text">删除</t-button>
                             </t-popconfirm>
                         </template>
                     </t-table>
@@ -173,11 +171,9 @@
                             </t-tag>
                         </template>
                         <template #actions="{ row }">
-                            <t-button v-permission="'app_manage:notice'" theme="primary" variant="text"
-                                size="small" @click="openNoticeEdit(row)">编辑</t-button>
+                            <t-button v-permission="'app_manage:notice'" theme="primary" variant="text" @click="openNoticeEdit(row)">编辑</t-button>
                             <t-popconfirm content="确认删除该公告？" @confirm="removeNotice(row)">
-                                <t-button v-permission="'app_manage:notice'" theme="danger" variant="text"
-                                    size="small">删除</t-button>
+                                <t-button v-permission="'app_manage:notice'" theme="danger" variant="text">删除</t-button>
                             </t-popconfirm>
                         </template>
                     </t-table>

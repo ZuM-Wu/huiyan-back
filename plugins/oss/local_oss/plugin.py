@@ -6,6 +6,7 @@
 """
 import os
 import logging
+from pathlib import Path
 
 from core.plugins.base import OssPluginBase
 from core.config import BASE_DIR
@@ -21,7 +22,7 @@ class Plugin(OssPluginBase):
         super().__init__(db_session, config)
         self.name = "local_oss"
         self.title = "本地存储"
-        self.version = "1.0.1"
+        self.version = "1.0.2"
         self.description = "内置本地对象存储，文件存储于服务器本地磁盘"
         self.module = "oss"
 
@@ -80,10 +81,17 @@ class Plugin(OssPluginBase):
 
         # 本地存储：文件已在 upload/common/ 落盘，无需搬移
         url = f"/upload/common/{save_name}"
+        local_path = "common/" + str(save_name)
+        supplied_path = Path(str(params.get("save_path") or "")).resolve()
+        upload_root = (BASE_DIR / "upload").resolve()
+        if upload_root in supplied_path.parents:
+            local_path = supplied_path.relative_to(upload_root).as_posix()
+            url = f"/upload/{local_path}"
 
         # 写入 file_log 记录（save_name 唯一索引，已存在则跳过）
         await ensure_file_log(
             save_name, original_name, ext, url, file_size, admin_id, source,
+            local_path=local_path, object_key=local_path,
         )
         logger.info("[local_oss] 文件记录已写入 file_log: %s", save_name)
 

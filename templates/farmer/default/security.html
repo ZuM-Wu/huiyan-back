@@ -49,7 +49,7 @@
                     <div class="security-item__desc">[[ passwordStatus.desc ]]</div>
                 </div>
                 <div class="security-item__action">
-                    <t-button theme="primary" variant="text" size="small" @click="goPage('/farmer/profile')">修改</t-button>
+                    <t-button theme="primary" variant="text" @click="goPage('/farmer/profile')">修改</t-button>
                 </div>
             </div>
 
@@ -63,7 +63,7 @@
                     <div class="security-item__desc">[[ certStatus.desc ]]</div>
                 </div>
                 <div class="security-item__action">
-                    <t-button theme="primary" variant="text" size="small" @click="goPage('/farmer/certification')">
+                    <t-button theme="primary" variant="text" @click="goPage('/farmer/certification')">
                         [[ certStatus.actionText ]]
                     </t-button>
                 </div>
@@ -79,7 +79,7 @@
                     <div class="security-item__desc">[[ emailBound ? ('已绑定：' + maskedEmail) : '未绑定邮箱，建议绑定以提升安全性' ]]</div>
                 </div>
                 <div class="security-item__action">
-                    <t-button theme="primary" variant="text" size="small" @click="goPage('/farmer/profile')">绑定</t-button>
+                    <t-button theme="primary" variant="text" @click="goPage('/farmer/profile')">绑定</t-button>
                 </div>
             </div>
 
@@ -93,7 +93,7 @@
                     <div class="security-item__desc">[[ phoneBound ? ('已绑定：' + maskedPhone) : '未绑定手机号，建议绑定以提升安全性' ]]</div>
                 </div>
                 <div class="security-item__action">
-                    <t-button theme="primary" variant="text" size="small" @click="goPage('/farmer/profile')">绑定</t-button>
+                    <t-button theme="primary" variant="text" @click="goPage('/farmer/profile')">绑定</t-button>
                 </div>
             </div>
         </div>

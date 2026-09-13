@@ -88,8 +88,8 @@
                         <t-tag theme="default" variant="light">个人</t-tag>
                     </template>
                     <template #operation="{ row }">
-                        <t-button v-if="row.status === 0" theme="primary" variant="text" size="small" @click="openReview(row)">审批</t-button>
-                        <t-button theme="default" variant="text" size="small" @click="openDetail(row)">详情</t-button>
+                        <t-button v-if="row.status === 0" theme="primary" variant="text" @click="openReview(row)">审批</t-button>
+                        <t-button theme="default" variant="text" @click="openDetail(row)">详情</t-button>
                     </template>
                 </t-table>
             </t-tab-panel>
@@ -120,11 +120,11 @@
                         <t-tag v-else theme="default" variant="light">未配置</t-tag>
                     </template>
                     <template #operation="{ row }">
-                        <t-button theme="primary" variant="text" size="small" @click="openPluginEdit(row)">[[ row.channel_id ? '编辑' : '添加' ]]</t-button>
-                        <t-button v-if="row.channel_id" :theme="row.status === 1 ? 'warning' : 'success'" variant="text" size="small" @click="togglePlugin(row)">
+                        <t-button theme="primary" variant="text" @click="openPluginEdit(row)">[[ row.channel_id ? '编辑' : '添加' ]]</t-button>
+                        <t-button v-if="row.channel_id" :theme="row.status === 1 ? 'warning' : 'success'" variant="text" @click="togglePlugin(row)">
                             [[ row.status === 1 ? '停用' : '启用' ]]
                         </t-button>
-                        <t-button v-if="row.channel_id" theme="danger" variant="text" size="small" @click="uninstallPlugin(row)">卸载</t-button>
+                        <t-button v-if="row.channel_id" theme="danger" variant="text" @click="uninstallPlugin(row)">卸载</t-button>
                     </template>
                 </t-table>
             </t-tab-panel>

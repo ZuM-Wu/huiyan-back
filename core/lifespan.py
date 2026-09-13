@@ -29,45 +29,40 @@ from core.db import task_queue as _task_queue_models  # hy_task_queue（任务�
 from core.db import task_log as _task_log_models  # hy_task_log（任务执行日志表）
 from core.db import event_outbox as _event_outbox_models  # hy_event_outbox（可靠事件Outbox）
 from core.db import file_log as _file_log_models  # hy_file_log（文件存储日志表）
+from core.db import storage_migration as _storage_migration_models  # 公共上传文件迁移表
 from core.db import api_key as _api_key_models  # hy_api_key（个人API密钥表，MCP鉴权）
 from core.db import ai_resources as _ai_resource_models  # AgentScope ModelCard/连接池扩展表
 from core.db import plugin_update_plan as _plugin_update_plan_model  # hy_plugin_update_plan（插件更新计划）
+from core.db import plugin_database_state as _plugin_database_state_model  # hy_plugin_database_state
 
 from core.config import settings
 from core.plugin_manager import PluginManager
 from core.api_router import APIRouterManager
 
 _MODEL_MODULES = (
-    _event_outbox_models, _file_log_models, _api_key_models,
-    _ai_resource_models, _plugin_update_plan_model, _task_log_models, _task_queue_models,
+    _event_outbox_models, _file_log_models, _storage_migration_models, _api_key_models,
+    _ai_resource_models, _plugin_update_plan_model, _plugin_database_state_model, _task_log_models, _task_queue_models,
     _verify_code_models,
 )
 
 logger = logging.getLogger(__name__)
 
-# 内置默认 JWT 密钥集合（与 core/config.py 中的默认值保持一致）
-# 非调试模式下检测到仍在使用默认密钥时拒绝启动，防止生产环境令牌可伪造
-_INSECURE_JWT_DEFAULTS = {"hy_admin_jwt_secret_2026_v4", "hy_farmer_jwt_secret_2026_v4"}
-
-
 def _check_jwt_secrets():
     """
     JWT 密钥安全校验
 
-    - APP_DEBUG=False（生产模式）且任一 JWT 密钥仍为内置默认值时，直接抛错拒绝启动
+    仓库不携带任何默认 JWT 密钥，凭据全部通过 .env 注入：
+    - APP_DEBUG=False（生产模式）且任一 JWT 密钥为空时，直接抛错拒绝启动
     - APP_DEBUG=True（调试模式）仅打印警告，不影响本地开发
     """
-    using_default = (
-        settings.JWT_KEY_ADMIN in _INSECURE_JWT_DEFAULTS
-        or settings.JWT_KEY_FARMER in _INSECURE_JWT_DEFAULTS
-    )
-    if not using_default:
+    missing = not settings.JWT_KEY_ADMIN or not settings.JWT_KEY_FARMER
+    if not missing:
         return
     if settings.APP_DEBUG:
-        logger.warning("[安全提示] JWT 密钥仍为内置默认值，生产部署前必须在 .env 中修改 JWT_KEY_ADMIN / JWT_KEY_FARMER")
+        logger.warning("[安全提示] 未配置 JWT 密钥，生产部署前必须在 .env 中设置 JWT_KEY_ADMIN / JWT_KEY_FARMER")
     else:
         raise RuntimeError(
-            "检测到生产模式(APP_DEBUG=False)下 JWT 密钥仍为内置默认值，"
+            "检测到生产模式(APP_DEBUG=False)下未配置 JWT 密钥，"
             "存在令牌伪造风险，请在 .env 中设置 JWT_KEY_ADMIN / JWT_KEY_FARMER 后重启"
         )
 
@@ -277,7 +272,7 @@ async def startup(app):  # noqa: PLR0915  12步启动流程语句数超限，属
         route_count = 0
 
     # 8. 恢复插件显式能力；数据库旧 Hook 元数据不再参与运行时注册。
-    _restore_plugin_capabilities(pm, valid_enabled, degraded)
+    await _restore_plugin_capabilities(pm, valid_enabled, degraded)
     await _sync_agent_tool_policies(degraded)
 
     # 9. 注册核心通知事件订阅者。
@@ -321,7 +316,7 @@ async def startup(app):  # noqa: PLR0915  12步启动流程语句数超限，属
     logger.info("=" * 60)
 
 
-def _restore_plugin_capabilities(
+async def _restore_plugin_capabilities(
     pm: PluginManager, valid_enabled: list, degraded: list[str],
 ) -> int:
     """恢复已启用插件的显式能力声明，不扫描方法或读取旧 Hook 表。"""
@@ -329,6 +324,14 @@ def _restore_plugin_capabilities(
     for name, _module_name in valid_enabled:
         if pm.restore_capabilities(name):
             restored += 1
+            instance = pm._loaded.get(name)
+            callback = getattr(instance, "on_runtime_enable", None) if instance else None
+            if callback:
+                try:
+                    await callback()
+                except Exception as exc:
+                    logger.warning("插件 '%s' 启动资源恢复失败: %s", name, exc)
+                    degraded.append(f"plugin:{name}:runtime")
         else:
             degraded.append(f"plugin:{name}")
     logger.info("[ 8/12] 插件显式能力恢复: %s 个插件", restored)
@@ -375,7 +378,6 @@ async def _init_scheduler_and_widgets(app, degraded: list[str]):
     except Exception as e:
         logging.warning(f"[启动容错] 天气定时任务注册失败: {e}")
         degraded.append("weather_tasks")
-
     # 11.555 硬件实时数据调度只负责定时入队，网络请求由任务队列 Worker 执行。
     try:
         from services.task.hardware_realtime_worker import (
@@ -398,13 +400,28 @@ async def _init_scheduler_and_widgets(app, degraded: list[str]):
         logging.warning(f"[启动容错] AI 连接自动检测注册失败: {e}")
         degraded.append("ai_connection_health")
 
-    # 11.6 注册仪表盘挂件（待办事项 + 天气模块产区积温）
+    try:
+        from services.task.plugin_database_worker import register_plugin_database_schedule
+        await register_plugin_database_schedule()
+        logger.info("[11.57] 插件数据库体检调度已注册")
+    except Exception as e:
+        logging.warning(f"[启动容错] 插件数据库体检调度注册失败: {e}")
+        degraded.append("plugin_database_scan")
+
+    # 11.6 注册仪表盘挂件
     try:
         from services.widget.widget_engine import widget_engine
         from services.widget.widgets_todo import register_todo_widgets
         from services.widget.widgets_weather import register_weather_widgets
+        from services.widget.widgets_recent import (
+            register_recent_recognition_widget, register_recent_knowledge_widget,
+        )
+        from services.widget.widgets_hardware import register_hardware_widgets
         register_todo_widgets(widget_engine)
         register_weather_widgets(widget_engine)
+        register_recent_recognition_widget(widget_engine)
+        register_recent_knowledge_widget(widget_engine)
+        register_hardware_widgets(widget_engine)
         logger.info("[11.6] 仪表盘挂件已注册")
     except Exception as e:
         logging.warning(f"[启动容错] 仪表盘挂件注册失败: {e}")

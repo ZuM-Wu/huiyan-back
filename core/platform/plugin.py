@@ -177,6 +177,7 @@ class PluginPlatform:
                     "package_ref": staged_ref, "package_digest": package_digest,
                     "package_module": target["module"], "status": "prepared",
                     "restart_required": False, "identity": identity,
+                    "operation_type": "upgrade", "diagnostics_json": "{}",
                     "created_at": china_now().isoformat(), "task_id": None,
                 }
                 self._plans[operation_id] = plan
@@ -253,6 +254,8 @@ class PluginPlatform:
                 plugin_id, operation_id, "confirm", "更新计划不存在", request=request,
             )
             raise ValueError("更新计划不存在")
+        if plan.get("operation_type", "upgrade") != "upgrade":
+            raise ValueError("该计划属于数据库修复，请使用修复确认接口")
         if plan.get("status") == "awaiting_restart" and operation_id in self._persisted_operations:
             await self._verify_confirm_package(plugin_id, operation_id, plan, request)
             return dict(plan)

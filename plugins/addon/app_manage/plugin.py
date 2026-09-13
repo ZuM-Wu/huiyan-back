@@ -39,7 +39,7 @@ class Plugin(BasePlugin):
         super().__init__(db_session, config)
         self.name = PLUGIN_NAME
         self.title = "App管理"
-        self.version = "1.0.1"
+        self.version = "1.0.2"
         self.description = "农户端App的版本更新、开屏广告与App公告管理，含App端免登录公开接口"
         self.module = "addon"
         self._config_manager = ConfigManager()
@@ -196,3 +196,5 @@ class Plugin(BasePlugin):
                     item.unlink()
                 except OSError:
                     logger.warning("[app_manage] 物理文件删除失败: %s", item)
+    async def repair_database(self, report: dict) -> dict | bool:
+        return await self._repair_from_install_sql()

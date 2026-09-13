@@ -6,7 +6,7 @@
 """
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 
 from core.auth.middleware_chain import check_admin
@@ -19,6 +19,7 @@ from core.plugin_query_service import list_all_plugins, get_plugin_by_name
 from core.log.active_log import active_log
 from core.oss_service import oss_service
 from core.plugin_manager import PluginManager
+from services.storage_migration import create_scan_job, get_job, get_latest_job, start_job
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +32,9 @@ _LOCAL_OSS_DEFAULT = {
     "version": "1.0.0",
     "author": "HuiYan Team",
     "status": 1,
+    "capabilities": ["storage.backend"],
+    "configurable": False,
+    "management": False,
 }
 
 
@@ -38,6 +42,22 @@ class SwitchRequest(BaseModel):
     """切换存储方式请求体"""
     oss_method: str
     password: str
+
+
+def _capability_info(pm: PluginManager, name: str, fallback: dict | None = None) -> dict:
+    """从 manifest 和配置 Schema 提取通用存储能力信息。"""
+    meta = fallback or {}
+    try:
+        meta = pm.load_metadata(name)
+        schema = pm.get_config_schema(name)
+    except Exception:
+        schema = []
+    capabilities = list(meta.get("capabilities") or [])
+    return {
+        "capabilities": capabilities,
+        "configurable": bool(schema),
+        "management": "storage.management" in capabilities,
+    }
 
 
 @router.get("/list")
@@ -70,6 +90,7 @@ async def list_oss_plugins(_: None = Depends(check_admin)):
     # 合并：已安装的用表记录，未安装的用 plugin.json 元数据
     plugin_list = []
     for name, record in installed_map.items():
+        info = _capability_info(pm, name, record)
         plugin_list.append({
             "name": record["name"],
             "title": record["title"],
@@ -78,6 +99,7 @@ async def list_oss_plugins(_: None = Depends(check_admin)):
             "status": record["status"],
             "has_data": False,  # 默认 False，下方按需查询
             "is_current": record["name"] == current_method,
+            **info,
         })
 
     # 补充未安装的插件（status=3）
@@ -94,6 +116,7 @@ async def list_oss_plugins(_: None = Depends(check_admin)):
                     "status": 3,  # 未安装
                     "has_data": False,
                     "is_current": d["name"] == current_method,
+                    **_capability_info(pm, d["name"], meta),
                 })
             except Exception:
                 logger.warning("[OSS配置] 读取插件 %s 元数据失败", d["name"])
@@ -187,3 +210,59 @@ async def switch_storage_method(
     )
 
     return ok({"oss_method": data.oss_method}, msg="存储方式已切换")
+
+
+@router.post("/migrations/scan", dependencies=[Depends(require_admin_permission("oss:migrate"))])
+async def scan_storage_migration(target_method: str):
+    """创建或恢复公共文件同步任务，扫描完成后自动入队。"""
+    target = await get_plugin_by_name(target_method)
+    if not target or target.get("module") != "oss" or target.get("status") != 1:
+        raise HTTPException(status_code=400, detail="目标存储插件未安装或未启用")
+    try:
+        job_id = await create_scan_job(target_method)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return ok({"job_id": job_id}, msg="本地文件同步任务已提交")
+
+
+@router.get("/migrations/latest", dependencies=[Depends(require_admin_permission("oss:migrate"))])
+async def latest_storage_migration(target_method: str = ""):
+    """查询目标存储最近一次公共文件迁移任务。"""
+    return ok(await get_latest_job(target_method or None))
+
+
+@router.get("/migrations/{job_id}", dependencies=[Depends(require_admin_permission("oss:migrate"))])
+async def storage_migration_detail(
+    job_id: int,
+    page: int = Query(1, ge=1, le=10000),
+    limit: int = Query(20, ge=1, le=100),
+):
+    """查询公共文件迁移任务进度和失败明细。"""
+    result = await get_job(job_id, page=page, limit=limit)
+    if not result:
+        raise HTTPException(status_code=404, detail="迁移任务不存在")
+    return ok(result)
+
+
+@router.post("/migrations/{job_id}/start", dependencies=[Depends(require_admin_permission("oss:migrate"))])
+async def start_storage_migration(job_id: int):
+    """兼容旧 awaiting 迁移任务的手动入队入口。"""
+    try:
+        task_id = await start_job(job_id, retry=False)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    if not task_id:
+        raise HTTPException(status_code=409, detail="迁移任务入队失败，请查看任务详情")
+    return ok({"job_id": job_id, "task_id": task_id}, msg="迁移任务已入队")
+
+
+@router.post("/migrations/{job_id}/retry", dependencies=[Depends(require_admin_permission("oss:migrate"))])
+async def retry_storage_migration(job_id: int):
+    """重新入队包含失败明细的迁移任务。"""
+    try:
+        task_id = await start_job(job_id, retry=True)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    if not task_id:
+        raise HTTPException(status_code=409, detail="迁移任务入队失败，请查看任务详情")
+    return ok({"job_id": job_id, "task_id": task_id}, msg="失败文件已重新入队")

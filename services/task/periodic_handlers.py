@@ -54,11 +54,23 @@ async def _run_weather_alert_notify(task_data: dict):
     from services.task.weather_worker import weather_alert_notify_job
     await weather_alert_notify_job()
 
+async def _run_weather_daily_backfill(task_data: dict):
+    from services.task.weather_worker import weather_daily_backfill_job
+    await weather_daily_backfill_job()
+
 
 async def _run_hardware_realtime_pull(task_data: dict):
     """执行硬件实时数据自动获取。"""
     from services.task.hardware_realtime_worker import hardware_realtime_pull_job
     await hardware_realtime_pull_job()
+
+
+async def _run_plugin_database_scan(task_data: dict):
+    """执行插件数据库扫描，周期任务本身只消费队列数据。"""
+    from core.plugin_database_service import scan_plugin_database
+    result = await scan_plugin_database(task_id=str(task_data.get("task_id") or "") or None)
+    if result.get("failed"):
+        raise RuntimeError(result.get("error_reason") or "插件数据库扫描失败")
 
 
 async def _handle_clean_repeat_cache(task_data: dict):
@@ -99,10 +111,17 @@ async def _handle_weather_alert_notify(task_data: dict):
     """队列 handler: 气象预警通知补推"""
     await _run_weather_alert_notify(task_data)
 
+async def _handle_weather_daily_backfill(task_data: dict):
+    await _run_weather_daily_backfill(task_data)
+
 
 async def _handle_hardware_realtime_pull(task_data: dict):
     """队列 handler：硬件实时数据自动获取。"""
     await _run_hardware_realtime_pull(task_data)
+
+
+async def _handle_plugin_database_scan(task_data: dict):
+    await _run_plugin_database_scan(task_data)
 
 
 # 队列类型 -> handler 注册表
@@ -115,7 +134,9 @@ _PERIODIC_HANDLERS = [
     ("weather_daily_finalize", "天气日终定格", "weather", _handle_weather_daily_finalize),
     ("weather_clean", "天气历史数据清理", "weather", _handle_weather_clean),
     ("weather_alert_notify", "气象预警通知补推", "weather", _handle_weather_alert_notify),
+    ("weather_daily_backfill", "天气历史自动回补", "weather", _handle_weather_daily_backfill),
     ("hardware_realtime_pull", "硬件实时数据自动获取", "hardware", _handle_hardware_realtime_pull),
+    ("plugin_database_scan", "插件数据库体检", "platform.plugin_database", _handle_plugin_database_scan),
 ]
 
 

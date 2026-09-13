@@ -342,9 +342,24 @@
                             <span v-else>--</span>
                         </template>
                         <template #op="{ row }">
-                            <t-button v-if="!row.is_current && row.status === 1"
-                                theme="primary" variant="text" size="small"
-                                @click="openSwitchDialog(row)">切换为当前</t-button>
+                            <t-space :size="8">
+                                <t-button v-if="row.status === 3" theme="primary" variant="text"
+                                    :loading="installingStoragePlugin === row.name"
+                                    @click="installStoragePlugin(row)">安装</t-button>
+                                <t-button v-if="row.configurable && row.status !== 3"
+                                    theme="primary" variant="text"
+                                    @click="openStorageConfig(row)">配置</t-button>
+                                <t-button v-if="row.management && row.status === 1"
+                                    theme="primary" variant="text"
+                                    @click="openStorageFiles(row)">文件管理</t-button>
+                                <t-button v-if="row.capabilities && row.capabilities.includes('storage.backend') && row.name !== 'local_oss' && row.status === 1"
+                                    theme="primary" variant="text"
+                                    :loading="migratingStoragePlugin === row.name"
+                                    @click="openStorageMigration(row)">同步本地文件</t-button>
+                                <t-button v-if="!row.is_current && row.status === 1"
+                                    theme="primary" variant="text"
+                                    @click="openSwitchDialog(row)">切换为当前</t-button>
+                            </t-space>
                         </template>
                     </t-table>
 
@@ -371,35 +386,36 @@
                             <t-tag theme="primary" variant="light">[[ currentStorageMethodLabel ]]</t-tag>
                         </t-form-item>
                         <t-form-item>
-                            <t-button theme="primary" variant="outline"
+                            <t-button theme="default"
                                 :loading="testingConnection" @click="testConnection">测试连接</t-button>
                         </t-form-item>
                     </div>
                 </div>
             </t-tab-panel>
 
-            <!-- 切换存储方式确认弹窗（密码验证，对标 ZJMF localVisible 弹窗） -->
-            <t-dialog header="切换存储方式" :visible.sync="switchDialogVisible" :footer="false" width="520">
-                <div class="dia-tips">
-                    确认将存储方式切换为 <span style="color: var(--app-error);">[[ switchTargetName ]]</span>？
-                    切换后新上传文件将使用新存储方式，已有文件不受影响。
-                </div>
-                <t-form>
-                    <t-form-item label="管理员密码">
-                        <t-input type="password" v-model="switchPassword"
-                            placeholder="请输入管理员密码以确认切换" clearable />
-                    </t-form-item>
-                    <div class="com-f-btn">
-                        <t-button theme="primary" :loading="switching" @click="confirmSwitch">确认切换</t-button>
-                        <t-button theme="default" @click="switchDialogVisible = false">取消</t-button>
-                    </div>
-                </t-form>
-            </t-dialog>
-
         </t-tabs>
+
+        <!-- 弹窗必须位于 Tabs 外，避免 TDesign 只渲染 t-tab-panel 子节点时丢失弹窗组件。 -->
+        <t-dialog v-model:visible="switchDialogVisible" header="切换存储方式" width="480px"
+            :confirm-btn="{content: '确认切换', theme: 'primary', loading: switching}"
+            :cancel-btn="{content: '取消', theme: 'default'}" @confirm="confirmSwitch">
+            <div class="dia-tips">
+                确认将存储方式切换为 <span style="color: var(--app-error);">[[ switchTargetName ]]</span>？
+                切换后新上传文件将使用新存储方式，已有文件不受影响。
+            </div>
+            <t-form>
+                <t-form-item label="管理员密码">
+                    <t-input type="password" v-model="switchPassword"
+                        placeholder="请输入管理员密码以确认切换" clearable />
+                </t-form-item>
+            </t-form>
+        </t-dialog>
+
+        <object-storage-manager ref="storageManager"></object-storage-manager>
     </t-card>
 </div>
 {% endblock %}
 {% block scripts %}
+<script src="/static/js/components/storage-settings.js?v={{ config.app_version }}"></script>
 <script src="/static/js/pages/system_settings.js?v={{ config.app_version }}"></script>
 {% endblock %}

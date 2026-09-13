@@ -18,7 +18,7 @@ TARGET_VERSIONS = {
     "local_oss": ("1.0.0", "1.0.1"),
     "sms_idcsmart": ("1.0.0", "1.0.1"),
     "weather_amap": ("1.0.0", "1.0.1"),
-    "weather_qweather": ("1.1.0", "1.1.1"),
+    "weather_qweather": ("1.1.1", "1.1.2"),
 }
 
 _PLAN_STATUSES = ("prepared", "awaiting_restart")

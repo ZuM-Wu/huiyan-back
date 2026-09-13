@@ -38,11 +38,66 @@ _resource_meta: dict[str, dict] = {}
 _resource_templates: dict[str, Any] = {}
 # 完整 Prompt 名 -> 权限元信息。
 _prompt_meta: dict[str, dict] = {}
+# 旧工具名到规范名称的元数据兼容映射；实际注册只保留规范名称。
+_TOOL_ALIASES = {
+    "core_weather_snapshot": "core_agri_weather_snapshot",
+    "core_my_production_areas": "core_agri_my_production_areas",
+    "core_area_tree": "core_agri_area_tree",
+    "core_weather_daily": "core_agri_weather_daily",
+    "core_weather_alerts": "core_agri_weather_alerts",
+    "core_batch_gdd": "core_agri_batch_gdd",
+    "core_area_create": "core_agri_area_create",
+    "core_area_update": "core_agri_area_update",
+    "core_plot_create": "core_agri_plot_create",
+    "core_plot_update": "core_agri_plot_update",
+    "core_batch_create": "core_agri_batch_create",
+    "core_batch_update": "core_agri_batch_update",
+    "hardware_area_summary": "core_hardware_area_summary",
+    "hardware_plot_devices": "core_hardware_plot_devices",
+    "hardware_plot_latest": "core_hardware_plot_latest",
+    "hardware_plot_realtime": "core_hardware_plot_realtime",
+    "hardware_device_detail": "core_hardware_device_detail",
+    "recognition_plot_preview": "yolo_model_manager_recognition_plot_preview",
+    "recognition_plot_start": "yolo_model_manager_recognition_plot_start",
+    "recognition_latest_result": "yolo_model_manager_recognition_latest_result",
+    "knowledge_knowledge_search": "knowledge_search",
+    "knowledge_knowledge_detail": "knowledge_detail",
+    "knowledge_knowledge_categories": "knowledge_categories",
+    "knowledge_knowledge_create": "knowledge_create",
+    "knowledge_knowledge_update": "knowledge_update",
+    "knowledge_knowledge_batch_create": "knowledge_batch_create",
+}
+
+
+def resolve_tool_name(tool_name: str) -> str:
+    """解析旧版工具名到当前规范名称。"""
+    return _TOOL_ALIASES.get(tool_name, tool_name)
 
 
 def get_tool_meta(tool_name: str) -> Optional[dict]:
     """查询工具元信息（权限中间件使用）；非本注册表管理的工具返回 None"""
-    return _tool_meta.get(tool_name)
+    return _tool_meta.get(resolve_tool_name(tool_name))
+
+
+def describe_access(token) -> dict:
+    """返回脱敏的 MCP 身份与可用工具诊断信息。"""
+    from services.mcp.middleware import _capability_allowed
+
+    claims = (token.claims or {}) if token else {}
+    available = [
+        name for name, meta in _tool_meta.items()
+        if _capability_allowed(meta, token)
+    ]
+    return {
+        "authenticated": token is not None,
+        "client_id": token.client_id if token else "",
+        "user_type": claims.get("user_type", ""),
+        "user_id": claims.get("user_id"),
+        "is_super": claims.get("is_super", False),
+        "scopes": sorted(set(token.scopes or [])) if token else [],
+        "available_tool_count": len(available),
+        "available_tools": sorted(available),
+    }
 
 
 def get_resource_meta(uri: str) -> Optional[dict]:
@@ -71,7 +126,13 @@ def list_registered_tool_declarations() -> list[dict]:
     return [dict(declaration) for declaration in _tool_declarations.values()]
 
 
-def register_tools(owner: str, tools: list[dict]):
+def get_tool_declaration(tool_name: str) -> dict | None:
+    """返回规范名称对应的声明快照，包括响应预算和确认标记。"""
+    declaration = _tool_declarations.get(resolve_tool_name(tool_name))
+    return dict(declaration) if declaration else None
+
+
+def register_tools(owner: str, tools: list[dict], *, permissions: list[dict] | None = None):
     """
     注册一组工具到 FastMCP 实例（幂等: 重名工具跳过并告警）
 
@@ -83,10 +144,13 @@ def register_tools(owner: str, tools: list[dict]):
 
     from fastmcp.tools import Tool
     from services.mcp.server import mcp
+    from services.mcp.compact import TOOL_DESCRIPTION_MAX_CHARS, TOOL_RESULT_MAX_BYTES, compact_tool_schema
+    from services.mcp.validation import validate_tool
 
     registered = _owner_tools.setdefault(owner, [])
     for decl in tools:
         try:
+            validate_tool(owner, decl, permissions)
             full_name = f"{owner}_{decl['name']}"
             if full_name in _tool_meta:
                 logger.warning("[MCP] 工具重名跳过注册: %s", full_name)
@@ -96,11 +160,15 @@ def register_tools(owner: str, tools: list[dict]):
                 "audience": decl.get("audience", "admin"),
                 "permission_code": decl.get("permission_code"),
             }
+            if decl.get("required_permissions"):
+                meta["required_permissions"] = list(decl["required_permissions"])
             tool = Tool.from_function(
                 decl["handler"],
                 name=full_name,
-                description=decl.get("description", ""),
-                meta=meta,
+                description=decl.get("description", "")[:TOOL_DESCRIPTION_MAX_CHARS],
+                output_schema=None,
+                meta={**meta, "requires_confirmation": bool(decl.get("requires_confirmation")),
+                      "response_max_bytes": decl.get("response_max_bytes", TOOL_RESULT_MAX_BYTES)},
             )
             mcp.add_tool(tool)
             registered.append(full_name)
@@ -109,10 +177,14 @@ def register_tools(owner: str, tools: list[dict]):
                 **decl,
                 "name": full_name,
                 "owner": owner,
+                "parameters": compact_tool_schema(tool.parameters),
+                "description": tool.description,
+                "response_max_bytes": decl.get("response_max_bytes", TOOL_RESULT_MAX_BYTES),
             }
             logger.info("[MCP] 工具已注册: %s (audience=%s)", full_name, meta["audience"])
-        except Exception:
-            logger.exception("[MCP] 工具注册失败: owner=%s decl=%s", owner, decl.get("name"))
+        except Exception as exc:
+            logger.error("[MCP] 工具注册失败: owner=%s tool=%s permission=%s reason=%s", owner,
+                         decl.get("name"), decl.get("permission_code"), str(exc))
 
 
 def _capability_meta(owner: str, declaration: dict) -> dict:

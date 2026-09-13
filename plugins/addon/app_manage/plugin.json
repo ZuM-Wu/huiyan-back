@@ -1,7 +1,7 @@
 {
   "name": "app_manage",
   "title": "App管理",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "App管理插件：农户端App的版本更新（APK上传/强制更新）、开屏广告（单张投放/缓存标识）与App公告管理，并提供App端免登录公开接口",
   "author": "HuiYan Team",
   "module": "addon",
@@ -19,6 +19,7 @@
   "tasks": [],
   "events": [],
   "health": {"check": "plugin.app_manage"},
+  "database_schema": {"version": 1, "tables": [{"name": "hy_plugin_app_manage_version", "columns": ["id", "version_name", "version_code", "build_number", "apk_filename", "apk_size", "apk_md5", "changelog", "update_policy", "status", "admin_id", "create_time", "update_time"], "indexes": [{"name": "PRIMARY", "columns": ["id"], "unique": true}, {"name": "uk_version_code", "columns": ["version_code"], "unique": true}, {"name": "idx_pub", "columns": ["status", "version_code"], "unique": false}]}, {"name": "hy_plugin_app_manage_ad", "columns": ["id", "image_filename", "cache_key", "link_url", "start_time", "end_time", "duration", "enabled", "admin_id", "update_time"], "indexes": [{"name": "PRIMARY", "columns": ["id"], "unique": true}]}, {"name": "hy_plugin_app_manage_notice", "columns": ["id", "title", "content", "is_popup", "start_time", "end_time", "enabled", "sort_order", "admin_id", "create_time", "update_time"], "indexes": [{"name": "PRIMARY", "columns": ["id"], "unique": true}, {"name": "idx_active", "columns": ["enabled", "start_time", "end_time"], "unique": false}]}]},
   "config": {
     "app_manage.apk_max_size": "300",
     "app_manage.ad_img_max_size": "5",

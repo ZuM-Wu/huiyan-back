@@ -58,14 +58,14 @@
                 </div>
                 <nav class="inbox-navigation" aria-label="站内信阅读导航">
                     <div v-if="detail.prev" class="inbox-navigation-item">
-                        <t-button theme="default" size="small" @click="goOtherMessage(detail.prev.id)">
+                        <t-button theme="default" @click="goOtherMessage(detail.prev.id)">
                             <template #icon><t-icon name="chevron-left"></t-icon></template>
                             上一封
                         </t-button>
                         <div class="inbox-navigation-title">[[ detail.prev.title ]]</div>
                     </div>
                     <div v-if="detail.next" class="inbox-navigation-item inbox-navigation-item--next">
-                        <t-button theme="default" size="small" @click="goOtherMessage(detail.next.id)">
+                        <t-button theme="default" @click="goOtherMessage(detail.next.id)">
                             下一封
                             <template #suffix><t-icon name="chevron-right"></t-icon></template>
                         </t-button>

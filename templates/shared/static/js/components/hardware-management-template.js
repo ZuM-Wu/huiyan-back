@@ -64,7 +64,10 @@ window.HuiYanHardwareManagementTemplate = `
                             </div>
                             <div class="hardware-card-footer">
                                 <div><span>最近同步</span><time>[[ formatChinaTime(row.last_sync_time) ]]</time></div>
-                                <t-button theme="primary" variant="text" size="small" @click="openDetail(row)">管理</t-button>
+                                <t-space><t-button theme="primary" variant="text" @click="openDetail(row)">管理</t-button><t-tooltip v-if="isHuiyan" :content="isDeviceBound(row) ? '请先在基本设置解除绑定' : '删除注册设备'">
+                                    <span v-permission="'hardware:sync'"><t-button theme="danger" variant="text"
+                                        :disabled="isDeviceBound(row) || deleting" @click="openDelete(row)">删除</t-button></span>
+                                </t-tooltip></t-space>
                             </div>
                         </t-card>
                     </div>
@@ -72,7 +75,7 @@ window.HuiYanHardwareManagementTemplate = `
                         <t-icon name="inbox" size="32px"></t-icon><span>暂无设备</span>
                     </t-space>
                 </template>
-                <t-table v-else class="hardware-device-table" :data="deviceList" :columns="columns"
+                <t-table v-else class="hardware-device-table" :data="deviceList" :columns="managementColumns"
                     :pagination="null" row-key="id" hover>
                     <template #device="{ row }">
                         <div class="hardware-device-cell">
@@ -98,7 +101,10 @@ window.HuiYanHardwareManagementTemplate = `
                         <span class="hardware-time">[[ formatChinaTime(row.last_sync_time) ]]</span>
                     </template>
                     <template #operation="{ row }">
-                        <t-button theme="primary" variant="text" size="small" @click="openDetail(row)">管理</t-button>
+                        <t-space><t-button theme="primary" variant="text" @click="openDetail(row)">管理</t-button><t-tooltip v-if="isHuiyan" :content="isDeviceBound(row) ? '请先在基本设置解除绑定' : '删除注册设备'">
+                                    <span v-permission="'hardware:sync'"><t-button theme="danger" variant="text"
+                                        :disabled="isDeviceBound(row) || deleting" @click="openDelete(row)">删除</t-button></span>
+                                </t-tooltip></t-space>
                     </template>
                 </t-table>
                 </div>
@@ -151,12 +157,12 @@ window.HuiYanHardwareManagementTemplate = `
 
     <t-drawer v-model:visible="drawerVisible" class="hardware-drawer" size="820px"
         :header="drawerTitle" :footer="false" :close-btn="true" @close="closeDrawer">
-        <t-descriptions v-if="currentDevice" class="hardware-detail-summary" :column="3" bordered size="small">
-            <t-descriptions-item :label="isHuiyan ? '设备 ID' : '设备编号'">[[ isHuiyan ? currentDevice.provider_device_id : currentDevice.device_name ]]</t-descriptions-item>
+        <t-descriptions v-if="currentDevice" class="hardware-detail-summary" :column="2" bordered>
+            <t-descriptions-item :span="2" :label="isHuiyan ? '设备 ID' : '设备编号'">[[ isHuiyan ? currentDevice.provider_device_id : currentDevice.device_name ]]</t-descriptions-item>
             <t-descriptions-item label="设备类型">[[ currentDevice.device_type_label || currentDevice.device_type || '未指定' ]]</t-descriptions-item>
             <t-descriptions-item label="平台状态">[[ currentDevice.available && currentDevice.provider_available ? '可用' : '不可用' ]]</t-descriptions-item>
         </t-descriptions>
-        <t-tabs v-model="detailTab" :destroy-on-hide="false">
+        <t-tabs class="hardware-detail-tabs" v-model="detailTab" :destroy-on-hide="false">
             <t-tab-panel value="current" label="设备数据">
                 <t-loading :loading="detailLoading">
                     <t-alert v-if="detailError" theme="warning" :message="detailError"></t-alert>
@@ -167,16 +173,28 @@ window.HuiYanHardwareManagementTemplate = `
             </t-tab-panel>
             
             <t-tab-panel v-if="isHuiyan" value="registration" label="注册信息">
-                <t-alert v-if="registrationDetailError" theme="warning" :message="registrationDetailError"></t-alert>
-                <t-descriptions v-if="registrationDetail" :column="2" bordered>
-                    <t-descriptions-item label="设备 ID">[[ registrationDetail.device_id ]]<t-button variant="text" @click="copyDeviceId(registrationDetail.device_id)">复制</t-button></t-descriptions-item>
-                    <t-descriptions-item label="名称">[[ registrationDetail.device_name ]]</t-descriptions-item>
-                    <t-descriptions-item label="安装地址">[[ registrationDetail.address || '未填写' ]]</t-descriptions-item>
-                    <t-descriptions-item label="经纬度">[[ registrationDetail.longitude ]] / [[ registrationDetail.latitude ]]</t-descriptions-item>
-                    <t-descriptions-item label="注册时间">[[ formatChinaTime(registrationDetail.create_time) ]]</t-descriptions-item>
-                    <t-descriptions-item label="最近上报">[[ registrationDetail.last_seen ? formatChinaTime(registrationDetail.last_seen) : '尚未上报' ]]</t-descriptions-item>
-                    <t-descriptions-item label="扩展信息">[[ JSON.stringify(registrationDetail.metadata) ]]</t-descriptions-item>
-                </t-descriptions>
+                <t-loading :loading="registrationDetailLoading">
+                    <t-alert v-if="registrationDetailError" theme="warning" :message="registrationDetailError">
+                        <template #operation><t-button variant="text" @click="loadRegistrationDetail">重试</t-button></template>
+                    </t-alert>
+                    <template v-if="registrationDetail">
+                        <t-descriptions class="hardware-registration-info" :column="2" bordered>
+                            <t-descriptions-item label="设备 ID" :span="2"><div class="hardware-registration-id">
+                                <span>[[ registrationDetail.device_id ]]</span><t-button variant="text" @click="copyDeviceId(registrationDetail.device_id)">复制</t-button>
+                            </div></t-descriptions-item>
+                            <t-descriptions-item label="名称">[[ registrationDetail.device_name ]]</t-descriptions-item>
+                            <t-descriptions-item label="经纬度">[[ registrationDetail.longitude === '' || registrationDetail.longitude == null || registrationDetail.latitude === '' || registrationDetail.latitude == null ? '未填写' : registrationDetail.longitude + ' / ' + registrationDetail.latitude ]]</t-descriptions-item>
+                            <t-descriptions-item label="安装地址" :span="2">[[ registrationDetail.address || '未填写' ]]</t-descriptions-item>
+                            <t-descriptions-item label="注册时间">[[ formatChinaTime(registrationDetail.create_time) ]]</t-descriptions-item>
+                            <t-descriptions-item label="最近上报">[[ registrationDetail.last_seen ? formatChinaTime(registrationDetail.last_seen) : '尚未上报' ]]</t-descriptions-item>
+                        </t-descriptions>
+                        <t-card title="扩展信息" class="hardware-registration-json">
+                            <template #actions><t-button variant="text" :disabled="!registrationJson" @click="copyRegistrationJson">复制 JSON</t-button></template>
+                            <pre v-if="registrationJson" class="hardware-json-content">[[ registrationJson ]]</pre>
+                            <t-empty v-else description="暂无扩展信息"></t-empty>
+                        </t-card>
+                    </template>
+                </t-loading>
             </t-tab-panel>
             <t-tab-panel value="basic" label="基本设置">
                 <t-form class="hardware-form" label-width="100px">
@@ -197,6 +215,13 @@ window.HuiYanHardwareManagementTemplate = `
                                 @click="removeBinding">解除绑定</t-button>
                         </div>
                     </t-form-item>
+                    <t-form-item v-if="isHuiyan && currentDevice" label="删除设备">
+                        <t-space direction="vertical">
+                            <span>删除注册信息和实时数据，不可撤销；已绑定设备请先解除绑定。</span>
+                            <t-button v-permission="'hardware:sync'" theme="danger" variant="outline"
+                                :disabled="isDeviceBound(currentDevice) || deleting" @click="openDelete(currentDevice)">删除设备</t-button>
+                        </t-space>
+                    </t-form-item>
                 </t-form>
             </t-tab-panel>
         </t-tabs>
@@ -210,7 +235,7 @@ window.HuiYanHardwareManagementTemplate = `
         <t-loading v-if="quickDetectWorking && !quickDetectRecord" loading
             text="模型正在处理当前图片" class="hardware-detect-loading"></t-loading>
         <template v-if="quickDetectRecord">
-            <t-descriptions :column="4" bordered size="small" class="hardware-detect-summary">
+            <t-descriptions :column="4" bordered class="hardware-detect-summary">
                 <t-descriptions-item label="地块">[[ quickDetectRecord.area_name ]] / [[ quickDetectRecord.plot_name ]]</t-descriptions-item>
                 <t-descriptions-item label="模型">[[ quickDetectRecord.model_name ]] [[ quickDetectRecord.model_version ]]</t-descriptions-item>
                 <t-descriptions-item label="目标数量">[[ quickDetectRecord.detection_count ]]</t-descriptions-item>
@@ -257,6 +282,18 @@ window.HuiYanHardwareManagementTemplate = `
                 </div>
             </div>
         </template>
+    </t-dialog>
+
+    <t-dialog v-model:visible="deleteVisible" header="删除设备" theme="danger" width="560px"
+        :close-on-overlay-click="false" :close-btn="!deleting" :close-on-esc-keydown="!deleting"
+        :confirm-btn="{ content: '确认删除', theme: 'danger', loading: deleting }"
+        :cancel-btn="{ content: '取消', disabled: deleting }" @confirm="submitDelete">
+        <t-space v-if="deleteTarget" direction="vertical" class="hardware-delete-content">
+            <span>确定删除设备“[[ cardName(deleteTarget) ]]”？</span>
+            <span>设备 ID：[[ deleteTarget.provider_device_id ]]</span>
+            <t-alert theme="warning" message="将删除注册信息、设备镜像和实时数据，操作不可撤销。硬件需重新注册后才能再次上报。"></t-alert>
+            <t-alert v-if="deleteError" theme="error" :message="deleteError"></t-alert>
+        </t-space>
     </t-dialog>
 
     <t-dialog v-model:visible="registerVisible" class="hardware-register-dialog" header="注册慧眼设备" width="880px"

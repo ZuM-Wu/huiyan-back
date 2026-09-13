@@ -32,7 +32,7 @@
                         <div class="kb-entry-info">
                             <div class="kb-entry-title">
                                 <strong>[[ item.title ]]</strong>
-                                <t-tag v-if="item.crop" size="small" variant="light">[[ item.crop ]]</t-tag>
+                                <t-tag v-if="item.crop" variant="light">[[ item.crop ]]</t-tag>
                             </div>
                             <p v-if="item.summary" class="kb-entry-summary">[[ item.summary ]]</p>
                             <p class="kb-entry-meta">浏览 [[ item.view_count ]] 次 · [[ item.create_time ]]</p>
@@ -80,7 +80,7 @@
         </div>
 
         <div class="kb-detail-foot">
-            <t-button theme="primary" size="small" @click="openCorrection">
+            <t-button theme="primary" @click="openCorrection">
                 <template #icon><t-icon name="edit"></t-icon></template>
                 提交勘误
             </t-button>

@@ -5,7 +5,7 @@ from decimal import Decimal
 from sqlalchemy import func, or_, select, update
 
 from core.db.base import async_session_factory
-from core.db.hardware_device import HardwareDevice
+from core.db.hardware_device import HardwareDevice, HardwareRealtimeSnapshot
 from core.db.production_area import AreaFarmer, Plot, ProductionArea
 from core.hardware_marker_geometry import (
     choose_interior_point,
@@ -129,6 +129,41 @@ async def get_hardware_device_info(device_id: int) -> dict | None:
     return _device_dict(device, area_name or "", plot_name or "")
 
 
+async def get_plot_hardware_context(plot_id: int) -> dict | None:
+    """返回有效地块与产区摘要；授权由调用方按该产区执行。"""
+    async with async_session_factory() as db:
+        row = (await db.execute(select(Plot.id, Plot.name, Plot.area_id, ProductionArea.name.label("area_name"))
+            .join(ProductionArea, ProductionArea.id == Plot.area_id)
+            .where(Plot.id == plot_id, Plot.status == 1, ProductionArea.status == 1))).one_or_none()
+    if row is None:
+        return None
+    return {"plot_id": int(row.id), "plot_name": row.name, "area_id": int(row.area_id), "area_name": row.area_name}
+
+
+async def get_area_hardware_summary(area_id: int) -> dict | None:
+    """汇总有效地块设备；识别能力依据现有实时图片指标，不发起外部读取。"""
+    async with async_session_factory() as db:
+        area = (await db.execute(select(ProductionArea.name).where(
+            ProductionArea.id == area_id, ProductionArea.status == 1))).scalar_one_or_none()
+        if area is None:
+            return None
+        plot_count = (await db.execute(select(func.count(Plot.id)).where(
+            Plot.area_id == area_id, Plot.status == 1))).scalar() or 0
+        devices = (await db.execute(select(HardwareDevice, HardwareRealtimeSnapshot.payload)
+            .join(Plot, Plot.id == HardwareDevice.plot_id)
+            .outerjoin(HardwareRealtimeSnapshot, HardwareRealtimeSnapshot.device_id == HardwareDevice.id)
+            .where(Plot.area_id == area_id, Plot.status == 1))).all()
+    return {
+        "area_id": area_id, "area_name": area, "plot_count": int(plot_count), "device_count": len(devices),
+        "online_count": sum(bool(device.available) and hardware_provider_registry.active(device.provider_id) for device, _ in devices),
+        "realtime_count": sum("realtime" in (device.capabilities or []) for device, _ in devices),
+        "recognition_count": sum("realtime" in (device.capabilities or []) and any(
+            isinstance(metric, dict) and metric.get("dataType") == "image" and bool(metric.get("value"))
+            for metric in (payload or [])
+        ) for device, payload in devices),
+    }
+
+
 async def list_hardware_devices_for_plot(plot_id: int) -> list[dict]:
     """返回地块当前绑定设备的历史查询 DTO，不过滤平台可用状态。"""
     async with async_session_factory() as db:
@@ -192,7 +227,7 @@ async def bind_hardware_device(
     """绑定有效产区和地块，并为有边界的地块生成内部默认位置。"""
     async with async_session_factory() as db:
         device = (await db.execute(
-            select(HardwareDevice).where(HardwareDevice.id == device_id)
+            select(HardwareDevice).where(HardwareDevice.id == device_id).with_for_update()
         )).scalar_one_or_none()
         if not device:
             return "设备不存在"

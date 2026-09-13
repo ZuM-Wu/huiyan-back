@@ -34,6 +34,9 @@
             const handleNote = ref('');
             const handleAction = ref('');
             const handleLogId = ref(0);
+            const cleanupDialogVisible = ref(false);
+            const cleanupLoading = ref(false);
+            const cleanupRetentionDays = ref(30);
 
             // ===== 任务队列 =====
             const queueLoading = ref(false);
@@ -303,6 +306,44 @@
                 });
             };
 
+            const openCleanupDialog = () => {
+                cleanupRetentionDays.value = 30;
+                cleanupDialogVisible.value = true;
+            };
+
+            const cleanupLogs = () => {
+                if (cleanupLoading.value) return;
+                let confirmDialog;
+                const closeConfirmDialog = () => {
+                    if (confirmDialog) {
+                        confirmDialog.destroy();
+                        confirmDialog = null;
+                    }
+                };
+                confirmDialog = DialogPlugin.confirm({
+                    header: '确认清理日志',
+                    body: '将删除 ' + cleanupRetentionDays.value + ' 天以前的任务执行日志，且无法恢复，是否继续？',
+                    onConfirm: async () => {
+                        closeConfirmDialog();
+                        cleanupLoading.value = true;
+                        try {
+                            const res = await request.delete('/task-monitor/logs/cleanup', {
+                                params: { retention_days: cleanupRetentionDays.value },
+                            });
+                            MessagePlugin.success('已清理 ' + res.data.data.deleted_count + ' 条任务日志');
+                            cleanupDialogVisible.value = false;
+                            fetchLogs();
+                        } catch (e) {
+                            MessagePlugin.error(e.response?.data?.detail || '清理日志失败');
+                        } finally {
+                            closeConfirmDialog();
+                            cleanupLoading.value = false;
+                        }
+                    },
+                    onCancel: closeConfirmDialog,
+                });
+            };
+
             const resumeQueueTask = async (row) => {
                 try {
                     await request.post('/task-queue/' + row.id + '/resume');
@@ -384,12 +425,14 @@
                 logLoading, logData, logFilter, logPagination, logColumns,
                 logDetailVisible, logDetailData,
                 handleDialogVisible, handleDialogTitle, handleNote, handleAction, handleLogId,
+                cleanupDialogVisible, cleanupLoading, cleanupRetentionDays,
                 queueLoading, queueData, queueFilter, queuePagination, queueColumns,
                 queueDetailVisible, queueDetailData,
                 failedLoading, failedData, failedFilter, failedPagination, failedColumns,
                 configDialogVisible, configLoading, configForm,
                 taskTypeLabel, queueTypeLabel, formatDuration, onTabChange,
                 fetchLogs, onLogPageChange, viewLogDetail, retryTask,
+                openCleanupDialog, cleanupLogs,
                 handleTask, ignoreTask, confirmHandle,
                 fetchQueueList, onQueuePageChange, viewQueueDetail,
                 retryQueueTask, cancelQueueTask, resumeQueueTask,

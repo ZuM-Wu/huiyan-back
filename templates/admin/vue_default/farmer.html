@@ -33,7 +33,7 @@
                         <div class="farmer-popup-card">
                             <div class="popup-header">
                                 <span class="popup-username">[[ row.username ]]</span>
-                                <t-tag theme="default" variant="light" size="small">ID [[ row.id ]]</t-tag>
+                                <t-tag theme="default" variant="light">ID [[ row.id ]]</t-tag>
                             </div>
                             <div class="popup-body">
                                 <div class="popup-col">
@@ -76,10 +76,10 @@
                                     </div>
                                     <div class="popup-row">
                                         <span class="popup-label">实名状态</span>
-                                        <t-tag v-if="row.cert_status === 1" theme="success" variant="light" size="small">已认证</t-tag>
-                                        <t-tag v-else-if="row.cert_status === 0" theme="warning" variant="light" size="small">待审核</t-tag>
-                                        <t-tag v-else-if="row.cert_status === 2" theme="danger" variant="light" size="small">未通过</t-tag>
-                                        <t-tag v-else theme="default" variant="light" size="small">未认证</t-tag>
+                                        <t-tag v-if="row.cert_status === 1" theme="success" variant="light">已认证</t-tag>
+                                        <t-tag v-else-if="row.cert_status === 0" theme="warning" variant="light">待审核</t-tag>
+                                        <t-tag v-else-if="row.cert_status === 2" theme="danger" variant="light">未通过</t-tag>
+                                        <t-tag v-else theme="default" variant="light">未认证</t-tag>
                                     </div>
                                 </div>
                             </div>

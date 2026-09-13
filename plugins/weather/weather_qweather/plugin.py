@@ -6,6 +6,7 @@
 - /v7/weather/24h      24 小时逐时预报（路径 /v7/weather/{hours}，支持 24h/72h/168h）
 - /v7/weather/3d       3 天逐日预报（路径 /v7/weather/{days}，支持 3d/7d/10d/15d/30d）
 - /weatheralert/v1/current/{lat}/{lon}  和风新版灾害预警（旧 /v7/warning/now 已废弃返回403）
+- /v7/historical/weather  时光机逐日天气（仅支持近十日）
 
 认证方式（官方推荐 JWT，兼容 API KEY）:
 - jwt: Ed25519 私钥（PEM）+ kid（凭据ID）+ sub（项目ID），
@@ -42,7 +43,7 @@ class Plugin(WeatherPluginBase):
         super().__init__(db_session, config)
         self.name = PLUGIN_NAME
         self.title = "和风天气"
-        self.version = "1.1.1"
+        self.version = "1.1.3"
         self.description = "和风天气数据源（点位实况+逐时+预报+官方预警）"
         self.module = "weather"
 
@@ -109,14 +110,17 @@ class Plugin(WeatherPluginBase):
         return host
 
     async def _api_get(self, client: httpx.AsyncClient, path: str,
-                       location: str) -> Optional[Dict[str, Any]]:
+                       location: str, extra_params: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
         """
         调用和风 v7 接口并校验业务码
 
         返回: 响应 JSON；业务码非 200 时返回 None（预警等可选接口容忍失败）
         """
         url = f"https://{self._api_host()}{path}"
-        resp = await client.get(url, params={"location": location, "lang": "zh"},
+        params = {"location": location, "lang": "zh"}
+        if extra_params:
+            params.update(extra_params)
+        resp = await client.get(url, params=params,
                                 headers=self._build_headers())
         data = resp.json()
         if str(data.get("code")) != "200":
@@ -265,6 +269,11 @@ class Plugin(WeatherPluginBase):
             ],
         }
 
+    async def fetch_historical_weather(self, loc: Dict[str, Any], target_date: str) -> Dict[str, Any]:
+        """历史查询独立处理 LocationID 和响应契约，不改变实况接口行为。"""
+        from .history import _fetch_history
+        return await _fetch_history(self, loc, target_date, REQUEST_TIMEOUT)
+
     # ------------------------------------------------------------------
     # 连通性测试
     # ------------------------------------------------------------------
@@ -285,3 +294,4 @@ class Plugin(WeatherPluginBase):
         except Exception as e:
             # Ed25519 私钥格式错误等签名异常
             return {"success": False, "message": f"凭据异常: {e}"}
+

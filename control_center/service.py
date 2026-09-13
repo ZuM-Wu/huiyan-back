@@ -72,11 +72,29 @@ class ControlCenterService:
     def submit_update(self, operation_id: str | None = None, *, apply_all: bool = False) -> ControlJob:
         if bool(operation_id) == bool(apply_all):
             raise ValueError("operation_id 与 apply_all 必须二选一")
+        self._ensure_backend_available_for_update()
 
         async def handler(job: ControlJob) -> None:
             await self._run_update(job, operation_id=operation_id, apply_all=apply_all)
 
         return self._submit("plugin-update:all" if apply_all else "plugin-update:single", handler)
+
+    def submit_update_many(self, operation_ids: list[str]) -> ControlJob:
+        """按调用方明确给出的 operation_id 集合执行，避免误应用其他来源计划。"""
+        selected = [str(item) for item in operation_ids if str(item)]
+        if not selected:
+            raise ValueError("operation_ids 不能为空")
+        self._ensure_backend_available_for_update()
+
+        async def handler(job: ControlJob) -> None:
+            await self._run_update(job, operation_ids=selected, operation_id=None, apply_all=False)
+
+        return self._submit("plugin-update:batch", handler)
+
+    def _ensure_backend_available_for_update(self) -> None:
+        """提交更新前快速拒绝外部后端，便于 API 返回稳定错误码。"""
+        if self.process.snapshot()["state"] == "external":
+            raise RuntimeError("8000 端口由外部进程占用，无法安全执行离线更新")
 
     def submit_exit(self, shutdown_callback: Callable[[], None]) -> ControlJob:
         async def handler(job: ControlJob) -> None:
@@ -127,10 +145,33 @@ class ControlCenterService:
         self.log.append("control", f"开始操作 {job.kind} ({job.job_id})")
         try:
             await handler(job)
-            job.status = "succeeded"
-            job.phase = "succeeded"
-            job.message = job.message or "操作完成"
-            self.log.append("control", f"操作完成 {job.kind}")
+            if job.kind.startswith("plugin-update") and job.result:
+                failed = [item for item in job.result if item.get("status") == "failed"]
+                if failed and len(failed) < len(job.result):
+                    job.status = "partial_success"
+                    job.phase = "partial_success"
+                    job.message = job.message or f"插件更新部分成功，{len(failed)} 个插件失败"
+                    self.log.append("control", f"操作部分成功 {job.kind}: {len(failed)} 个插件失败")
+                elif failed:
+                    job.status = "failed"
+                    job.phase = "failed"
+                    reasons = [
+                        str(item.get("error_reason") or item.get("message") or "未知原因")
+                        for item in failed
+                    ]
+                    job.error = f"{len(failed)} 个插件更新失败: " + "；".join(reasons)
+                    job.message = job.error
+                    self.log.append("control", f"操作失败 {job.kind}: {job.error}")
+                else:
+                    job.status = "succeeded"
+                    job.phase = "succeeded"
+                    job.message = job.message or "操作完成"
+                    self.log.append("control", f"操作完成 {job.kind}")
+            else:
+                job.status = "succeeded"
+                job.phase = "succeeded"
+                job.message = job.message or "操作完成"
+                self.log.append("control", f"操作完成 {job.kind}")
         except asyncio.CancelledError:
             job.status, job.phase, job.error = "failed", "failed", "控制中心正在退出"
             raise
@@ -161,8 +202,8 @@ class ControlCenterService:
         job.health = await self._wait_for_health(job)
         job.message = "后端已重启" if job.health.get("status") == "ok" else "后端已重启，但存在降级组件"
 
-    async def _run_update(self, job: ControlJob, *, operation_id: str | None, apply_all: bool) -> None:
-        plans = await load_update_plans(operation_id)
+    async def _run_update(self, job: ControlJob, *, operation_id: str | None, apply_all: bool, operation_ids: list[str] | None = None) -> None:
+        plans = await load_update_plans(operation_id, operation_ids)
         if not plans:
             raise ValueError("没有待应用的插件更新计划")
         if not apply_all and plans[0].get("status") != "awaiting_restart":
@@ -176,9 +217,9 @@ class ControlCenterService:
             await asyncio.to_thread(self.process.stop)
             stopped = True
             job.phase, job.message = "dry_run", "正在执行离线预检"
-            await self._run_updater(operation_id, apply_all, dry_run=True)
+            await self._run_updater(operation_id, apply_all, dry_run=True, operation_ids=operation_ids)
             job.phase, job.message = "applying", "正在应用插件更新"
-            job.result = await self._run_updater(operation_id, apply_all, dry_run=False)
+            job.result = await self._run_updater(operation_id, apply_all, dry_run=False, operation_ids=operation_ids)
         except Exception as exc:
             update_error = exc
         finally:
@@ -193,35 +234,63 @@ class ControlCenterService:
                     raise
         if update_error:
             raise update_error
-        job.message = "插件更新已应用，后端运行正常"
+        failed = [item for item in job.result if item.get("status") == "failed"]
+        if failed and len(failed) < len(job.result):
+            job.message = f"插件更新部分成功，{len(failed)} 个插件失败；后端运行正常"
+        elif failed:
+            job.message = f"插件更新全部失败，{len(failed)} 个插件失败；后端运行正常"
+        else:
+            job.message = "插件更新已应用，后端运行正常"
         if job.health and job.health.get("status") == "degraded":
             job.message = "插件更新已应用，后端已启动但存在降级组件"
 
-    async def _run_updater(self, operation_id: str | None, apply_all: bool, *, dry_run: bool) -> list[dict]:
+    async def _run_updater(self, operation_id: str | None, apply_all: bool, *, dry_run: bool, operation_ids: list[str] | None = None) -> list[dict]:
         command = [sys.executable, str(self.backend_root / "scripts" / "apply_plugin_updates.py")]
-        command.extend(["--all"] if apply_all else ["--operation-id", str(operation_id)])
+        if apply_all:
+            command.append("--all")
+        elif operation_ids:
+            for selected in operation_ids:
+                command.extend(["--operation-id", str(selected)])
+        else:
+            command.extend(["--operation-id", str(operation_id)])
         if dry_run:
             command.append("--dry-run")
         environment = os.environ.copy()
         environment.update({"PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"})
         process = await asyncio.create_subprocess_exec(
             *command, cwd=str(self.backend_root), env=environment,
-            stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT,
+            stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
         )
         output: list[str] = []
-        if process.stdout is not None:
-            while line := await process.stdout.readline():
+        diagnostics: list[str] = []
+
+        async def collect(stream, target: list[str]) -> None:
+            if stream is None:
+                return
+            while line := await stream.readline():
                 decoded = line.decode("utf-8", errors="replace").rstrip()
-                output.append(decoded)
+                target.append(decoded)
                 self.log.append("updater", decoded)
+
+        readers = await asyncio.gather(
+            asyncio.create_task(collect(process.stdout, output)),
+            asyncio.create_task(collect(process.stderr, diagnostics)),
+            return_exceptions=True,
+        )
         code = await process.wait()
         rendered = "\n".join(output).strip()
+        diagnostic_text = "\n".join(diagnostics).strip()
+        for result in readers:
+            if isinstance(result, Exception):
+                raise RuntimeError(f"读取离线更新器输出失败: {result}") from result
         if code != 0:
-            raise RuntimeError(rendered or f"离线更新器退出码 {code}")
+            details = "\n".join(item for item in (diagnostic_text, rendered) if item)
+            raise RuntimeError(details or f"离线更新器退出码 {code}")
         try:
             result = json.loads(rendered or "[]")
         except json.JSONDecodeError as exc:
-            raise RuntimeError("离线更新器返回了无法识别的结果") from exc
+            detail = f"离线更新器返回了无法识别的结果，stdout: {rendered[:500]}"
+            raise RuntimeError(detail) from exc
         return result if isinstance(result, list) else [result]
 
     async def _wait_for_health(self, job: ControlJob, timeout: float = 60.0) -> dict:
@@ -244,7 +313,7 @@ class ControlCenterService:
         return {
             key: plan.get(key) for key in (
                 "operation_id", "plugin_id", "current_version", "target_version",
-                "status", "restart_required", "created_at", "error_reason",
+                "status", "restart_required", "operation_type", "created_at", "error_reason",
             )
         }
 

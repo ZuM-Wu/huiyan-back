@@ -39,6 +39,53 @@
     // 当前页面 Vue 应用实例引用（用于 SPA 切换时销毁旧实例）
     var _pageApps = [];
     var _localIconMap = null;
+    var _activeConfirmDialog = null;
+
+    /**
+     * 统一管理 TDesign 确认弹窗，防止 SPA 页面重复点击叠加多个实例。
+     * 确认或取消后先销毁当前实例，再执行业务回调，业务回调异常也不会留下遮罩。
+     */
+    function installConfirmDialogManager() {
+        if (!window.TDesign || !window.TDesign.DialogPlugin
+            || window.TDesign.DialogPlugin.__huiYanManaged) { return; }
+        var dialogPlugin = window.TDesign.DialogPlugin;
+        var confirm = dialogPlugin.confirm;
+        dialogPlugin.confirm = function (options) {
+            if (_activeConfirmDialog && typeof _activeConfirmDialog.destroy === 'function') {
+                _activeConfirmDialog.destroy();
+                _activeConfirmDialog = null;
+            }
+            var config = Object.assign({}, options || {});
+            var originalConfirm = config.onConfirm;
+            var originalCancel = config.onCancel;
+            var instance;
+            var settled = false;
+            var close = function () {
+                if (instance && typeof instance.destroy === 'function') {
+                    try { instance.destroy(); } catch (e) { /* TDesign 已销毁时保持幂等 */ }
+                }
+                if (_activeConfirmDialog === instance) _activeConfirmDialog = null;
+            };
+            config.onConfirm = function () {
+                if (settled) return undefined;
+                settled = true;
+                close();
+                return typeof originalConfirm === 'function' ? originalConfirm.apply(this, arguments) : undefined;
+            };
+            config.onCancel = function () {
+                if (settled) return undefined;
+                settled = true;
+                close();
+                return typeof originalCancel === 'function' ? originalCancel.apply(this, arguments) : undefined;
+            };
+            instance = confirm.call(dialogPlugin, config);
+            _activeConfirmDialog = instance;
+            return instance;
+        };
+        dialogPlugin.__huiYanManaged = true;
+    }
+
+    installConfirmDialogManager();
 
     /**
      * 用本地 TDesign Icons Vue 组件承接 t-icon，避免 Icon 组件加载在线 SVG symbol 脚本。
@@ -159,6 +206,10 @@
      * 销毁当前页面级 Vue 应用（侧边栏/顶栏不受影响）
      */
     function destroyPageApps() {
+        if (_activeConfirmDialog && typeof _activeConfirmDialog.destroy === 'function') {
+            try { _activeConfirmDialog.destroy(); } catch (e) { /* 已销毁实例无需重复抛错 */ }
+            _activeConfirmDialog = null;
+        }
         _pageApps.forEach(function (app) {
             // 先标记失效，再触发 Vue 卸载钩子；页面异步任务可据此停止更新旧 DOM。
             app.__huiYanActive = false;

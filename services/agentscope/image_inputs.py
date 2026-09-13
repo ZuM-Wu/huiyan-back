@@ -38,6 +38,10 @@ def build_model_image_url(public_url: str) -> str:
     """把上传结果转换为模型可持久化引用，公网 HTTPS 地址保持不变。"""
     raw = str(public_url or "").strip()
     parsed = urlparse(raw)
+    if parsed.path.startswith("/api/v1/storage/files/common/"):
+        filename = Path(parsed.path).name
+        _validate_filename(filename)
+        return f"{_INTERNAL_SCHEME}://{_LOCAL_DIRECTORY}/{filename}"
     if parsed.scheme == "https" and parsed.hostname not in _LOOPBACK_HOSTS:
         return raw
     filename = Path(parsed.path).name
@@ -63,6 +67,10 @@ def _local_filename(raw_url: str) -> str | None:
         if parsed.netloc != _LOCAL_DIRECTORY or parsed.path.count("/") != 1:
             raise ImageInputError("图片内部引用超出允许目录")
         filename = parsed.path.removeprefix("/")
+        _validate_filename(filename)
+        return filename
+    if parsed.path.startswith("/api/v1/storage/files/common/"):
+        filename = Path(parsed.path).name
         _validate_filename(filename)
         return filename
     is_relative_upload = not parsed.scheme and not parsed.netloc

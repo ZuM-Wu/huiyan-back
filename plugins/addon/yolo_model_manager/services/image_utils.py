@@ -10,13 +10,34 @@ from urllib.parse import unquote, urljoin, urlsplit
 import httpx
 
 from core.config import BASE_DIR
+from core.oss_service import oss_service
 
 MAX_IMAGE_BYTES = 20 * 1024 * 1024
 MAX_IMAGE_PIXELS = 40_000_000
+UPLOAD_ROOT = (BASE_DIR / "upload").resolve()
+_LOCAL_URL_PREFIXES = ("/upload/", "/api/v1/storage/files/")
 
 
 class ImagePreparationError(ValueError):
     """图片地址、下载内容或解码结果不符合检测要求。"""
+
+
+def local_image_path(image_url: str):
+    """将本地直链或稳定文件地址解析为受控的 upload 文件路径。"""
+    parsed = urlsplit(image_url)
+    if parsed.scheme or parsed.netloc:
+        return None
+    prefix = next((item for item in _LOCAL_URL_PREFIXES if parsed.path.startswith(item)), "")
+    if not prefix:
+        return None
+    try:
+        local_path = oss_service.normalize_local_path(unquote(parsed.path[len(prefix):]))
+    except ValueError as exc:
+        raise ImagePreparationError("站内图片路径无效") from exc
+    path = (UPLOAD_ROOT / local_path).resolve()
+    if not path.is_relative_to(UPLOAD_ROOT):
+        raise ImagePreparationError("站内图片路径无效")
+    return path
 
 
 async def assert_public_http_url(url: str) -> None:
@@ -69,11 +90,9 @@ async def _download_http_image(url: str) -> bytes:
 
 
 async def read_image_bytes(image_url: str) -> bytes:
-    if image_url.startswith("/upload/"):
-        parsed_path = unquote(urlsplit(image_url).path).lstrip("/")
-        upload_root = (BASE_DIR / "upload").resolve()
-        path = (BASE_DIR / parsed_path).resolve()
-        if not path.is_relative_to(upload_root) or not path.is_file():
+    path = local_image_path(image_url)
+    if path is not None:
+        if not path.is_file():
             raise ImagePreparationError("站内图片不存在或路径无效")
         if path.stat().st_size > MAX_IMAGE_BYTES:
             raise ImagePreparationError("图片大小超过20MB")

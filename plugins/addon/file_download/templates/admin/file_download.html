@@ -16,8 +16,7 @@
         <!-- 左栏：文件夹 -->
         <t-card class="fd-folder-panel" title="文件夹">
             <template #actions>
-                <t-button v-permission="'file_download:folder'" theme="primary" variant="text"
-                    size="small" @click="openFolderCreate">
+                <t-button v-permission="'file_download:folder'" theme="primary" variant="text" @click="openFolderCreate">
                     <template #icon><t-icon name="add"></t-icon></template>
                     新建
                 </t-button>
@@ -33,12 +32,12 @@
                     <t-icon name="folder" class="fd-folder-icon"></t-icon>
                     <span class="fd-folder-name">
                         [[ folder.name ]]
-                        <t-tag v-if="folder.is_default === 1" size="small" theme="primary" variant="light">默认</t-tag>
+                        <t-tag v-if="folder.is_default === 1" theme="primary" variant="light">默认</t-tag>
                     </span>
                     <span class="fd-folder-count">[[ folder.file_count ]]</span>
                     <t-dropdown v-permission="'file_download:folder'" :options="folderMenu(folder)"
                         @click="onFolderMenu($event, folder)" trigger="click">
-                        <t-button theme="default" variant="text" size="small" @click.stop>
+                        <t-button theme="default" variant="text" @click.stop>
                             <template #icon><t-icon name="more"></t-icon></template>
                         </t-button>
                     </t-dropdown>
@@ -83,13 +82,10 @@
                         @change="toggleHidden(row)"></t-switch>
                 </template>
                 <template #actions="{ row }">
-                    <t-button v-permission="'file_download:list'" theme="primary" variant="text"
-                        size="small" @click="downloadRow(row)">下载</t-button>
-                    <t-button v-permission="'file_download:update'" theme="primary" variant="text"
-                        size="small" @click="openEdit(row)">编辑</t-button>
+                    <t-button v-permission="'file_download:list'" theme="primary" variant="text" @click="downloadRow(row)">下载</t-button>
+                    <t-button v-permission="'file_download:update'" theme="primary" variant="text" @click="openEdit(row)">编辑</t-button>
                     <t-popconfirm content="确认删除该文件？物理文件将一并删除" @confirm="removeRow(row)">
-                        <t-button v-permission="'file_download:delete'" theme="danger" variant="text"
-                            size="small">删除</t-button>
+                        <t-button v-permission="'file_download:delete'" theme="danger" variant="text">删除</t-button>
                     </t-popconfirm>
                 </template>
             </t-table>

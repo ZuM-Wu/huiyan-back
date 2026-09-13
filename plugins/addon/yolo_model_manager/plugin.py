@@ -32,7 +32,7 @@ class Plugin(BasePlugin):
         super().__init__(db_session, config)
         self.name = PLUGIN_NAME
         self.title = "智能识别"
-        self.version = "1.1.0"
+        self.version = "1.1.1"
         self.description = "执行生长记录仪快捷检测，并管理识别记录、YOLO模型和地块绑定"
         self.module = "addon"
 
@@ -128,6 +128,11 @@ class Plugin(BasePlugin):
     def get_mcp_tools(self):
         """声明管理员识别记录与硬件历史联合分析工具。"""
         from plugins.addon.yolo_model_manager.mcp_tools import recognition_analysis
+        from plugins.addon.yolo_model_manager.mcp_detection import (
+            recognition_latest_result,
+            recognition_plot_preview,
+            recognition_plot_start,
+        )
 
         return [{
             "name": "recognition_analysis",
@@ -139,6 +144,27 @@ class Plugin(BasePlugin):
             "handler": recognition_analysis,
             "audience": "admin",
             "permission_code": "yolo_model_manager:analysis",
+        }, {
+            "name": "recognition_plot_preview",
+            "description": "预览地块绑定的可识别设备和有效模型。参数 plot_id 为地块ID。",
+            "handler": recognition_plot_preview,
+            "audience": "both",
+            "permission_code": "yolo_model_manager:list",
+            "required_permissions": ["hardware:list"],
+        }, {
+            "name": "recognition_plot_start",
+            "description": "确认后按地块设备和模型发起识别任务。首次调用需确认。",
+            "handler": recognition_plot_start,
+            "audience": "admin",
+            "permission_code": "yolo_model_manager:detect",
+            "required_permissions": ["hardware:data"],
+            "requires_confirmation": True,
+        }, {
+            "name": "recognition_latest_result",
+            "description": "查询地块最新识别记录摘要。参数 plot_id 为地块ID。",
+            "handler": recognition_latest_result,
+            "audience": "both",
+            "permission_code": "yolo_model_manager:list",
         }]
 
     def get_pages(self):
@@ -155,7 +181,7 @@ class Plugin(BasePlugin):
                 "permission": "yolo_model_manager:list",
                 "api_base": "/api/admin/v1/plugins/yolo_model_manager",
                 "styles": ["yolo_model_manager.css"],
-                "scripts": ["yolo_model_manager.js"],
+                "scripts": ["yolo_model_manager_helpers.js", "yolo_model_manager.js"],
             }
         ]
 
@@ -212,3 +238,5 @@ class Plugin(BasePlugin):
                 logger.warning(
                     "[yolo_model_manager] 标注图目录清理失败: %s", result_dir
                 )
+    async def repair_database(self, report: dict) -> dict | bool:
+        return await self._repair_from_install_sql()

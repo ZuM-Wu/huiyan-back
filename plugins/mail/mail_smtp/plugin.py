@@ -31,7 +31,7 @@ class Plugin(MailPluginBase):
         super().__init__(db_session, config)
         self.name = PLUGIN_NAME
         self.title = "SMTP 邮件"
-        self.version = "1.0.1"
+        self.version = "1.0.2"
         self.description = "标准 SMTP 协议邮件发送插件"
         self.module = "mail"
 

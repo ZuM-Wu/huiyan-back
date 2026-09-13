@@ -17,12 +17,32 @@ async def _call(handler, context, task_data: dict) -> None:
     await handler(task_data)
 
 
+async def _handle_storage_scan(context, task_data: dict) -> None:
+    from services.storage_migration import scan_job
+    await scan_job(int(task_data.get("job_id") or 0))
+
+
+async def _handle_storage_migrate(context, task_data: dict) -> None:
+    from services.storage_migration import migrate_job
+    await migrate_job(int(task_data.get("job_id") or 0))
+
+
 def register_builtin_task_definitions() -> None:
     """登记通知及周期任务；重复登记同一对象保持幂等。"""
     task_registry.register(TaskDefinition(
         name="notice", title="通知发送", owner="system", group="notice",
         handler=_handle_notice, timeout_seconds=30, max_attempts=3,
         concurrency=4, failure_notifications=False,
+    ))
+    task_registry.register(TaskDefinition(
+        name="storage_public_scan", title="扫描公共上传文件", owner="platform.storage",
+        group="storage-migration", handler=_handle_storage_scan,
+        timeout_seconds=600, max_attempts=2, concurrency=1,
+    ))
+    task_registry.register(TaskDefinition(
+        name="storage_public_migrate", title="迁移公共上传文件", owner="platform.storage",
+        group="storage-migration", handler=_handle_storage_migrate,
+        timeout_seconds=3600, max_attempts=3, concurrency=1,
     ))
 
     from services.task.ai_connection_worker import (

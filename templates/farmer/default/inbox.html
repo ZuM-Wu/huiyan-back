@@ -39,21 +39,21 @@
             @page-change="onPageChange" @row-click="onRowClick">
             <template #title="{ row }">
                 <div class="inbox-title-cell" :class="{ 'is-unread': row.is_read === 0 }">
-                    <t-tag v-if="row.priority === 1" theme="danger" variant="light" size="small">重要</t-tag>
+                    <t-tag v-if="row.priority === 1" theme="danger" variant="light">重要</t-tag>
                     <span class="inbox-title-text">[[ row.title ]]</span>
                 </div>
             </template>
             <template #is_read="{ row }">
-                <t-tag :theme="row.is_read === 1 ? 'default' : 'primary'" variant="light" size="small">
+                <t-tag :theme="row.is_read === 1 ? 'default' : 'primary'" variant="light">
                     [[ row.is_read === 1 ? '已读' : '未读' ]]
                 </t-tag>
             </template>
             <template #operation="{ row }">
-                <t-button size="small" variant="text" theme="primary" @click.stop="viewDetail(row)">
+                <t-button variant="text" theme="primary" @click.stop="viewDetail(row)">
                     查看
                 </t-button>
                 <t-popconfirm content="确认删除该消息？" @confirm="deleteMsg(row)">
-                    <t-button size="small" variant="text" theme="danger">删除</t-button>
+                    <t-button variant="text" theme="danger">删除</t-button>
                 </t-popconfirm>
             </template>
         </t-table>

@@ -33,14 +33,14 @@
                         <div class="fd-file-info">
                             <div class="fd-file-title">
                                 <strong>[[ item.name ]]</strong>
-                                <t-tag size="small" variant="light">[[ item.filetype ]]</t-tag>
+                                <t-tag variant="light">[[ item.filetype ]]</t-tag>
                             </div>
                             <p class="fd-file-meta">
                                 [[ formatSize(item.filesize) ]] · 下载 [[ item.download_count ]] 次 · [[ item.create_time ]]
                             </p>
                             <p v-if="item.description" class="fd-file-desc">[[ item.description ]]</p>
                         </div>
-                        <t-button theme="primary" size="small"
+                        <t-button theme="primary"
                             :loading="downloadingId === item.id" @click="download(item)">
                             <template #icon><t-icon name="download"></t-icon></template>
                             下载

@@ -31,7 +31,7 @@ class Plugin(BasePlugin):
         super().__init__(db_session, config)
         self.name = PLUGIN_NAME
         self.title = "邮件通知管理员"
-        self.version = "1.0.1"
+        self.version = "1.0.2"
         self.description = "任务失败时按配置发送邮件/短信通知管理员"
         self.module = "addon"
         self._config_manager = ConfigManager()
@@ -143,3 +143,5 @@ class Plugin(BasePlugin):
             sql = f.read()
         if sql.strip():
             await self._exec_sql(sql)
+    async def repair_database(self, report: dict) -> dict | bool:
+        return await self._repair_from_install_sql()

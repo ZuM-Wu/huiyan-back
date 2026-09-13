@@ -315,7 +315,7 @@ async def batch_update(batch_id: int, crop_name: str, *, batch_no: str = "",
 # 产区三级写操作工具声明列表（tools_core.py 聚合进 CORE_TOOLS）
 AREA_WRITE_TOOLS: list[dict] = [
     {
-        "name": "area_create",
+        "name": "agri_area_create",
         "description": "创建产区。必填 name 产区名称；可选 code/province/city/district/"
                        "address/longitude/latitude/area_size/crop_category/description。"
                        "返回新产区 id。注意：本工具不设置地图边界，边界需后续在后台"
@@ -325,7 +325,7 @@ AREA_WRITE_TOOLS: list[dict] = [
         "permission_code": "area:create",
     },
     {
-        "name": "area_update",
+        "name": "agri_area_update",
         "description": "更新产区基础信息。参数 area_id 产区ID，其余同 core_area_create；"
                        "未提供的可选参数会写为默认值，建议先用 core_area_tree 查询现状"
                        "后全量传参。边界与排序等字段不受影响。",
@@ -334,7 +334,7 @@ AREA_WRITE_TOOLS: list[dict] = [
         "permission_code": "area:update",
     },
     {
-        "name": "plot_create",
+        "name": "agri_plot_create",
         "description": "在产区下创建地块。必填 area_id 所属产区ID、name 地块名称；"
                        "可选 code/longitude/latitude/area_size/soil_type/description。"
                        "返回新地块 id。注意：本工具不设置地图边界，无边界地块在地图上不显示，"
@@ -344,7 +344,7 @@ AREA_WRITE_TOOLS: list[dict] = [
         "permission_code": "plot:create",
     },
     {
-        "name": "plot_update",
+        "name": "agri_plot_update",
         "description": "更新地块基础信息（所属产区不可改）。参数 plot_id 地块ID，"
                        "其余同 core_plot_create；未提供的可选参数会写为默认值，"
                        "建议先查询现状后全量传参。",
@@ -353,7 +353,7 @@ AREA_WRITE_TOOLS: list[dict] = [
         "permission_code": "plot:update",
     },
     {
-        "name": "batch_create",
+        "name": "agri_batch_create",
         "description": "在地块下创建种植批次（产区/农户归属自动继承）。必填 plot_id "
                        "所属地块ID、crop_name 作物名称；可选 batch_no/crop_variety/"
                        "season/plant_date/expected_harvest_date（YYYY-MM-DD）/"
@@ -363,7 +363,7 @@ AREA_WRITE_TOOLS: list[dict] = [
         "permission_code": "batch:create",
     },
     {
-        "name": "batch_update",
+        "name": "agri_batch_update",
         "description": "更新种植批次（所属地块与实际采收日期不可改）。参数 batch_id "
                        "批次ID，其余同 core_batch_create；未提供的可选参数会写为默认值，"
                        "建议先查询现状后全量传参。",

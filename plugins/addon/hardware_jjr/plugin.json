@@ -1,7 +1,7 @@
 {
   "name": "hardware_jjr",
   "title": "jjr物联网设备管理",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "JJR 设备协议、实时卡片、历史图表与拍照接入公共硬件管理",
   "author": "HuiYan Team",
   "module": "addon",
@@ -53,5 +53,6 @@
       "type": "script"
     }
   ],
+  "database_schema": {"version": 1, "tables": []},
   "config": {}
 }

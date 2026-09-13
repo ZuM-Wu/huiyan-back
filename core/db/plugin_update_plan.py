@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from core.time_utils import china_now
-from sqlalchemy import Boolean, DateTime, String
+from sqlalchemy import Boolean, DateTime, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from core.db.base import Base
@@ -62,4 +62,10 @@ class PluginUpdatePlanModel(Base):
     )
     task_id: Mapped[str | None] = mapped_column(
         String(64), nullable=True, comment="预检任务编号"
+    )
+    operation_type: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="upgrade", comment="操作类型: upgrade/repair"
+    )
+    diagnostics_json: Mapped[str] = mapped_column(
+        Text, nullable=False, default="{}", comment="体检报告摘要 JSON"
     )

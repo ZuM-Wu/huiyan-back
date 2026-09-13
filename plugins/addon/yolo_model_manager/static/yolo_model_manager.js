@@ -88,13 +88,8 @@
                 fetchRecords();
             };
 
-            const formatConfidence = (value) => {
-                if (value === null || value === undefined) return '-';
-                return (Number(value) * 100).toFixed(1) + '%';
-            };
-            const formatBbox = (value) => Array.isArray(value)
-                ? value.map((item) => Number(item).toFixed(1)).join(', ')
-                : '-';
+            const formatConfidence = window.HuiYanYoloFormat.formatConfidence;
+            const formatBbox = window.HuiYanYoloFormat.formatBbox;
 
             const recordDetailVisible = ref(false);
             const recordDetailLoading = ref(false);
@@ -191,18 +186,8 @@
                 fetchModels();
             };
 
-            const formatSize = (bytes) => {
-                if (!bytes) return '0 B';
-                const units = ['B', 'KB', 'MB', 'GB'];
-                let value = Number(bytes);
-                let index = 0;
-                while (value >= 1024 && index < units.length - 1) {
-                    value /= 1024;
-                    index += 1;
-                }
-                return value.toFixed(value >= 100 || index === 0 ? 0 : 1) + ' ' + units[index];
-            };
-            const shortHash = (value) => value ? value.slice(0, 12) + '...' : '-';
+            const formatSize = window.HuiYanYoloFormat.formatSize;
+            const shortHash = window.HuiYanYoloFormat.shortHash;
 
             const uploadPolicy = ref({ max_size_mb: 500, extensions: ['pt', 'onnx'] });
             const uploadPolicyReady = ref(false);

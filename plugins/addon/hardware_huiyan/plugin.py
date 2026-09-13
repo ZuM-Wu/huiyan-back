@@ -8,7 +8,7 @@ from .adapter import HuiyanAdapter
 class Plugin(BasePlugin):
     name = "hardware_huiyan"
     title = "慧眼物联网设备管理"
-    version = "1.0.2"
+    version = "1.0.3"
 
     async def install(self) -> bool:
         if not self.db:
@@ -51,3 +51,5 @@ class Plugin(BasePlugin):
             "template": "index.html", "styles": [], "scripts": ["index.js"],
             "permission": "hardware:list", "api_base": "/api/admin/v1/plugins/" + self.name,
         }]
+    async def repair_database(self, report: dict) -> dict | bool:
+        return await self._repair_from_install_sql()

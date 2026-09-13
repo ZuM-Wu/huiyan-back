@@ -23,6 +23,45 @@ from core.rate_limiter import check_rate_detail
 logger = logging.getLogger(__name__)
 
 
+def _normalized_admin(claims: dict) -> bool:
+    """兼容 API Key claims 中的布尔字符串，统一识别超级管理员。"""
+    value = claims.get("is_super", False)
+    return value is True or str(value).strip().lower() in {"1", "true", "yes"}
+
+
+def _permission_granted(code: str | None, scopes: list[str]) -> bool:
+    """按精确码或领域通配码判断 RBAC 权限。"""
+    if not code:
+        return True
+    granted = {str(item).strip() for item in scopes if item}
+    if code in granted:
+        return True
+    domain = code.split(":", 1)[0]
+    return f"{domain}:*" in granted or "*" in granted
+
+
+def _capability_decision(meta: Optional[dict], token) -> tuple[bool, str]:
+    """返回能力授权结果及稳定的中文诊断原因。"""
+    if meta is None:
+        return False, "能力未登记"
+    if token is None:
+        return False, "未提供有效 MCP API Key"
+    claims = token.claims or {}
+    user_type = str(claims.get("user_type", "")).strip().lower()
+    audience = meta.get("audience", "admin")
+    if user_type == "farmer":
+        return (True, "") if audience in ("farmer", "both") else (False, "该工具仅限管理员")
+    if user_type != "admin":
+        return False, "API Key 身份不是管理员或农户"
+    if audience not in ("admin", "both"):
+        return False, "该工具不向管理员开放"
+    if _normalized_admin(claims):
+        return True, ""
+    codes = [meta.get("permission_code"), *(meta.get("required_permissions") or [])]
+    missing = next((code for code in codes if not _permission_granted(code, token.scopes or [])), None)
+    return (False, f"管理员缺少权限：{missing}") if missing else (True, "")
+
+
 def _capability_allowed(meta: Optional[dict], token) -> bool:
     """
     判断当前 access token 是否允许使用某工具
@@ -31,29 +70,7 @@ def _capability_allowed(meta: Optional[dict], token) -> bool:
                  None 表示未登记工具，默认拒绝
     :param token: fastmcp AccessToken（可能为 None，理论上鉴权层已拦截）
     """
-    if meta is None:
-        # 所有可调用工具必须由 registry 登记，未知工具默认拒绝。
-        return False
-    if token is None:
-        return False
-
-    audience = meta.get("audience", "admin")
-    claims = token.claims or {}
-    user_type = claims.get("user_type", "")
-
-    if user_type == "farmer":
-        return audience in ("farmer", "both")
-
-    if user_type == "admin":
-        if audience not in ("admin", "both"):
-            return False
-        # 超管放行 / 无权限码要求放行 / 命中 RBAC 权限码放行
-        if claims.get("is_super"):
-            return True
-        code = meta.get("permission_code")
-        return not code or code in (token.scopes or [])
-
-    return False
+    return _capability_decision(meta, token)[0]
 
 
 def _tool_allowed(meta: Optional[dict], token) -> bool:
@@ -121,20 +138,48 @@ class PermissionFilterMiddleware(Middleware):
         token = get_access_token()
         _check_rate(token, "tool", "list")
         tools = await _invoke(context, call_next, token, "tool", "list")
-        return [t for t in tools if _capability_allowed(get_tool_meta(t.name), token)]
+        from services.mcp.compact import compact_tool_declaration, compact_tool_list
+        visible = [compact_tool_declaration(t) for t in tools if _capability_allowed(get_tool_meta(t.name), token)]
+        core_names = {t.name for t in visible if (get_tool_meta(t.name) or {}).get("owner") == "core"}
+        selected = compact_tool_list(visible, core_names=core_names)
+        if len(selected) != len(visible):
+            logger.info("[MCP] 工具清单裁剪: client=%s available=%s omitted=%s", token.client_id if token else "anonymous", len(selected), len(visible) - len(selected))
+        return selected
 
     async def on_call_tool(self, context: MiddlewareContext, call_next):
         """tools/call: 越权直接拒绝（不依赖列表隐藏的兜底校验）"""
-        from services.mcp.registry import get_tool_meta
+        from services.mcp.registry import get_tool_declaration, get_tool_meta, resolve_tool_name
 
         tool_name = context.message.name
+        canonical_name = resolve_tool_name(tool_name)
+        if canonical_name != tool_name:
+            # 兼容旧客户端调用名，转发到规范名称对应的 FastMCP 工具。
+            context = context.copy(message=context.message.model_copy(update={"name": canonical_name}))
         token = get_access_token()
         _check_rate(token, "tool", tool_name)
-        if not _capability_allowed(get_tool_meta(tool_name), token):
+        meta = get_tool_meta(tool_name)
+        allowed, reason = _capability_decision(meta, token)
+        if not allowed:
             client = token.client_id if token else "anonymous"
-            logger.warning("[MCP] 越权调用被拒绝: client=%s tool=%s", client, tool_name)
-            raise ToolError(f"无权调用该工具: {tool_name}")
-        return await _invoke(context, call_next, token, "tool", tool_name)
+            logger.warning("[MCP] 越权调用被拒绝: client=%s tool=%s permission=%s reason=%s", client, tool_name, (meta or {}).get("permission_code"), reason)
+            from services.mcp.errors import tool_error_result
+            return tool_error_result("permission_denied", f"{tool_name}：{reason}")
+        from pydantic import ValidationError
+        from services.mcp.errors import McpToolError, tool_error_result
+        try:
+            result = await _invoke(context, call_next, token, "tool", tool_name)
+        except McpToolError as exc:
+            return tool_error_result(exc.code, str(exc))
+        except (ValidationError, TypeError):
+            return tool_error_result("invalid_arguments")
+        except ToolError as exc:
+            from services.mcp.errors import legacy_tool_error_result
+            return legacy_tool_error_result(str(exc))
+        except Exception:
+            return tool_error_result("internal_error")
+        from services.mcp.compact import compact_tool_result
+        declaration = get_tool_declaration(canonical_name) or {}
+        return compact_tool_result(result, declaration.get("response_max_bytes", 1024))
 
     async def on_list_resources(self, context: MiddlewareContext, call_next):
         """resources/list: 仅返回当前身份可见的固定资源。"""

@@ -26,9 +26,9 @@
             </template>
             <template #actions="{ row }">
                 <template v-if="row.status === 0">
-                    <t-button theme="primary" variant="text" size="small"
+                    <t-button theme="primary" variant="text"
                         @click="openHandle(row, 1)">采纳</t-button>
-                    <t-button theme="danger" variant="text" size="small"
+                    <t-button theme="danger" variant="text"
                         @click="openHandle(row, 2)">驳回</t-button>
                 </template>
                 <span v-else class="kb-corr-note">[[ row.admin_note || '—' ]]</span>

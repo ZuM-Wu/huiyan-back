@@ -39,6 +39,7 @@ except Exception as exc:  # pragma: no cover - 仅覆盖未安装可选依赖的
 # 核心路由
 from api.admin.auth import router as admin_auth_router
 from api.admin.plugin import router as admin_plugin_router, platform_router as admin_plugin_platform_router
+from api.admin.plugin_database import router as admin_plugin_database_router
 from api.admin.config import router as admin_config_router
 from api.admin.cache import router as admin_cache_router
 from api.admin.menu import router as admin_menu_router
@@ -52,6 +53,7 @@ from api.admin.certification import router as admin_certification_router
 from api.admin.system_info import router as admin_system_info_router
 from api.admin.upload import router as admin_upload_router
 from api.admin.oss_config import router as admin_oss_config_router
+from api.storage import router as storage_router
 from api.admin.profile import router as admin_profile_router
 from api.admin.theme import router as admin_theme_router
 from api.admin.site_config import router as admin_site_config_router
@@ -86,6 +88,7 @@ from api.farmer.weather import router as farmer_weather_router
 from api.farmer.api_key import router as farmer_api_key_router
 from api.farmer.inbox import router as farmer_inbox_router
 from api.farmer.plugins import router as farmer_plugins_router
+from api.farmer.widget import router as farmer_widget_router
 
 def _configure_logging() -> None:
     """配置统一应用日志；文件不可写时保留 stderr 并继续启动。"""
@@ -209,11 +212,13 @@ register_exception_handlers(app)
 app.include_router(admin_auth_router)
 app.include_router(admin_plugin_router)
 app.include_router(admin_plugin_platform_router)
+app.include_router(admin_plugin_database_router)
 app.include_router(admin_config_router)
 app.include_router(admin_cache_router)
 app.include_router(admin_menu_router)
 app.include_router(admin_log_router)
 app.include_router(admin_widget_router)
+app.include_router(farmer_widget_router)
 app.include_router(admin_admin_router)
 app.include_router(admin_role_router)
 app.include_router(admin_permission_router)
@@ -222,6 +227,7 @@ app.include_router(admin_certification_router)
 app.include_router(admin_system_info_router)
 app.include_router(admin_upload_router)
 app.include_router(admin_oss_config_router)
+app.include_router(storage_router)
 app.include_router(admin_profile_router)
 app.include_router(admin_theme_router)
 app.include_router(admin_site_config_router)
@@ -257,6 +263,8 @@ app.include_router(farmer_plugins_router)
 
 # MCP 服务挂载（Streamable HTTP，位于 API 路由之后、页面路由之前）
 if mcp_app is not None:
+    from services.mcp.server import McpPathMiddleware
+    app.add_middleware(McpPathMiddleware, mount_path=settings.MCP_MOUNT_PATH)
     app.mount(settings.MCP_MOUNT_PATH, mcp_app)
 
 # 官网公开 API（GET /api/site/v1/config，无需登录）

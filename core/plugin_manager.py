@@ -29,6 +29,73 @@ _VALID_NAV_TYPES = frozenset({"admin", "frontend"})
 _REMOVED_PLUGIN_NAMES: frozenset[str] = frozenset()
 
 
+class _RepairDatabaseProxy:
+    """限制修复钩子只能访问 manifest 声明的当前插件表。"""
+
+    _TABLE_RE = re.compile(
+        r"\b(?:from|join|into|update|table)\s+[`]?([A-Za-z_][A-Za-z0-9_]*)[`]?",
+        re.IGNORECASE,
+    )
+
+    def __init__(self, session, allowed_tables: set[str]):
+        self._session = session
+        self._allowed_tables = allowed_tables
+
+    async def execute(self, statement, *args, **kwargs):
+        sql = str(statement)
+        for table in self._TABLE_RE.findall(sql):
+            if table.lower() not in {item.lower() for item in self._allowed_tables}:
+                raise PermissionError(f"修复钩子越权访问表: {table}")
+        return await self._session.execute(statement, *args, **kwargs)
+
+    async def scalar(self, statement, *args, **kwargs):
+        result = await self.execute(statement, *args, **kwargs)
+        return result.scalar()
+
+    async def scalars(self, statement, *args, **kwargs):
+        result = await self.execute(statement, *args, **kwargs)
+        return result.scalars()
+
+    async def get(self, entity, ident, *args, **kwargs):
+        table = getattr(getattr(entity, "__table__", None), "name", "")
+        if table and table.lower() not in {item.lower() for item in self._allowed_tables}:
+            raise PermissionError(f"修复钩子越权访问表: {table}")
+        return await self._session.get(entity, ident, *args, **kwargs)
+
+    def _check_model(self, instance) -> None:
+        """拦截 ORM 写入，避免钩子借由 Session.add 绕过 SQL 表名校验。"""
+        table = getattr(getattr(instance, "__table__", None), "name", "")
+        if table and table.lower() not in {item.lower() for item in self._allowed_tables}:
+            raise PermissionError(f"修复钩子越权访问表: {table}")
+
+    def add(self, instance, _warn=False):
+        self._check_model(instance)
+        return self._session.add(instance, _warn=_warn)
+
+    def add_all(self, instances):
+        for instance in instances:
+            self._check_model(instance)
+        return self._session.add_all(instances)
+
+    def delete(self, instance):
+        self._check_model(instance)
+        return self._session.delete(instance)
+
+    async def merge(self, instance, *args, **kwargs):
+        """拦截 ORM merge，避免通过批量合并绕过自有表边界。"""
+        self._check_model(instance)
+        return await self._session.merge(instance, *args, **kwargs)
+
+    async def flush(self, *args, **kwargs):
+        return await self._session.flush(*args, **kwargs)
+
+    async def commit(self):
+        raise RuntimeError("修复钩子不得自行 commit")
+
+    def __getattr__(self, item):
+        return getattr(self._session, item)
+
+
 class PluginUpgradeError:
     """插件升级失败的稳定错误信息，供 API 层映射 HTTP 状态码。"""
 
@@ -258,12 +325,14 @@ class PluginManager(PluginUpgradeMixin):
         """按 owner 注销事件、管道、任务和 MCP，供全部生命周期复用。"""
         from core.events import event_registry, pipeline_engine
         from services.task.definitions import task_registry
+        from services.widget.widget_engine import widget_engine
 
         from core.hardware_provider import hardware_provider_registry
         hardware_provider_registry.unregister_owner(name)
         event_registry.unregister_owner(name)
         pipeline_engine.unregister_owner(name)
         task_registry.unregister_owner(name)
+        widget_engine.unregister_owner(name)
         self._unregister_mcp_tools_runtime(name)
 
     def _register_runtime_capabilities(self, name: str, instance) -> None:
@@ -275,7 +344,8 @@ class PluginManager(PluginUpgradeMixin):
         subscriptions = instance.get_event_subscriptions() or []
         pipelines = instance.get_pipeline_handlers() or []
         tasks = instance.get_task_definitions() or []
-        if not all(isinstance(items, list) for items in (definitions, subscriptions, pipelines, tasks)):
+        widgets = instance.get_widgets() or []
+        if not all(isinstance(items, list) for items in (definitions, subscriptions, pipelines, tasks, widgets)):
             raise ValueError(f"插件 '{name}' 的能力声明必须返回列表")
         pages = instance.get_pages() or []
         if pages:
@@ -316,12 +386,23 @@ class PluginManager(PluginUpgradeMixin):
                 if declaration.owner != name:
                     raise ValueError(f"管道 owner 必须为插件名: {declaration.name}")
                 pipeline_engine.register(declaration)
+            self._register_widgets_runtime(name, widgets)
             self._register_mcp_tools_runtime(name, instance)
         except Exception:
             self._unregister_runtime_capabilities(name)
             from core.platform.resource import resource_registry
             resource_registry.invalidate_owner(name)
             raise
+
+    @staticmethod
+    def _register_widgets_runtime(name: str, widgets: list) -> None:
+        """校验并注册插件挂件，异常由能力编排层统一回滚。"""
+        from services.widget.widget_engine import BaseWidget, widget_engine
+
+        for widget in widgets:
+            if not isinstance(widget, BaseWidget):
+                raise ValueError(f"插件 '{name}' 的挂件声明包含无效对象")
+            widget_engine.register(widget, owner=name)
 
     def restore_capabilities(self, name: str) -> bool:
         """
@@ -353,7 +434,7 @@ class PluginManager(PluginUpgradeMixin):
         try:
             from services.mcp.registry import register_tools, unregister_tools
             unregister_tools(name)
-            register_tools(name, instance.get_mcp_tools())
+            register_tools(name, instance.get_mcp_tools(), permissions=instance.get_permissions())
         except Exception as e:
             logger.warning(f"插件 '{name}' MCP 工具注册失败(不影响插件运行): {e}", exc_info=True)
 
@@ -451,6 +532,30 @@ class PluginManager(PluginUpgradeMixin):
         from core.plugin_uninstall import _uninstall_plugin
 
         return await _uninstall_plugin(self, name, db, router_manager)
+
+    async def repair_database(self, name: str, report: dict, db) -> dict | bool:
+        """在控制中心停机事务中调用插件自身的幂等数据库修复钩子。"""
+        if hasattr(report, "execute") and isinstance(db, dict):
+            report, db = db, report
+        plugin_cls, meta = self._load_plugin_class(name)
+        if not plugin_cls:
+            return False
+        declared_schema = meta.get("database_schema") or {"tables": []}
+        allowed_tables = {
+            str(item.get("name")) for item in declared_schema.get("tables", [])
+            if isinstance(item, dict) and item.get("name")
+        }
+        instance = plugin_cls(_RepairDatabaseProxy(db, allowed_tables), meta.get("config", {}))
+        callback = getattr(instance, "repair_database", None)
+        from core.plugin_base import BasePlugin
+        if callback is None or plugin_cls.repair_database is BasePlugin.repair_database:
+            return False
+        result = callback(report)
+        if asyncio.iscoroutine(result):
+            result = await result
+        if result is True:
+            return True
+        return isinstance(result, dict) and result.get("status") == "repaired"
 
     async def enable(self, name: str, db, router_manager=None) -> bool:
         """

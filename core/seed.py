@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 # 种子版本号：与 hy_configuration.seed_version 比对，一致时整体跳过种子流程
 # 重要约定：任何人修改本模块/seed_nav/seed_notice 的种子内容后，必须递增此版本号，
 # 否则新种子不会在存量环境生效（启动修复/新增项依赖种子流程重新执行）
-SEED_VERSION = "16"
+SEED_VERSION = "19"
 # 版本变更记录：
 # - v10：菜单/导航/通知/权限码种子当前版本（站内信管理并入通知日志页 Tab、移除独立预警记录页等历史变更已固化）
 # - v11：seed_notice 修复天气邮件通知默认启用问题
@@ -25,6 +25,8 @@ SEED_VERSION = "16"
 # - v14：后台默认主题切换为 vue_default，旧 default 主题迁移为 classic
 # - v15：恢复 AgentScope 对话入口，使用新聊天页面，不恢复旧 AI 框架
 # - v16：新增硬件设备管理页面、导航与细粒度权限
+# - v17：新增任务监控日志清理权限
+# - v19：新增插件数据库体检系统页面、菜单、权限和扫描配置
 
 
 async def seed_menus(db):
@@ -43,6 +45,7 @@ async def seed_menus(db):
         (4,  "cache",             "缓存管理",   "/admin/cache",       "file",       2,   1,  "",  0),
         (5,  "navigation",        "导航管理",   "/admin/navigation",  "menu",       2,   2,  "",  1),
         (17, "theme",             "主题设置",   "/admin/theme",       "palette",    2,   3,  "",  1),
+        (37, "plugin_database",   "插件数据库体检", "/admin/plugin-database", "database", 2, 5, "", 1),
         (6,  "plugin",            "应用",       "",                    "app",        0,   2,  "",  1),
         (7,  "plugin_list",       "应用列表",   "/admin/plugin",      "app",        6,   0,  "",  1),
         (8,  "user",              "用户管理",   "",                    "user",       0,   3,  "",  1),
@@ -424,6 +427,9 @@ async def seed_configuration(db):
         "task_queue_poll_interval": ("3", "Worker 轮询间隔（秒）"),
         "task_queue_batch_size": ("10", "每批处理任务数量"),
         "task_queue_clean_finish": ("1", "完成后自动删除（0=保留, 1=自动删除）"),
+        # ===== 插件数据库体检 =====
+        "plugin_database_scan_enabled": ("1", "插件数据库体检定时扫描开关（0=关闭, 1=开启）"),
+        "plugin_database_scan_interval_hours": ("6", "插件数据库体检周期（小时，仅允许1/6/12/24）"),
         # ===== 对象存储配置 =====
         "oss_method": ("local_oss", "对象存储方式（默认本地存储 local_oss）"),
     }

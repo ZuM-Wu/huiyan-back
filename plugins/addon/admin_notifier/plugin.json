@@ -1,7 +1,7 @@
 {
   "name": "admin_notifier",
   "title": "邮件通知管理员",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "任务失败时按配置发送邮件/短信通知管理员",
   "author": "HuiYan Team",
   "module": "addon",
@@ -19,6 +19,7 @@
   "tasks": [],
   "events": [],
   "health": {"check": "plugin.admin_notifier"},
+  "database_schema": {"version": 1, "tables": [{"name": "hy_task_alert_config", "columns": ["id", "task_name", "task_title", "task_type", "notify_enabled", "notify_channel", "notify_interface", "admin_ids", "create_time", "update_time"], "indexes": [{"name": "PRIMARY", "columns": ["id"], "unique": true}, {"name": "uk_task_name", "columns": ["task_name"], "unique": true}]}]},
   "config": {
     "admin_notifier.enabled": "1",
     "admin_notifier.default_notify_channel": "email",

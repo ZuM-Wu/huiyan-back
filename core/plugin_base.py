@@ -56,8 +56,30 @@ class BasePlugin(ABC):
     def get_pages(self) -> List[dict]:
         return []
 
+    def get_widgets(self) -> list:
+        """返回插件声明的仪表盘挂件，由 PluginManager 统一注册。"""
+        return []
+
     def upgrade(self, old_version: str) -> bool:
         return True
+
+    async def repair_database(self, report: dict) -> dict | bool:
+        """修复当前插件自有表的同版本结构漂移。
+
+        默认返回 False，表示插件不支持自动修复。实现者只能使用 self.db
+        操作本插件声明的表，必须幂等且不得自行 commit；控制中心会在外层
+        事务中统一提交或回滚。
+        """
+        return False
+
+    async def _repair_from_install_sql(self) -> dict | bool:
+        """按当前插件目录的幂等 install.sql 补齐自有结构，不提交外层事务。"""
+        from pathlib import Path
+        plugin_sql = Path(__import__("inspect").getfile(type(self))).resolve().parent / "migrations" / "install.sql"
+        if not plugin_sql.is_file() or not self.db:
+            return False
+        await self._exec_sql(plugin_sql.read_text(encoding="utf-8"))
+        return {"status": "repaired", "actions": ["reapply_install_sql"]}
 
     def get_config_schema(self) -> List[dict]:
         return []

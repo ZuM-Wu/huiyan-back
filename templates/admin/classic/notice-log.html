@@ -109,12 +109,12 @@
                             [[ row.receiver_name || (row.receiver_type === 'farmer' ? '农户' : '管理员') + row.receiver_id ]]
                         </template>
                         <template #priority="{ row }">
-                            <t-tag v-if="row.priority === 1" theme="danger" variant="light" size="small">重要</t-tag>
-                            <t-tag v-else theme="default" variant="light" size="small">普通</t-tag>
+                            <t-tag v-if="row.priority === 1" theme="danger" variant="light">重要</t-tag>
+                            <t-tag v-else theme="default" variant="light">普通</t-tag>
                         </template>
                         <template #is_read="{ row }">
-                            <t-tag v-if="row.is_read === 1" theme="success" variant="light" size="small">已读</t-tag>
-                            <t-tag v-else theme="warning" variant="light" size="small">未读</t-tag>
+                            <t-tag v-if="row.is_read === 1" theme="success" variant="light">已读</t-tag>
+                            <t-tag v-else theme="warning" variant="light">未读</t-tag>
                         </template>
                         <template #op="{ row }">
                             <t-link theme="primary" @click="showInboxDetail(row)">详情</t-link>

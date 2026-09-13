@@ -1,0 +1,29 @@
+{% extends "plugin_page_shell.html" %}
+{% block title %}农业政策资讯 - 慧眼护农{% endblock %}
+{% block content %}
+<div id="page-app" v-cloak class="policy-news-page">
+    <t-card title="农业政策资讯" :bordered="true">
+        <template #actions>
+            <t-button v-permission="'policy_news:clear'" theme="default" variant="outline" @click="clearItems">
+                <template #icon><t-icon name="delete"></t-icon></template>清理历史
+            </t-button>
+            <t-button v-permission="'policy_news:refresh'" theme="primary" :loading="refreshing" @click="refreshItems">
+                <template #icon><t-icon name="refresh"></t-icon></template>立即刷新
+            </t-button>
+        </template>
+        <t-alert v-if="errorMessage" theme="warning" :message="errorMessage" close="false"></t-alert>
+        <t-tabs v-model="activeTab" theme="normal" :destroy-on-hide="false" class="policy-news-tabs">
+            <t-tab-panel value="policy-list" label="政策列表">
+                <t-table :data="items" :columns="columns" :loading="loading" row-key="id" hover>
+                    <template #title="{ row }">
+                        <a :href="row.url" @click.prevent="openPolicy(row.url)">[[ row.title ]]</a>
+                    </template>
+                </t-table>
+            </t-tab-panel>
+            <t-tab-panel value="source-status" label="来源状态">
+                <t-table :data="sources" :columns="sourceColumns" :loading="loading" row-key="source"></t-table>
+            </t-tab-panel>
+        </t-tabs>
+    </t-card>
+</div>
+{% endblock %}

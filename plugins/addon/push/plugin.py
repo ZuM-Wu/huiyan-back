@@ -38,7 +38,7 @@ class Plugin(BasePlugin):
         super().__init__(db_session, config)
         self.name = PLUGIN_NAME
         self.title = "推送中心"
-        self.version = "1.0.1"
+        self.version = "1.0.2"
         self.description = "统一管理站内信、短信、邮件推送，支持目标筛选、预览、调度和投递日志"
         self.module = "addon"
         self._config_manager = ConfigManager()
@@ -201,3 +201,5 @@ class Plugin(BasePlugin):
             sql = f.read()
         if sql.strip():
             await self._exec_sql(sql)
+    async def repair_database(self, report: dict) -> dict | bool:
+        return await self._repair_from_install_sql()

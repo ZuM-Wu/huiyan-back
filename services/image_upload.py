@@ -60,13 +60,14 @@ async def save_uploaded_image(
 
     fallback_url = f"/upload/{directory}/{save_name}"
     try:
-        result = await oss_service.upload(
+        await oss_service.upload(
             save_path=str(save_path), save_name=save_name,
             original_name=file.filename or "", ext=extension,
             file_size=file_size, admin_id=admin_id, source=source,
         )
-        storage_url = result.get("data", {}).get("url", fallback_url)
-        url = storage_url if use_storage_url else fallback_url
+        # 业务表保存站内稳定地址；实际对象地址由 storage 门面按请求动态解析。
+        stable_url = oss_service.stable_url(f"{directory}/{save_name}")
+        url = stable_url if use_storage_url else fallback_url
     except Exception as exc:
         logger.warning("[图片上传] 存储服务异常，回落直写: %s", exc)
         url = fallback_url

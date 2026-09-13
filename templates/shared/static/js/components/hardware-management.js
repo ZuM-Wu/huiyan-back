@@ -3,7 +3,7 @@
     'use strict';
     window.HuiYanHardwareManagement = {
         setup({ plugin, api, request }) {
-            const { ref, reactive, watch, onBeforeUnmount } = Vue;
+            const { ref, reactive, computed, watch, onBeforeUnmount } = Vue;
             const { MessagePlugin } = TDesign;
             const controller = new AbortController();
             let disposed = false, detailGeneration = 0;
@@ -95,22 +95,77 @@
                     if (typeof registerError.value !== 'string') registerError.value = '注册参数校验失败，请检查设备名称';
                 } finally { registering.value = false; }
             };
-            const registrationDetail = ref(null), registrationDetailError = ref('');
-            watch(devices.currentDevice, async (row) => {
-                const generation = ++detailGeneration;
-                registrationDetail.value = null; registrationDetailError.value = '';
+            const deleteVisible = ref(false), deleting = ref(false), deleteTarget = ref(null), deleteError = ref('');
+            const isDeviceBound = (row) => row?.area_id != null || row?.plot_id != null;
+            const openDelete = (row) => {
+                if (!isHuiyan || deleting.value || isDeviceBound(row)) return;
+                deleteTarget.value = { ...row }; deleteError.value = ''; deleteVisible.value = true;
+            };
+            const submitDelete = async () => {
+                if (deleting.value || !deleteTarget.value) return;
+                deleting.value = true; deleteError.value = '';
+                const target = deleteTarget.value;
+                try {
+                    await api.delete('/devices/' + encodeURIComponent(target.provider_device_id),
+                        { signal: controller.signal, skipAutoError: true });
+                    if (disposed) return;
+                    if (devices.currentDevice.value?.id === target.id) {
+                        devices.closeDrawer(); devices.currentDevice.value = null;
+                    }
+                    if (registeredDeviceId.value === target.provider_device_id) {
+                        registeredDeviceId.value = ''; registrationPendingSync.value = false;
+                    }
+                    deleteVisible.value = false; deleteTarget.value = null;
+                    MessagePlugin.success('设备已删除');
+                    await devices.fetchDevices();
+                    const lastPage = Math.max(1, Math.ceil(devices.pagination.total / devices.pagination.pageSize));
+                    if (!disposed && devices.pagination.current > lastPage) {
+                        devices.pagination.current = lastPage; await devices.fetchDevices();
+                    }
+                } catch (error) {
+                    if (disposed) return;
+                    const message = error.response?.data?.detail || error.response?.data?.msg;
+                    deleteError.value = typeof message === 'string' ? message : '删除失败，请重试';
+                } finally { deleting.value = false; }
+            };
+            const managementColumns = devices.columns.map((column) => column.colKey === 'operation' && isHuiyan
+                ? { ...column, width: 160 } : column);
+            const registrationDetail = ref(null), registrationDetailError = ref(''), registrationDetailLoading = ref(false);
+            const registrationJson = computed(() => {
+                let value = registrationDetail.value?.metadata;
+                if (value == null || value === '') return '';
+                if (typeof value === 'string') {
+                    try { value = JSON.parse(value); } catch (_) { return value; }
+                }
+                return JSON.stringify(value, null, 2);
+            });
+            const copyRegistrationJson = async () => {
+                try { await navigator.clipboard.writeText(registrationJson.value); MessagePlugin.success('扩展信息已复制'); }
+                catch (_) { MessagePlugin.warning('复制失败，请选中内容手动复制'); }
+            };
+            const loadRegistrationDetail = async () => {
+                const row = devices.currentDevice.value, generation = ++detailGeneration;
+                registrationDetail.value = null; registrationDetailError.value = ''; registrationDetailLoading.value = false;
                 if (!isHuiyan || !row || !devices.drawerVisible.value) return;
+                registrationDetailLoading.value = true;
                 try {
                     const data = (await api.get('/devices/' + encodeURIComponent(row.provider_device_id), { signal: controller.signal })).data.data;
                     if (!disposed && generation === detailGeneration) registrationDetail.value = data;
-                } catch (_) { if (!disposed && generation === detailGeneration) registrationDetailError.value = '注册详情加载失败'; }
-            });
+                } catch (_) {
+                    if (!disposed && generation === detailGeneration) registrationDetailError.value = '注册详情加载失败';
+                } finally {
+                    if (!disposed && generation === detailGeneration) registrationDetailLoading.value = false;
+                }
+            };
+            watch([devices.currentDevice, devices.drawerVisible], loadRegistrationDetail);
             onBeforeUnmount(() => { disposed = true; detailGeneration += 1; controller.abort(); configForm.credential = ''; });
             return { ...devices, isHuiyan, canConfigure, canSchedule, configForm, configLoading, configSaving, configError,
                 configLoaded, loadConfig, saveConfig, onPageTabChange, registerVisible, registering,
                 registerError, registerForm, registerFormRef, registerRules, openRegister, submitRegistration,
                 registrationPendingSync, retryRegistrationSync, registrationDetail, registrationDetailError,
-                registeredDeviceId, copyDeviceId,
+                registeredDeviceId, copyDeviceId, registrationDetailLoading, loadRegistrationDetail,
+                registrationJson, copyRegistrationJson, deleteVisible, deleting, deleteTarget, deleteError,
+                isDeviceBound, openDelete, submitDelete, managementColumns,
                 viewMode, changeViewPage, cardName, cardCode, failedCardImages, cardImageFailed };
         },
     };

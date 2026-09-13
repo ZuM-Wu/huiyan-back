@@ -37,3 +37,13 @@ async def register_device(data: AdminDeviceRegisterRequest):
 @router.get("/devices/{device_id}", dependencies=[Depends(require_admin_permission("hardware:list"))])
 async def device_detail(device_id: str):
     return ok(await service.read_registered_device(device_id))
+
+
+@router.delete("/devices/{device_id}", dependencies=[Depends(require_admin_permission("hardware:sync"))])
+async def delete_device(device_id: str):
+    try:
+        result = await service.delete_registered_device(device_id)
+    except HardwareError as exc:
+        raise HTTPException(exc.status_code, str(exc)) from exc
+    await active_log(f"删除慧眼物联网设备：{device_id}", "hardware_huiyan_delete")
+    return ok(result, msg="设备已删除")

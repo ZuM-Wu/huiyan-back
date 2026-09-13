@@ -342,13 +342,26 @@
     HuiYan.createPage({
         setup() {
             const adminUser = ref(readAdminUser());
+            const migration = window.HuiYanStorageMigration
+                ? window.HuiYanStorageMigration.create({ request }) : null;
 
             const toggleSidebar = () => {
                 // 调用全局切换函数（DOM + Vue 双同步）
                 if (window.__toggleSidebar) window.__toggleSidebar();
             };
 
-            return { adminUser, toggleSidebar };
+            onMounted(() => {
+                if (migration) migration.restore();
+            });
+
+            return {
+                adminUser, toggleSidebar,
+                migrationVisible: migration ? migration.migrationVisible : ref(false),
+                migrationJob: migration ? migration.migrationJob : ref(null),
+                migrationPercent: migration ? migration.migrationPercent : ref(0),
+                migrationPhaseLabel: migration ? migration.migrationPhaseLabel : ref(''),
+                migrationProgressStatus: migration ? migration.migrationProgressStatus : ref('active'),
+            };
         }
     }, '#topbar-app');
 })();

@@ -35,7 +35,7 @@ class Plugin(BasePlugin):
         super().__init__(db_session, config)
         self.name = PLUGIN_NAME
         self.title = "农业知识库"
-        self.version = "1.0.1"
+        self.version = "1.0.2"
         self.description = "管理员维护农业知识分类与条目，农户浏览并提交勘误"
         self.module = "addon"
         self._config_manager = ConfigManager()
@@ -110,6 +110,18 @@ class Plugin(BasePlugin):
         """返回插件权限树"""
         from plugins.addon.knowledge.auth import permission_tree
         return permission_tree
+
+    def get_mcp_tools(self):
+        """声明知识库查询与维护工具，随插件启停自动注册和注销。"""
+        from plugins.addon.knowledge import mcp_tools
+        return [
+            {"name": "search", "description": "搜索农业知识条目。", "handler": mcp_tools.knowledge_search, "audience": "both", "permission_code": "knowledge:list"},
+            {"name": "detail", "description": "读取农业知识条目详情。", "handler": mcp_tools.knowledge_detail, "audience": "both", "permission_code": "knowledge:list"},
+            {"name": "categories", "description": "读取启用的农业知识分类树。", "handler": mcp_tools.knowledge_categories, "audience": "both", "permission_code": "knowledge:list"},
+            {"name": "create", "description": "新建农业知识条目。", "handler": mcp_tools.knowledge_create, "audience": "admin", "permission_code": "knowledge:create"},
+            {"name": "update", "description": "更新农业知识条目。", "handler": mcp_tools.knowledge_update, "audience": "admin", "permission_code": "knowledge:update"},
+            {"name": "batch_create", "description": "批量新建农业知识条目。", "handler": mcp_tools.knowledge_batch_create, "audience": "admin", "permission_code": "knowledge:create"},
+        ]
 
     def get_pages(self):
         """
@@ -193,3 +205,5 @@ class Plugin(BasePlugin):
             sql = f.read()
         if sql.strip():
             await self._exec_sql(sql)
+    async def repair_database(self, report: dict) -> dict | bool:
+        return await self._repair_from_install_sql()

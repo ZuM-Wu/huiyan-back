@@ -40,7 +40,7 @@
                             <t-icon name="move" class="nav-tree__mover"></t-icon>
                             <t-icon :name="row.node.icon || 'file'" class="nav-tree__icon"></t-icon>
                             <span class="nav-tree__text">[[ row.node.title ]]</span>
-                            <t-tag v-if="row.node.visible === 0" size="small" theme="warning" variant="light" 
+                            <t-tag v-if="row.node.visible === 0" theme="warning" variant="light"
                                    @click.stop="quickToggleVisible(row.node)" title="双击或点击标签切换显示">隐藏</t-tag>
                         </div>
                         <div v-if="!flatMenus.length" class="nav-tree__empty">暂无菜单，点击"新建页面"添加</div>

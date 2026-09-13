@@ -23,11 +23,11 @@
                 <t-tag :theme="statusTheme(row.status)" variant="light">[[ statusLabel(row.status) ]]</t-tag>
             </template>
             <template #operation="{ row }">
-                <t-button theme="primary" variant="text" size="small" v-permission="'batch:update'" @click="openEdit(row)">编辑</t-button>
+                <t-button theme="primary" variant="text" v-permission="'batch:update'" @click="openEdit(row)">编辑</t-button>
                 <t-dropdown :options="statusOptions" @click="(d) => changeStatus(row, d.value)" v-permission="'batch:status'">
-                    <t-button theme="default" variant="text" size="small">状态</t-button>
+                    <t-button theme="default" variant="text">状态</t-button>
                 </t-dropdown>
-                <t-button theme="danger" variant="text" size="small" v-permission="'batch:delete'" @click="removeBatch(row)">删除</t-button>
+                <t-button theme="danger" variant="text" v-permission="'batch:delete'" @click="removeBatch(row)">删除</t-button>
             </template>
         </t-table>
     </t-card>

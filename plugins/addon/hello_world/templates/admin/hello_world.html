@@ -46,15 +46,13 @@
                 </t-tag>
             </template>
             <template #actions="{ row }">
-                <t-button v-permission="'hello_world:update'" theme="primary" variant="text"
-                    size="small" @click="openEdit(row)">编辑</t-button>
+                <t-button v-permission="'hello_world:update'" theme="primary" variant="text" @click="openEdit(row)">编辑</t-button>
                 <t-button v-permission="'hello_world:status'" :theme="row.status === 1 ? 'warning' : 'success'"
-                    variant="text" size="small" @click="toggleStatus(row)">
+                    variant="text" @click="toggleStatus(row)">
                     [[ row.status === 1 ? '隐藏' : '显示' ]]
                 </t-button>
                 <t-popconfirm content="确认删除该留言？" @confirm="removeRow(row)">
-                    <t-button v-permission="'hello_world:delete'" theme="danger" variant="text"
-                        size="small">删除</t-button>
+                    <t-button v-permission="'hello_world:delete'" theme="danger" variant="text">删除</t-button>
                 </t-popconfirm>
             </template>
         </t-table>

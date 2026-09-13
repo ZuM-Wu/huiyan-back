@@ -179,6 +179,18 @@ class OssPluginBase(BasePlugin):
         """
         ...
 
+    async def oss_check_file(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """检查迁移目标对象是否缺失、内容一致或发生冲突。
+
+        迁移服务只依赖这个公共契约，不读取任何厂商 SDK。插件应返回：
+        ``missing``（需要上传）、``same``（可跳过上传）或 ``conflict``（拒绝覆盖）。
+        未实现时返回 ``unsupported``，平台会将该文件标记为失败而不是误判为一致。
+        """
+        return {
+            "status": "unsupported",
+            "msg": f"对象存储插件 {self.name} 未实现文件一致性检查",
+        }
+
     @abstractmethod
     async def oss_download(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """

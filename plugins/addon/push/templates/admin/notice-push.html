@@ -86,22 +86,22 @@
                 [[ cycleLabel(row.send_cycle) ]]
             </template>
             <template #status="{ row }">
-                <t-tag :theme="statusTheme(row.status)" variant="light" size="small">
+                <t-tag :theme="statusTheme(row.status)" variant="light">
                     [[ statusLabel(row.status) ]]
                 </t-tag>
             </template>
             <template #op="{ row }">
                 <t-space>
-                    <t-button variant="text" theme="primary" size="small" @click="viewDetail(row)">详情</t-button>
-                    <t-button variant="text" theme="primary" size="small" @click="viewLogs(row)">日志</t-button>
-                    <t-button variant="text" theme="primary" size="small" v-permission="'push:create'" @click="resend(row)">复制重发</t-button>
-                    <t-button variant="text" theme="primary" size="small" v-permission="'push:update'"
+                    <t-button variant="text" theme="primary" @click="viewDetail(row)">详情</t-button>
+                    <t-button variant="text" theme="primary" @click="viewLogs(row)">日志</t-button>
+                    <t-button variant="text" theme="primary" v-permission="'push:create'" @click="resend(row)">复制重发</t-button>
+                    <t-button variant="text" theme="primary" v-permission="'push:update'"
                         v-if="row.status === 'Wait'" @click="toggleStatus(row, 'Suspended')">暂停</t-button>
-                    <t-button variant="text" theme="primary" size="small" v-permission="'push:update'"
+                    <t-button variant="text" theme="primary" v-permission="'push:update'"
                         v-if="row.status === 'Suspended'" @click="toggleStatus(row, 'Wait')">恢复</t-button>
-                    <t-button variant="text" theme="primary" size="small" v-permission="'push:update'"
+                    <t-button variant="text" theme="primary" v-permission="'push:update'"
                         v-if="row.status === 'Wait'" @click="goEdit(row)">编辑</t-button>
-                    <t-button variant="text" size="small" theme="danger" v-permission="'push:delete'"
+                    <t-button variant="text" theme="danger" v-permission="'push:delete'"
                         v-if="row.status !== 'Exec'" @click="deleteTask(row)">删除</t-button>
                 </t-space>
             </template>
@@ -120,7 +120,7 @@
                     <div class="detail-item"><label>通知渠道</label><div class="val">[[ channelsLabel(detailData.channels) ]]</div></div>
                     <div class="detail-item"><label>推送周期</label><div class="val">[[ cycleLabel(detailData.schedule_rule && detailData.schedule_rule.cycle) ]]</div></div>
                     <div class="detail-item"><label>发送时间</label><div class="val">[[ detailData.schedule_rule && detailData.schedule_rule.time_hour_min ]]</div></div>
-                    <div class="detail-item"><label>状态</label><div class="val"><t-tag :theme="statusTheme(detailData.status)" variant="light" size="small">[[ statusLabel(detailData.status) ]]</t-tag></div></div>
+                    <div class="detail-item"><label>状态</label><div class="val"><t-tag :theme="statusTheme(detailData.status)" variant="light">[[ statusLabel(detailData.status) ]]</t-tag></div></div>
                 </div>
             </div>
             <div class="detail-section">
@@ -147,7 +147,7 @@
             <t-table :data="logData" :columns="logColumns" :loading="logLoading"
                 row-key="id" :pagination="logPagination" @page-change="onLogPageChange" hover>
                 <template #status="{ row }">
-                    <t-tag :theme="row.status === 'Success' ? 'success' : row.status === 'Failed' ? 'danger' : 'default'" variant="light" size="small">
+                    <t-tag :theme="row.status === 'Success' ? 'success' : row.status === 'Failed' ? 'danger' : 'default'" variant="light">
                         [[ row.status ]]
                     </t-tag>
                 </template>

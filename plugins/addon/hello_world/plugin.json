@@ -1,7 +1,7 @@
 {
   "name": "hello_world",
   "title": "Hello World 示例插件",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "全量演示插件：数据表、CRUD 路由、权限节点、菜单注册、钩子、配置、前端页面，供后续插件开发参考",
   "author": "HuiYan Team",
   "module": "addon",
@@ -22,6 +22,7 @@
   "tasks": [],
   "events": ["hello_world.message_created"],
   "health": {"check": "plugin.hello_world"},
+  "database_schema": {"version": 1, "tables": [{"name": "hy_plugin_hello_world_message", "columns": ["id", "title", "content", "author", "status", "create_time"], "indexes": [{"name": "PRIMARY", "columns": ["id"], "unique": true}]}]},
   "config": {
     "hello_world.welcome_text": "欢迎使用 Hello World 示例插件，这里演示了插件系统的全部能力",
     "hello_world.page_size": "10",

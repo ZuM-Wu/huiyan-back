@@ -19,7 +19,7 @@ class Plugin(BasePlugin):
         super().__init__(db_session, config)
         self.name = PLUGIN_NAME
         self.title = "小智 AI MCP"
-        self.version = "1.0.1"
+        self.version = "1.0.2"
         self.description = "将小智 AI 接入点桥接到插件专属自定义 MCP 工具体系"
         self.module = "addon"
         self._config_manager = ConfigManager()
@@ -134,3 +134,5 @@ class Plugin(BasePlugin):
             sql = sql_file.read()
         if sql.strip():
             await self._exec_sql(sql)
+    async def repair_database(self, report: dict) -> dict | bool:
+        return await self._repair_from_install_sql()

@@ -91,11 +91,11 @@
                         <template #tools="{ row }"><span>[[ (row.tools_cache || []).length ]] 个</span></template>
                         <template #test="{ row }"><t-tag v-if="row.last_test_status === 1" theme="success" variant="light">通过</t-tag><t-tag v-else-if="row.last_test_status === 2" theme="danger" variant="light">失败</t-tag><span v-else class="xiaozhi-muted">未测试</span></template>
                         <template #operation="{ row }">
-                            <t-button theme="default" variant="text" size="small" :loading="row.testing" @click="testServer(row)">测试</t-button>
-                            <t-button theme="default" variant="text" size="small" :loading="row.refreshing" @click="refreshServerTools(row)">刷新工具</t-button>
-                            <t-button :theme="row.status === 1 ? 'warning' : 'primary'" variant="text" size="small" @click="toggleServer(row)">[[ row.status === 1 ? '停用' : '启用' ]]</t-button>
-                            <t-button theme="primary" variant="text" size="small" @click="openServerEdit(row)">编辑</t-button>
-                            <t-button theme="danger" variant="text" size="small" @click="deleteServer(row)">删除</t-button>
+                            <t-button theme="default" variant="text" :loading="row.testing" @click="testServer(row)">测试</t-button>
+                            <t-button theme="default" variant="text" :loading="row.refreshing" @click="refreshServerTools(row)">刷新工具</t-button>
+                            <t-button :theme="row.status === 1 ? 'warning' : 'primary'" variant="text" @click="toggleServer(row)">[[ row.status === 1 ? '停用' : '启用' ]]</t-button>
+                            <t-button theme="primary" variant="text" @click="openServerEdit(row)">编辑</t-button>
+                            <t-button theme="danger" variant="text" @click="deleteServer(row)">删除</t-button>
                         </template>
                     </t-table>
                 </div>

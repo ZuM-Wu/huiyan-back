@@ -15,6 +15,7 @@
     <link rel="stylesheet" href="/static/css/theme.css?v={{ config.app_version }}">
     <!-- 后台样式（由 admin.css 等价拆分为 4 个文件，按原顺序依次引入） -->
     <link rel="stylesheet" href="/static/css/admin-base.css?v={{ config.app_version }}">
+    <link rel="stylesheet" href="/static/css/object-storage-manager.css?v={{ config.app_version }}">
     <link rel="stylesheet" href="/static/css/admin-nav.css?v={{ config.app_version }}">
     <link rel="stylesheet" href="/static/css/admin-forms.css?v={{ config.app_version }}">
     <link rel="stylesheet" href="/static/css/admin-detail.css?v={{ config.app_version }}">
@@ -56,8 +57,10 @@
 <!-- 共享引导脚本（统一 Vue 应用初始化：delimiters + TDesign + v-permission + 挂载） -->
 <script src="/static/js/hy-app.js?v={{ config.app_version }}"></script>
 <script src="/static/js/upload-limits.js?v={{ config.app_version }}"></script>
+<script data-theme-global src="/static/js/components/storage-migration.js?v={{ config.app_version }}"></script>
 <!-- 全局可复用组件（由 hy-app.js 统一注册，须在页面脚本/layout 之前加载） -->
 <script data-theme-global src="{{ theme_static }}/js/image-upload.js?v={{ config.app_version }}"></script>
+<script data-theme-global src="/static/js/components/object-storage-manager.js?v={{ config.app_version }}"></script>
 <!-- 地图共享调色板（canvas 绘制豁免），须先于三个 amap 组件加载 -->
 <script data-theme-global src="{{ theme_static }}/js/amap-palette.js?v={{ config.app_version }}"></script>
 <script data-theme-global src="/static/js/components/hardware-marker.js?v={{ config.app_version }}"></script>

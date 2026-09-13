@@ -75,6 +75,20 @@ async def list_logs(
     })
 
 
+@router.delete("/logs/cleanup", dependencies=[Depends(require_admin_permission("task_monitor:clear_logs"))])
+async def cleanup_logs(
+    request: Request,
+    retention_days: int = Query(30, ge=1, le=3650, description="日志保留天数"),
+):
+    """删除保留期限之前的任务执行日志，不影响队列和其他日志。"""
+    count = await task_monitor.clean_expired_logs(retention_days)
+    await active_log(
+        f"清理任务执行日志，保留{retention_days}天，删除{count}条",
+        "task_monitor_clear_logs", request=request,
+    )
+    return ok({"deleted_count": count, "retention_days": retention_days}, msg="任务日志清理完成")
+
+
 @router.get("/logs/{log_id}")
 async def get_log_detail(log_id: int):
     """日志详情"""

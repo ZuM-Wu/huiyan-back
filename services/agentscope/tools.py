@@ -9,14 +9,13 @@ from __future__ import annotations
 
 import json
 import logging
-from contextlib import contextmanager
 from typing import Any
 
 from sqlalchemy import text
 
 from agentscope.message import TextBlock, ToolResultState
 from agentscope.permission import PermissionBehavior, PermissionDecision
-from agentscope.tool import ToolBase, ToolChunk, FunctionTool
+from agentscope.tool import ToolBase, ToolChunk
 
 from core.db.base import async_session_factory
 from services.mcp.external import build_access_token, call_tool
@@ -32,29 +31,6 @@ def _parse_user(user_id: str) -> tuple[str, int]:
     return kind, int(raw_id)
 
 
-def _serialize(value: Any) -> str:
-    """把业务 handler 返回值规范化为工具文本块。"""
-    if isinstance(value, str):
-        return value
-    try:
-        return json.dumps(value, ensure_ascii=False, default=str)
-    except (TypeError, ValueError):
-        return str(value)
-
-
-@contextmanager
-def _access_token_context(token: Any):
-    """为既有 MCP handler 注入 AgentScope 当前用户身份。"""
-    from mcp.server.auth.middleware.auth_context import auth_context_var
-    from mcp.server.auth.middleware.bearer_auth import AuthenticatedUser
-
-    reset_token = auth_context_var.set(AuthenticatedUser(token))
-    try:
-        yield
-    finally:
-        auth_context_var.reset(reset_token)
-
-
 def _policy_allowed(policy: dict[str, Any], token: Any) -> bool:
     """使用新策略表执行 audience 与管理员 RBAC 检查。"""
     claims = getattr(token, "claims", None) or {}
@@ -64,10 +40,11 @@ def _policy_allowed(policy: dict[str, Any], token: Any) -> bool:
         return False
     if user_type != "admin":
         return True
-    if claims.get("is_super"):
+    from services.mcp.middleware import _normalized_admin, _permission_granted
+    if _normalized_admin(claims):
         return True
     code = str(policy.get("permission_code") or "")
-    return not code or code in (getattr(token, "scopes", None) or [])
+    return _permission_granted(code, getattr(token, "scopes", None) or [])
 
 
 def _normalize_audience(value: Any) -> set[str]:
@@ -121,42 +98,16 @@ class HuiyanTool(ToolBase):
         )
 
     async def call(self, **kwargs: Any) -> ToolChunk:
-        """执行系统 handler 或外部 MCP，并统一为 AgentScope ToolChunk。"""
+        """系统工具始终经过 MCP 中间件，旧对象也不能绕过注销、权限和响应预算。"""
         if not _policy_allowed(self._policy, self._token):
             return ToolChunk(
                 content=[TextBlock(text=f"没有权限调用工具：{self.name}")],
                 state=ToolResultState.DENIED,
             )
 
-        if self._source_name.startswith(("ext__", "fext__")):
-            result, denied = await call_tool(
-                self._source_name,
-                kwargs,
-                self._token,
-            )
-            return ToolChunk(
-                content=[TextBlock(text=result)],
-                state=ToolResultState.DENIED if denied else ToolResultState.SUCCESS,
-            )
-
-        if self._handler is None:
-            return ToolChunk(
-                content=[TextBlock(text=f"工具不存在：{self.name}")],
-                state=ToolResultState.ERROR,
-            )
-
-        try:
-            with _access_token_context(self._token):
-                value = await self._handler(**kwargs)
-            return ToolChunk(
-                content=[TextBlock(text=_serialize(value))],
-                state=ToolResultState.SUCCESS,
-            )
-        except Exception as exc:  # 工具错误需要回填模型，不能中断整个会话
-            return ToolChunk(
-                content=[TextBlock(text=f"工具执行失败：{exc}")],
-                state=ToolResultState.ERROR,
-            )
+        result, failed = await call_tool(self._source_name, kwargs, self._token)
+        return ToolChunk(content=[TextBlock(text=result)],
+                         state=ToolResultState.ERROR if failed else ToolResultState.SUCCESS)
 
 
 async def _load_policies(db) -> dict[str, dict[str, Any]]:
@@ -227,31 +178,25 @@ def _default_policy(declaration: dict[str, Any], name: str) -> dict[str, Any]:
 
 
 def list_agent_tool_declarations() -> list[dict[str, Any]]:
-    """返回按最终工具名去重后的核心和插件声明。"""
-    from services.mcp.tools_core import CORE_TOOLS
+    """唯一来源为系统 MCP 已验证的声明，禁止绕过注册表回填核心能力。"""
+    from core.config import settings
+    from services.mcp.registry import list_registered_tool_declarations
+    return list_registered_tool_declarations() if settings.MCP_ENABLED else []
 
-    merged: dict[str, dict[str, Any]] = {}
-    for declaration in CORE_TOOLS:
-        item = dict(declaration)
-        item["name"] = f"core_{declaration.get('name', '')}"
-        if item["name"] != "core_":
-            merged[item["name"]] = item
 
+async def _system_mcp_enabled(user_id: str) -> bool:
+    """系统工具必须由用户配置并启用系统 MCP 资源后才进入会话。"""
     try:
-        from services.mcp.registry import list_registered_tool_declarations
-
-        registered = list_registered_tool_declarations()
+        from services.agentscope.runtime import agentscope_runtime
+        records = await agentscope_runtime.storage.list_mcps(user_id)
     except Exception:
-        logger.exception("读取 MCP 工具注册表失败，当前仅加载核心工具")
-        registered = []
-    for declaration in registered:
-        try:
-            name = str(declaration.get("name") or "")
-            if name:
-                merged[name] = dict(declaration)
-        except Exception:
-            logger.exception("跳过无法读取的 MCP 工具声明")
-    return list(merged.values())
+        return False
+    return any(
+        bool(getattr(record, "enabled", False))
+        and getattr(getattr(record, "client", None), "name", "")
+        == "huiyan_system_mcp"
+        for record in records
+    )
 
 
 async def build_agent_tools(user_id: str, agent_id: str, session_id: str) -> list[ToolBase]:
@@ -260,7 +205,11 @@ async def build_agent_tools(user_id: str, agent_id: str, session_id: str) -> lis
     user_type, numeric_id = _parse_user(user_id)
     async with async_session_factory() as db:
         token = await build_access_token(user_type, numeric_id, db)
-        declarations = list_agent_tool_declarations()
+        declarations = (
+            list_agent_tool_declarations()
+            if await _system_mcp_enabled(user_id)
+            else []
+        )
         policies = await _load_policies(db)
 
         tools: list[ToolBase] = []
@@ -270,21 +219,16 @@ async def build_agent_tools(user_id: str, agent_id: str, session_id: str) -> lis
                 continue
             name = source_name
             policy = policies.get(name) or _default_policy(declaration, name)
-            if not _policy_allowed(policy, token):
+            from services.mcp.middleware import _capability_allowed
+            from services.mcp.registry import get_tool_meta
+            if not _policy_allowed(policy, token) or not _capability_allowed(get_tool_meta(name), token):
                 continue
             try:
-                schema_tool = FunctionTool(
-                    declaration["handler"],
-                    name=name,
-                    description=declaration.get("description") or "",
-                    is_concurrency_safe=bool(policy.get("is_concurrency_safe")),
-                    is_read_only=bool(policy.get("is_read_only")),
-                )
                 tools.append(HuiyanTool(
                     source_name=source_name,
                     name=name,
-                    description=schema_tool.description,
-                    input_schema=schema_tool.input_schema,
+                    description=declaration["description"],
+                    input_schema=declaration["parameters"],
                     token=token,
                     policy=policy,
                     handler=declaration.get("handler"),

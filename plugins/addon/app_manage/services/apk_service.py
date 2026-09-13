@@ -31,6 +31,7 @@ from services.upload_policy import (
     stream_upload,
     validate_filename,
 )
+from core.oss_service import oss_service
 
 logger = logging.getLogger(__name__)
 _config_manager = ConfigManager()
@@ -107,6 +108,13 @@ class ApkService:
         except Exception:
             dest.unlink(missing_ok=True)
             raise
+        try:
+            await oss_service.upload(
+                save_path=str(dest), save_name=disk_name, original_name=origin_name,
+                ext=".apk", file_size=size, admin_id=admin_id, source="app_manage",
+            )
+        except Exception as exc:
+            logger.warning("[app_manage] APK 对象存储上传失败，保留本地文件: %s", exc)
         # 写操作成功后失效最新版本缓存
         await invalidate(CACHE_KEY_VERSION)
         return row.id
@@ -208,7 +216,7 @@ class ApkService:
             "changelog": row.changelog or "",
             "update_policy": row.update_policy,
             "status": row.status,
-            "download_url": f"/upload/{PLUGIN_NAME}/{row.apk_filename}",
+            "download_url": oss_service.stable_url(f"{PLUGIN_NAME}/{row.apk_filename}"),
             "create_time": str(row.create_time) if row.create_time else None,
             "update_time": str(row.update_time) if row.update_time else None,
         }
@@ -226,5 +234,5 @@ class ApkService:
             "force_update": 1 if row.update_policy == 2 else 0,
             "apk_size": row.apk_size,
             "apk_md5": row.apk_md5,
-            "download_url": f"/upload/{PLUGIN_NAME}/{row.apk_filename}",
+            "download_url": oss_service.stable_url(f"{PLUGIN_NAME}/{row.apk_filename}"),
         }

@@ -92,8 +92,8 @@
                 <div class="cert-status-title">审核中</div>
                 <div class="cert-status-desc">[[ statusMessage || '您的认证资料正在审核中，请耐心等待' ]]</div>
             </div>
-            <t-button v-if="certifyUrl" theme="primary" size="small" @click="openCertDialog">扫码认证</t-button>
-            <t-button v-if="showQueryBtn" theme="default" size="small" :loading="querying" @click="onQuery" style="margin-left: 8px;">刷新结果</t-button>
+            <t-button v-if="certifyUrl" theme="primary" @click="openCertDialog">扫码认证</t-button>
+            <t-button v-if="showQueryBtn" theme="default" :loading="querying" @click="onQuery" style="margin-left: 8px;">刷新结果</t-button>
         </div>
         <div v-else-if="certStatus === 1" class="cert-status-banner cert-status-banner--success">
             <t-icon name="check-circle" class="cert-status-icon" style="color: var(--app-success);"></t-icon>

@@ -1,7 +1,7 @@
 {
   "name": "local_oss",
   "title": "本地存储",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "内置本地对象存储，文件存储于服务器本地磁盘",
   "author": "HuiYan Team",
   "module": "oss",
@@ -19,5 +19,6 @@
   "tasks": [],
   "events": [],
   "health": {"check": "plugin.local_oss"},
+  "database_schema": {"version": 1, "tables": []},
   "config": {}
 }

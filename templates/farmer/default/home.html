@@ -63,6 +63,10 @@
 .home-stat__label { font-size: var(--app-font-size-sm); color: var(--app-text-secondary); }
 .home-stat__value { font-size: var(--app-font-size-lg); font-weight: 600; color: var(--app-text-primary); margin-top: var(--app-spacing-xs); }
 .home-stat__value--sm { font-size: var(--app-font-size-sm); font-weight: 500; }
+.farmer-home-widgets { margin-bottom: var(--app-spacing-lg); }
+.farmer-widget-link { display: flex; align-items: center; justify-content: space-between; gap: var(--app-spacing-md); width: 100%; color: var(--app-text-primary); text-decoration: none; }
+.farmer-widget-link:hover { color: var(--app-brand-color); }
+.farmer-widget-link span { flex-shrink: 0; color: var(--app-text-secondary); font-size: var(--app-font-size-sm); }
 </style>
 {% endblock %}
 
@@ -88,10 +92,25 @@
         <div class="home-cert-banner__title">[[ certStatus === 2 ? '实名认证未通过' : '完成实名认证' ]]</div>
         <div class="home-cert-banner__desc">[[ certStatus === 2 ? '请重新提交认证资料' : '实名认证后可享受更多服务权益' ]]</div>
     </div>
-    <t-button theme="primary" size="small" @click="goPage('/farmer/certification')">
+    <t-button theme="primary" @click="goPage('/farmer/certification')">
         [[ certStatus === 2 ? '重新认证' : '去认证' ]]
     </t-button>
 </div>
+
+<section v-if="farmerWidgets.length" class="farmer-home-widgets">
+    <h3 class="farmer-section-title">首页资讯</h3>
+    <t-card v-for="widget in farmerWidgets" :key="widget.name" :title="widget.title" :bordered="true">
+        <t-list v-if="widget.widget_type === 'list' && widget.data && widget.data.logs && widget.data.logs.length" :split="true">
+            <t-list-item v-for="item in widget.data.logs" :key="item.id">
+                <a :href="item.url" @click.prevent="openWidgetLink(item.url)" class="farmer-widget-link">
+                    <strong>[[ item.description ]]</strong>
+                    <span>[[ item.user_name ]] · [[ item.create_time ]]</span>
+                </a>
+            </t-list-item>
+        </t-list>
+        <t-empty v-else description="暂无资讯"></t-empty>
+    </t-card>
+</section>
 
 <!-- 快捷入口 -->
 <h3 class="farmer-section-title">快捷入口</h3>
@@ -136,7 +155,7 @@
         <div>
             <div class="home-stat__label">账号状态</div>
             <div class="home-stat__value">
-                <t-tag :theme="userStatus === 1 ? 'success' : 'danger'" size="small">
+                <t-tag :theme="userStatus === 1 ? 'success' : 'danger'">
                     [[ userStatus === 1 ? '正常' : '异常' ]]
                 </t-tag>
             </div>
@@ -180,6 +199,7 @@ HuiYanFarmer.createApp({
         var computed = Vue.computed;
         var reactive = Vue.reactive;
         var onMounted = Vue.onMounted;
+        var farmerWidgets = ref([]);
 
         var userInfo = reactive({
             nickname: '', username: '', status: 1,
@@ -253,6 +273,11 @@ HuiYanFarmer.createApp({
                 var d = (res.data && res.data.data) ? res.data.data : res.data;
                 certStatus.value = d.cert_status != null ? d.cert_status : -1;
             }).catch(function () {});
+
+            HuiYanFarmer.request.get('/widget/dashboard').then(function (res) {
+                var d = (res.data && res.data.data) ? res.data.data : res.data;
+                farmerWidgets.value = d.widget_data || [];
+            }).catch(function () { farmerWidgets.value = []; });
         });
 
         var goPage = function (path) {
@@ -263,12 +288,18 @@ HuiYanFarmer.createApp({
             }
         };
 
+        var openWidgetLink = function (url) {
+            if (typeof url === 'string' && url.trim()) {
+                window.open(url, "_blank", "noopener,noreferrer");
+            }
+        };
+
         return {
             greeting: greeting, displayName: displayName,
             userStatus: userStatus, securityLevel: securityLevel,
             registerDate: registerDate,
             certStatus: certStatus, certLabel: certLabel, certIcon: certIcon,
-            goPage: goPage
+            goPage: goPage, farmerWidgets: farmerWidgets, openWidgetLink: openWidgetLink
         };
     }
 });

@@ -33,6 +33,7 @@ from services.upload_policy import (
     stream_upload,
     validate_filename,
 )
+from core.oss_service import oss_service
 
 logger = logging.getLogger(__name__)
 _config_manager = ConfigManager()
@@ -81,7 +82,7 @@ class AdService:
             return {}
         return {
             "image_filename": row.image_filename,
-            "image_url": f"/upload/{PLUGIN_NAME}/{row.image_filename}" if row.image_filename else "",
+            "image_url": oss_service.stable_url(f"{PLUGIN_NAME}/{row.image_filename}") if row.image_filename else "",
             "cache_key": row.cache_key,
             "link_url": row.link_url,
             "start_time": str(row.start_time) if row.start_time else None,
@@ -130,12 +131,20 @@ class AdService:
         except Exception:
             dest.unlink(missing_ok=True)
             raise
+        try:
+            await oss_service.upload(
+                save_path=str(dest), save_name=disk_name, original_name=origin_name,
+                ext=f".{ext}", file_size=dest.stat().st_size,
+                admin_id=admin_id, source="app_manage",
+            )
+        except Exception as exc:
+            logger.warning("[app_manage] 广告图对象存储上传失败，保留本地文件: %s", exc)
         # 数据更新成功后删除旧素材物理文件
         if old_name and old_name != disk_name:
             (UPLOAD_DIR / old_name).unlink(missing_ok=True)
         await invalidate(CACHE_KEY_AD)
         return {
-            "image_url": f"/upload/{PLUGIN_NAME}/{disk_name}",
+            "image_url": oss_service.stable_url(f"{PLUGIN_NAME}/{disk_name}"),
             "cache_key": row.cache_key,
         }
 
@@ -179,6 +188,7 @@ class AdService:
             if row and row.image_filename:
                 raw = {
                     "image_filename": row.image_filename,
+                    "image_url": oss_service.stable_url(f"{PLUGIN_NAME}/{row.image_filename}"),
                     "cache_key": row.cache_key,
                     "link_url": row.link_url,
                     "start_time": row.start_time.isoformat() if row.start_time else None,
@@ -197,7 +207,9 @@ class AdService:
         if not _in_window(_parse_dt(raw.get("start_time")), _parse_dt(raw.get("end_time")), now):
             return None
         return {
-            "image_url": f"/upload/{PLUGIN_NAME}/{raw['image_filename']}",
+            # 兼容旧缓存结构：升级前缓存没有 image_url 时继续返回本地路径；
+            # 新缓存始终写入稳定地址，访问时再由存储门面解析远端或本地回退。
+            "image_url": raw.get("image_url") or f"/upload/{PLUGIN_NAME}/{raw['image_filename']}",
             "cache_key": raw.get("cache_key", ""),
             "link_url": raw.get("link_url", ""),
             "duration": raw.get("duration", 3),

@@ -149,12 +149,12 @@ async def upload_file(
 
     fallback_url = f"/upload/common/{save_name}"
     try:
-        result = await oss_service.upload(
+        await oss_service.upload(
             save_path=str(save_path), save_name=save_name,
             original_name=file.filename, ext=extension, file_size=file_size,
             admin_id=None, source="admin",
         )
-        url = result.get("data", {}).get("url", fallback_url)
+        url = oss_service.stable_url(f"common/{save_name}")
     except Exception as exc:
         logger.warning("[文件上传] 存储服务异常，回落直写: %s", exc)
         url = fallback_url

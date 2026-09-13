@@ -8,7 +8,7 @@ from .adapter import JjrAdapter
 class Plugin(BasePlugin):
     name = "hardware_jjr"
     title = "jjr物联网设备管理"
-    version = "1.0.1"
+    version = "1.0.2"
 
     async def install(self) -> bool:
         """凭据由配置页或停机迁移写入，安装不覆盖任何既有配置。"""

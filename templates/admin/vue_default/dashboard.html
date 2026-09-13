@@ -28,7 +28,7 @@
     <!-- 挂件网格容器（可拖拽） -->
     <div ref="gridRef" class="dashboard-grid" v-if="showWidgets.length > 0">
         <div v-for="w in showWidgets" :key="w.name"
-             :class="['widget-item', 'col-' + w.columns]"
+             :class="['widget-item', 'col-' + w.columns, 'widget-' + w.name]"
              :data-id="w.name">
             <div class="widget-drag-handle"><t-icon name="move" size="16px"/></div>
 
@@ -45,20 +45,24 @@
             </div>
 
             <!-- list 类型 -->
-            <div v-else-if="w.widget_type === 'list'" class="widget-list-card">
+            <div v-else-if="w.widget_type === 'list'"
+                :class="['widget-list-card', 'widget-list-' + w.name]">
                 <div class="list-header">
-                    <t-icon :name="w.data.icon || 'file'" size="18px"/>
-                    <span class="list-title">[[ w.title ]]</span>
+                    <span class="list-title">[[ w.title || (w.name === 'knowledge_recent_records' ? '最近新增知识库' : '最近检测记录') ]]</span>
                 </div>
                 <div class="list-body">
-                    <div v-for="log in (w.data.logs || [])" :key="log.id" class="log-row">
-                        <span class="log-type">[[ log.type ]]</span>
-                        <span class="log-desc">[[ log.description ]]</span>
-                        <span class="log-user">[[ log.user_name ]]</span>
-                        <span class="log-time">[[ log.create_time ]]</span>
+                    <div v-for="log in (w.data.logs || [])" :key="log.id" class="log-row"
+                         :class="{ 'log-row-clickable': log.url }"
+                         :tabindex="log.url ? 0 : -1"
+                         @click="goWidgetLog(log)" @keyup.enter="goWidgetLog(log)">
+                        <t-tag class="log-type" :theme="logTagTheme(w, log)" variant="light" shape="round"
+                               :title="log.type || ''">[[ log.type || '未分类' ]]</t-tag>
+                        <span class="log-desc" :title="log.description || '暂无内容'">[[ log.description || '暂无内容' ]]</span>
+                        <span v-if="w.name !== 'policy_news_latest'" class="log-user" :title="log.user_name || '未设置'">[[ log.user_name || '未设置' ]]</span>
+                        <span class="log-time" :title="log.create_time || '未知时间'">[[ log.create_time || '未知时间' ]]</span>
                     </div>
                     <div v-if="!(w.data.logs && w.data.logs.length)" class="log-row">
-                        <span class="log-desc" style="text-align:center;flex:1;">暂无数据</span>
+                        <span class="log-empty">暂无数据</span>
                     </div>
                 </div>
             </div>
@@ -88,6 +92,21 @@
                         <span class="todo-tile-count">[[ item.count ]]</span>
                     </div>
                 </div>
+            </div>
+
+            <!-- hardware 类型（在线硬件九宫格） -->
+            <div v-else-if="w.widget_type === 'hardware'" class="widget-hardware-card">
+                <div class="hardware-header"><span class="hardware-title">在线硬件</span></div>
+                <div class="hardware-grid">
+                    <div v-for="item in (w.data.items || [])" :key="item.key" class="hardware-tile"
+                         :tabindex="item.url ? 0 : -1"
+                         @click="goTodo(item)" @keyup.enter="goTodo(item)">
+                        <span class="hardware-tile-icon"><img v-if="item.image_url" :src="item.image_url" :alt="item.label"><t-icon v-else :name="item.icon || 'control-platform'" size="20px"/></span>
+                        <span class="hardware-tile-content"><strong :title="item.label">[[ item.label ]]</strong><span :title="item.type">[[ item.type ]]</span></span>
+                        <span class="hardware-tile-status">[[ item.status ]]</span>
+                    </div>
+                </div>
+                <div v-if="!(w.data.items && w.data.items.length)" class="hardware-empty">暂无在线硬件</div>
             </div>
 
             <!-- 未知类型兜底 -->

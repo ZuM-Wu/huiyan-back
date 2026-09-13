@@ -46,7 +46,7 @@ async def area_tree() -> list[dict]:
 # 产区工具声明列表（tools_core.py 聚合进 CORE_TOOLS）
 AREA_TOOLS: list[dict] = [
     {
-        "name": "area_tree",
+        "name": "agri_area_tree",
         "description": "查询产区/地块/种植批次三级树结构，无参数。"
                        "返回树形列表，每项含 id/name/type(area|plot|batch)/children；"
                        "管理员返回全部产区，农户仅返回本人绑定的产区。",

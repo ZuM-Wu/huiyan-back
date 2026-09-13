@@ -19,10 +19,12 @@
         const authCodes = HuiYan.getAuthCodes();
         const permitted = hasPermission(authCodes, 'hardware:data')
             && hasPermission(authCodes, 'yolo_model_manager:detect');
-        let pollingGeneration = 0, pollingTimer = null, pollingResolve = null;
+        let pollingGeneration = 0, refreshGeneration = 0, pollingTimer = null, pollingResolve = null;
 
         const visible = computed(() => permitted && pluginEnabled.value
             && featureAvailable.value && options.currentDevice.value
+            && options.currentDevice.value.provider_id === 'hardware_jjr'
+            && options.currentDevice.value.device_type === 'growth'
             && (options.currentDevice.value.capabilities || []).includes('realtime'));
         const ready = computed(() => !!(detectionContext.value && detectionContext.value.ready));
         const reason = computed(() => {
@@ -79,9 +81,11 @@
         };
 
         const refreshForDevice = (device) => {
+            const generation = ++refreshGeneration;
             detectionContext.value = null;
             featureAvailable.value = false;
-            if (!device || !(device.capabilities || []).includes('realtime') || !permitted) return Promise.resolve();
+            if (!device || device.provider_id !== 'hardware_jjr' || device.device_type !== 'growth'
+                || !(device.capabilities || []).includes('realtime') || !permitted) return Promise.resolve();
             contextLoading.value = true;
             return checkPlugin().then((enabled) => {
                 if (!enabled) return null;
@@ -89,13 +93,15 @@
                     params: { device_id: device.id }, skipAutoError: true,
                 });
             }).then((res) => {
-                if (!res || !options.currentDevice.value
+                if (generation !== refreshGeneration || !res || !options.currentDevice.value
                     || options.currentDevice.value.id !== device.id) return;
                 detectionContext.value = res.data.data || {};
                 featureAvailable.value = true;
             }).catch(() => {
-                featureAvailable.value = false;
-            }).finally(() => { contextLoading.value = false; });
+                if (generation === refreshGeneration) featureAvailable.value = false;
+            }).finally(() => {
+                if (generation === refreshGeneration) contextLoading.value = false;
+            });
         };
 
         const stopPolling = () => {
@@ -159,7 +165,7 @@
         const formatBbox = (bbox) => Array.isArray(bbox)
             ? bbox.map((value) => Number(value).toFixed(1)).join(', ') : '未提供';
         const initialize = () => checkPlugin();
-        const dispose = () => { stopPolling(); };
+        const dispose = () => { refreshGeneration += 1; stopPolling(); };
 
         const bindings = {
             quickDetectVisible: visible, quickDetectReady: ready, quickDetectReason: reason,

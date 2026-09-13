@@ -1,6 +1,9 @@
 """硬件插件管理配置门面：固定 owner、掩码读取与空凭据保留。"""
 
 from urllib.parse import urlsplit
+from sqlalchemy import delete, select, text
+from sqlalchemy.ext.asyncio import AsyncSession
+from core.db.hardware_device import HardwareDevice, HardwareRealtimeSnapshot
 from fastapi import HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 from core.config_manager import ConfigManager
@@ -49,3 +52,26 @@ async def save_hardware_config(owner: str, data: HardwareConfigUpdate) -> dict:
         for key, value in values.items():
             await ConfigManager().set(f"{owner}.{key}", value, db, description="物联网插件配置")
     return await read_hardware_config(owner)
+
+
+async def delete_hardware_mirror(db: AsyncSession, owner: str, provider_device_id: str) -> bool:
+    """在调用方事务内删除未绑定镜像；调用方须持有发现锁和来源提交门禁，不在此提交。"""
+    # 旧安装可能继承 MyISAM；不能在无事务/行锁保证的表上执行不可回滚删除。
+    engines = (await db.execute(text(
+        "SELECT ENGINE FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() "
+        "AND TABLE_NAME IN ('hy_hardware_device', 'hy_hardware_realtime_snapshot')"
+    ))).scalars().all()
+    if len(engines) != 2 or any(engine.lower() != "innodb" for engine in engines):
+        raise HTTPException(409, "设备数据表不支持安全事务删除，请先停机备份并转换为 InnoDB")
+    device = await db.scalar(select(HardwareDevice).where(
+        HardwareDevice.provider_id == owner, HardwareDevice.provider_device_id == provider_device_id,
+    ).with_for_update())
+    if device is None:
+        return False
+    if device.area_id is not None or device.plot_id is not None:
+        raise HTTPException(409, "设备已绑定产区或地块，请先解除绑定")
+    # 兼容旧表虽为 InnoDB 但未实际安装级联约束的情况；仍在相同事务内清理。
+    await db.execute(delete(HardwareRealtimeSnapshot).where(HardwareRealtimeSnapshot.device_id == device.id))
+    await db.delete(device)
+    await db.flush()
+    return True

@@ -1,6 +1,15 @@
 {% extends "base.html" %}
 {% block title %}首页 · 慧眼护农 农户端{% endblock %}
 
+{% block head %}
+<style>
+.farmer-home-widgets { margin-bottom: var(--app-spacing-lg); }
+.farmer-widget-link { display: flex; align-items: center; justify-content: space-between; gap: var(--app-spacing-md); width: 100%; color: var(--app-text-primary); text-decoration: none; }
+.farmer-widget-link:hover { color: var(--app-brand-color); }
+.farmer-widget-link span { flex-shrink: 0; color: var(--app-text-secondary); font-size: var(--app-font-size-sm); }
+</style>
+{% endblock %}
+
 {% block content %}
 <!-- 欢迎区域 -->
 <section class="farmer-hero">
@@ -24,7 +33,7 @@
         <div>
             <div class="farmer-stat-label">账号状态</div>
             <div class="farmer-stat-value">
-                <t-tag :theme="userStatus === 1 ? 'success' : 'danger'" size="small">
+                <t-tag :theme="userStatus === 1 ? 'success' : 'danger'">
                     [[ userStatus === 1 ? '正常' : '异常' ]]
                 </t-tag>
             </div>
@@ -48,6 +57,21 @@
             <div class="farmer-stat-value farmer-stat-value--sm">[[ registerDate ]]</div>
         </div>
     </div>
+</section>
+
+<section v-if="farmerWidgets.length" class="farmer-home-widgets">
+    <h3 class="farmer-section-title">首页资讯</h3>
+    <t-card v-for="widget in farmerWidgets" :key="widget.name" :title="widget.title" :bordered="true">
+        <t-list v-if="widget.widget_type === 'list' && widget.data && widget.data.logs && widget.data.logs.length" :split="true">
+            <t-list-item v-for="item in widget.data.logs" :key="item.id">
+                <a :href="item.url" @click.prevent="openWidgetLink(item.url)" class="farmer-widget-link">
+                    <strong>[[ item.description ]]</strong>
+                    <span>[[ item.user_name ]] · [[ item.create_time ]]</span>
+                </a>
+            </t-list-item>
+        </t-list>
+        <t-empty v-else description="暂无资讯"></t-empty>
+    </t-card>
 </section>
 
 <!-- 功能模块 -->
@@ -75,6 +99,7 @@ HuiYanFarmer.createApp({
         var computed = Vue.computed;
         var reactive = Vue.reactive;
         var onMounted = Vue.onMounted;
+        var farmerWidgets = ref([]);
 
         /* ---- 用户信息 ---- */
         var userInfo = reactive({ nickname: '', username: '', status: 1, create_time: '', email: '', phone: '' });
@@ -129,6 +154,11 @@ HuiYanFarmer.createApp({
                 userInfo.status = d.status != null ? d.status : 1;
                 userInfo.create_time = d.create_time || '';
             }).catch(function () { /* 忽略 */ });
+
+            HuiYanFarmer.request.get('/widget/dashboard').then(function (res) {
+                var d = (res.data && res.data.data) ? res.data.data : res.data;
+                farmerWidgets.value = d.widget_data || [];
+            }).catch(function () { farmerWidgets.value = []; });
         });
 
         /* ---- 功能模块列表 ---- */
@@ -163,6 +193,11 @@ HuiYanFarmer.createApp({
                 location.href = '/farmer/profile';
             }
         };
+        var openWidgetLink = function (url) {
+            if (typeof url === 'string' && url.trim()) {
+                window.open(url, "_blank", "noopener,noreferrer");
+            }
+        };
         var refresh = function () { location.reload(); };
 
         return {
@@ -170,7 +205,8 @@ HuiYanFarmer.createApp({
             userStatus: userStatus, securityLevel: securityLevel,
             registerDate: registerDate,
             features: features, onFeatureClick: onFeatureClick,
-            goProfile: goProfile, refresh: refresh
+            goProfile: goProfile, refresh: refresh, farmerWidgets: farmerWidgets,
+            openWidgetLink: openWidgetLink
         };
     }
 });

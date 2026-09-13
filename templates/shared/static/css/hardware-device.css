@@ -65,7 +65,7 @@
 .hardware-card-footer span { color: var(--app-text-secondary); font-size: var(--app-font-size-sm); flex-shrink: 0; }
 .hardware-card-facts strong { font-weight: 400; overflow-wrap: anywhere; min-width: 0; }
 .hardware-card-footer { display: flex; align-items: center; justify-content: space-between; gap: var(--app-spacing-sm); border-top: 1px solid var(--app-border); padding-top: var(--app-spacing-md); }
-.hardware-card-footer > div { display: flex; flex-direction: column; min-width: 0; }
+.hardware-card-footer > div:not(.t-space) { display: flex; flex-direction: column; min-width: 0; }
 .hardware-card-footer time { font-size: var(--app-font-size-sm); overflow-wrap: anywhere; }
 .hardware-card-footer > .t-button { flex-shrink: 0; }
 .hardware-cards-empty { display: flex; align-items: center; justify-content: center; min-height: 240px; height: 100%; }
@@ -203,3 +203,37 @@
     justify-content: center;
     color: var(--app-text-placeholder);
 }
+
+/* 详情布局只约束硬件业务容器，避免长设备编号和扩展数据撑开桌面抽屉。 */
+.hardware-detail-tabs > .t-tabs__content { padding-top: var(--app-spacing-md); }
+.hardware-registration-info .t-descriptions__content,
+.hardware-delete-content { overflow-wrap: anywhere; }
+.hardware-registration-id { display: flex; align-items: center; gap: var(--app-spacing-sm); }
+.hardware-registration-id span { min-width: 0; overflow-wrap: anywhere; }
+.hardware-registration-id .t-button { flex-shrink: 0; }
+.hardware-registration-json { margin-top: var(--app-spacing-lg); }
+.hardware-json-content {
+    margin: 0;
+    max-height: 360px;
+    overflow: auto;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    font-family: var(--app-font-mono, monospace);
+    color: var(--app-text-primary);
+    line-height: 1.6;
+}
+.hardware-generic-detail .hardware-metric-toolbar {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--app-spacing-sm);
+    margin: var(--app-spacing-md) 0;
+}
+.hardware-generic-detail .t-alert { margin-bottom: var(--app-spacing-md); }
+.hardware-metric-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--app-spacing-md); margin-bottom: var(--app-spacing-md); }
+.hardware-metric-grid .t-card { min-width: 0; overflow-wrap: anywhere; }
+.hardware-metric-reading { display: flex; align-items: baseline; flex-wrap: wrap; gap: var(--app-spacing-sm); }
+.hardware-metric-reading strong { font-size: var(--app-font-size-xl); color: var(--app-text-primary); }
+.hardware-metric-reading span, .hardware-metric-time { color: var(--app-text-secondary); }
+.hardware-metric-time { margin-top: var(--app-spacing-sm); font-size: var(--app-font-size-sm); }

@@ -123,6 +123,18 @@ a.sidebar-logo__link { cursor: pointer; }
     border-bottom: 1px solid var(--app-border); flex-shrink: 0;
 }
 .topbar-right { display: flex; align-items: center; gap: var(--app-spacing-md); }
+.topbar-migration {
+    display: flex; align-items: center; gap: var(--app-spacing-sm);
+    min-width: 300px; max-width: 440px; padding: 4px 0;
+    color: var(--app-text-secondary); font-size: var(--app-font-size-sm);
+}
+.topbar-migration__label {
+    display: flex; flex-direction: column; gap: 2px; min-width: 108px; white-space: nowrap;
+}
+.topbar-migration__label > span:first-child { color: var(--app-text-primary); font-weight: 600; }
+.topbar-migration__progress { flex: 1; min-width: 130px; }
+.topbar-migration--error .topbar-migration__label > span:first-child { color: var(--app-error); }
+.topbar-migration--success .topbar-migration__label > span:first-child { color: var(--app-success); }
 
 /* 页面内容：填满视口高度（减去顶栏 56px），禁止页面级滚动，由卡片内部滚动 */
 .page-content {

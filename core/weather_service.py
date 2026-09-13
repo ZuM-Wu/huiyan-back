@@ -392,8 +392,13 @@ class WeatherService:
         }, db)
         if alert_orm is not None:
             alert_orm.notified = 1
-        logger.info(
+            logger.info(
             f"[天气服务] 产区 {area_id} 预警通知已推送: {alert_fields.get('title', '')}")
+
+    async def backfill_recent_daily(self) -> dict:
+        """补齐中国时间近十日缺行；汇总和逐日结果只计已提交的数据。"""
+        from core.weather_backfill import _backfill_recent_daily
+        return await _backfill_recent_daily(self, async_session_factory)
 
     # ------------------------------------------------------------------
     # 全量拉取（定时任务入口）
@@ -461,3 +466,4 @@ class WeatherService:
 
 # 全局单例
 weather_service = WeatherService()
+

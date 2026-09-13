@@ -215,7 +215,7 @@
                             <span class="ai-chat__session-time">[[ sessionTime(row) ]]</span>
                         </button>
                         <t-popconfirm content="确认删除此对话及全部聊天记录？" theme="danger" @confirm="deleteSession(row)">
-                            <t-button class="ai-chat__session-delete" theme="danger" variant="text" shape="square" size="small" :title="sessionId(row) === selectedSession && running ? '请先停止当前回复，再删除对话' : '删除对话'" aria-label="删除对话" :loading="deletingSession === sessionId(row)" :disabled="deletingSession !== '' || (sessionId(row) === selectedSession && running)" @click.stop>
+                            <t-button class="ai-chat__session-delete" theme="danger" variant="text" shape="square" :title="sessionId(row) === selectedSession && running ? '请先停止当前回复，再删除对话' : '删除对话'" aria-label="删除对话" :loading="deletingSession === sessionId(row)" :disabled="deletingSession !== '' || (sessionId(row) === selectedSession && running)" @click.stop>
                                 <template #icon><t-icon name="delete" /></template>
                             </t-button>
                         </t-popconfirm>
@@ -226,7 +226,7 @@
 
             <section class="ai-chat__conversation" aria-label="模型对话">
                 <t-alert v-if="error" class="ai-chat__error" theme="error" :closeable="false">
-                    <template #operation><t-button theme="default" size="small" @click="refreshAll">重试</t-button></template>[[ error ]]
+                    <template #operation><t-button theme="default" @click="refreshAll">重试</t-button></template>[[ error ]]
                 </t-alert>
                 <div v-if="selectedSession && chatItems.length" class="ai-chat__messages">
                     <div class="ai-chat__messages-inner">

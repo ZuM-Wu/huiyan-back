@@ -13,6 +13,7 @@ from uuid import uuid4
 from sqlalchemy import select
 
 from core.config import BASE_DIR
+from core.oss_service import oss_service
 from core.config_manager import ConfigManager
 from core.db.base import async_session_factory
 from core.hardware_device_service import get_hardware_device_info
@@ -24,6 +25,7 @@ from plugins.addon.yolo_model_manager.services.label_extractor import _resolve_m
 from plugins.addon.yolo_model_manager.services.image_utils import (
     ImagePreparationError,
     decode_image as _decode_image_impl,
+    local_image_path,
     read_image_bytes as _read_image_bytes_impl,
 )
 from plugins.addon.yolo_model_manager.services.image_utils import (
@@ -38,6 +40,11 @@ TASK_NAME = "yolo_recognition_detect"
 PREFERRED_IMAGE_IDENTIFIERS = ("imgurl", "imageurl", "photourl", "pictureurl")
 ANNOTATED_IMAGE_DIR = BASE_DIR / "upload" / "yolo_model_manager" / "recognitions"
 ANNOTATED_IMAGE_URL_PREFIX = "/upload/yolo_model_manager/recognitions"
+
+
+def supports_quick_detection(device: dict) -> bool:
+    """按稳定来源和设备类型编码判定快捷检测能力。"""
+    return device.get("provider_id") == "hardware_jjr" and device.get("device_type") == "growth"
 
 
 class DetectionReferenceError(LookupError):
@@ -74,7 +81,10 @@ def _valid_image_url(value: object) -> bool:
         return False
     normalized = value.strip()
     if normalized.startswith("/"):
-        return normalized.startswith("/upload/") and "\\" not in normalized
+        try:
+            return local_image_path(normalized) is not None
+        except ImagePreparationError:
+            return False
     parsed = urlsplit(normalized)
     return bool(
         parsed.scheme in {"http", "https"}
@@ -139,6 +149,7 @@ class DetectionService:
             raise DetectionReferenceError("设备不存在")
         context = {
             "ready": False,
+            "recognition_capable": False,
             "reason": "",
             "device": {
                 "id": int(device["id"]),
@@ -150,9 +161,6 @@ class DetectionService:
             "image": None,
             "queue_enabled": False,
         }
-        if "realtime" not in device.get("capabilities", []):
-            context["reason"] = "仅支持实时图片的设备支持快捷检测"
-            return context
         if not device.get("plot_id"):
             context["reason"] = "请先在基本设置中绑定地块"
             return context
@@ -161,6 +169,14 @@ class DetectionService:
             "name": device.get("plot_name") or "",
             "area_name": device.get("area_name") or "",
         }
+        if not supports_quick_detection(device):
+            context["reason"] = "当前设备类型不支持快捷检测"
+            return context
+        if "realtime" not in device.get("capabilities", []):
+            context["reason"] = "仅支持实时图片的设备支持快捷检测"
+            return context
+        context["image"] = _select_image(await read_latest_device_snapshot(device_id))
+        context["recognition_capable"] = context["image"] is not None
         row = (await db.execute(
             select(YoloModelPlotBinding, YoloModel)
             .join(YoloModel, YoloModel.id == YoloModelPlotBinding.model_id)
@@ -179,7 +195,6 @@ class DetectionService:
         if not YoloModelService.get_download_path(model):
             context["reason"] = "绑定模型文件已丢失，请重新上传模型"
             return context
-        context["image"] = _select_image(await read_latest_device_snapshot(device_id))
         if not context["image"]:
             context["reason"] = "暂无可检测的图片，请先刷新或拍照"
             return context
@@ -330,6 +345,7 @@ def _write_annotated_image(task_id: int, content: bytes) -> str:
         temporary.replace(target)
     finally:
         temporary.unlink(missing_ok=True)
+    # 写盘函数保持返回本地回退地址；完成对象存储上传后由调用方改为稳定地址。
     return f"{ANNOTATED_IMAGE_URL_PREFIX}/{target.name}"
 
 
@@ -349,6 +365,8 @@ async def handle_detection_task(context, data: dict) -> None:
         device = await get_hardware_device_info(int(data["device_id"]))
         if not device or int(device.get("plot_id") or 0) != int(data["plot_id"]):
             raise DetectionNotReadyError("设备绑定地块已变化，请重新发起检测")
+        if not supports_quick_detection(device):
+            raise DetectionNotReadyError("当前设备类型不支持快捷检测")
         row = (await db.execute(
             select(YoloModelPlotBinding, YoloModel)
             .join(YoloModel, YoloModel.id == YoloModelPlotBinding.model_id)
@@ -392,6 +410,17 @@ async def handle_detection_task(context, data: dict) -> None:
     annotated_image_url = await asyncio.to_thread(
         _write_annotated_image, context.task_id, annotated_content
     )
+    annotated_local_path = f"yolo_model_manager/recognitions/{context.task_id}.jpg"
+    try:
+        await oss_service.upload(
+            save_path=str(ANNOTATED_IMAGE_DIR / f"{context.task_id}.jpg"),
+            save_name=f"{context.task_id}.jpg", original_name=f"{context.task_id}.jpg",
+            ext=".jpg", file_size=len(annotated_content), admin_id=int(data["admin_id"]),
+            source="yolo_recognition",
+        )
+        annotated_image_url = oss_service.stable_url(annotated_local_path)
+    except Exception as exc:
+        logger.warning("[yolo_model_manager] 标注图对象存储上传失败，保留本地文件: %s", exc)
     try:
         async with async_session_factory() as db:
             await RecognitionService.create_record(

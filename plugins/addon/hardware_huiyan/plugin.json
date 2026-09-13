@@ -1,7 +1,7 @@
 {
   "name": "hardware_huiyan",
   "title": "慧眼物联网设备管理",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "学习测试用自有设备接入，仅名称注册、免 Token 上报及最新数据查询",
   "author": "HuiYan Team",
   "module": "addon",
@@ -38,5 +38,6 @@
       "type": "script"
     }
   ],
+  "database_schema": {"version": 1, "tables": [{"name": "hy_huiyan_iot_device", "columns": ["id", "device_id", "device_name", "device_type", "device_type_label", "nickname", "address", "latitude", "longitude", "capabilities", "metadata", "last_seen", "create_time", "update_time"], "indexes": [{"name": "PRIMARY", "columns": ["id"], "unique": true}, {"name": "uk_huiyan_iot_device_id", "columns": ["device_id"], "unique": true}]}]},
   "config": {}
 }

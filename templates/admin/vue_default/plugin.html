@@ -47,32 +47,32 @@
             </template>
             <template #version="{ row }">
                 <span>[[ row.installed_version || row.version || '-' ]]</span>
-                <t-tag v-if="row.version_state === 'awaiting_restart'" theme="warning" variant="light" size="small">
+                <t-tag v-if="row.version_state === 'awaiting_restart'" theme="warning" variant="light">
                     待重启生效至 [[ row.pending_update.target_version ]]
                 </t-tag>
             </template>
             <template #actions="{ row }">
                 <t-space v-if="row.installed === false">
-                    <t-button theme="primary" variant="text" size="small"
+                    <t-button theme="primary" variant="text"
                         :loading="installingName === row.name" @click="doInstall(row)">安装</t-button>
                 </t-space>
                 <t-space v-else>
                     <t-tooltip v-if="row.version_state === 'awaiting_restart'"
                         :content="controlCenterAvailable ? '在本地控制中心停机应用更新' : '请先启动桌面的慧眼本地控制中心'">
-                        <t-button theme="warning" variant="text" size="small"
+                        <t-button theme="warning" variant="text"
                             @click="openControlCenter(row)">打开控制中心</t-button>
                     </t-tooltip>
                     <t-tooltip v-if="row.upgrade_available" :content="'更新至 ' + row.available_version">
-                        <t-button theme="primary" variant="text" size="small"
+                        <t-button theme="primary" variant="text"
                             :loading="upgradingName === row.name" @click="doUpgrade(row)">更新</t-button>
                     </t-tooltip>
-                    <t-button theme="default" variant="text" size="small"
+                    <t-button theme="default" variant="text"
                         @click="openConfig(row)">配置</t-button>
-                    <t-button v-if="row.status !== 1" theme="primary" variant="text" size="small"
+                    <t-button v-if="row.status !== 1" theme="primary" variant="text"
                         @click="togglePlugin(row, 1)">启用</t-button>
-                    <t-button v-if="row.status === 1" theme="default" variant="text" size="small"
+                    <t-button v-if="row.status === 1" theme="default" variant="text"
                         @click="togglePlugin(row, 0)">停用</t-button>
-                    <t-button theme="danger" variant="text" size="small"
+                    <t-button theme="danger" variant="text"
                         @click="confirmUninstall(row)">卸载</t-button>
                 </t-space>
             </template>
@@ -100,8 +100,8 @@
             <template #sync_actions="{ row }">
                 <t-space v-if="row.version_state === 'awaiting_restart' || row.upgrade_available">
                     <t-button v-if="row.version_state === 'awaiting_restart'" theme="warning"
-                        variant="text" size="small" @click="openControlCenter(row)">控制中心</t-button>
-                    <t-button v-if="row.upgrade_available" theme="primary" variant="text" size="small"
+                        variant="text" @click="openControlCenter(row)">控制中心</t-button>
+                    <t-button v-if="row.upgrade_available" theme="primary" variant="text"
                         :loading="upgradingName === row.name" @click="upgradeFromSync(row)">更新</t-button>
                 </t-space>
                 <span v-else>-</span>

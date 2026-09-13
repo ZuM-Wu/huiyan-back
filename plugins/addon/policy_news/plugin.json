@@ -1,0 +1,42 @@
+{
+  "name": "policy_news",
+  "title": "农业政策资讯",
+  "version": "1.0.2",
+  "description": "获取农业农村部和广西农业农村厅最新政策并展示在首页",
+  "author": "HuiYan Team",
+  "module": "addon",
+  "owner_id": "policy_news",
+  "surface": "admin",
+  "enabled": true,
+  "default_order": 100,
+  "compatible_app_versions": [">=3.4.0"],
+  "dependencies": [],
+  "conflicts": [],
+  "permissions": ["policy_news:list", "policy_news:refresh", "policy_news:clear"],
+  "capabilities": ["policy_news.feed", "policy_news.widget"],
+  "pages": [
+    {
+      "page_key": "plugin_policy_news",
+      "surface": "admin",
+      "route": "/admin/plugin/policy_news/policy_news",
+      "template": "policy_news.html",
+      "scripts": ["policy_news.js"]
+    },
+    {
+      "page_key": "plugin_policy_news_front",
+      "surface": "farmer",
+      "route": "/farmer/plugin/policy_news/policy_news_index",
+      "template": "policy_news_index.html",
+      "scripts": ["policy_news_farmer.js"]
+    }
+  ],
+  "resources": ["static/policy_news.js", "static/policy_news_farmer.js"],
+  "tasks": ["policy_news.refresh"],
+  "events": [],
+  "health": {"check": "plugin.policy_news"},
+  "database_schema": {"version": 1, "tables": [{"name": "hy_plugin_policy_news_item", "columns": ["id", "source", "title", "url", "published_at", "first_seen_at", "last_seen_at", "summary"], "indexes": [{"name": "PRIMARY", "columns": ["id"], "unique": true}, {"name": "uq_policy_news_source_url", "columns": ["source", "url"], "unique": true}, {"name": "ix_policy_news_source", "columns": ["source"], "unique": false}, {"name": "ix_policy_news_url", "columns": ["url"], "unique": false}, {"name": "ix_policy_news_published_at", "columns": ["published_at"], "unique": false}, {"name": "ix_policy_news_last_seen_at", "columns": ["last_seen_at"], "unique": false}]}, {"name": "hy_plugin_policy_news_state", "columns": ["id", "source", "last_attempt_at", "last_success_at", "last_error", "item_count"], "indexes": [{"name": "PRIMARY", "columns": ["id"], "unique": true}, {"name": "uq_policy_news_state_source", "columns": ["source"], "unique": true}]}]},
+  "config": {
+    "policy_news.interval_hours": "6",
+    "policy_news.retention_limit": "100"
+  }
+}

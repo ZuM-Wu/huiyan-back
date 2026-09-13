@@ -12,6 +12,7 @@ from core.config_service import get_config, set_config
 from core.plugin_query_service import list_all_plugins, get_plugin_by_name, MODULE_LABELS
 from core.log.active_log import active_log
 from core.response import ok
+from core.oss_service import oss_service
 from services.upload_policy import build_policy_items, plugin_policy_definition
 from core.platform.plugin import plugin_platform
 
@@ -34,6 +35,23 @@ _EXCLUDE_FROM_APP_LIST = {
     "sms", "mail", "certification", "oss", "weather", "llm",
 }
 _REMOVED_PLUGIN_NAMES = {"admin_notifier"}
+_MASKED_SECRET = "********"
+
+
+def _mask_config(config: dict, schema: list[dict]) -> dict:
+    """按插件 Schema 脱敏配置，不把凭据返回给浏览器。"""
+    sensitive = {
+        str(item.get("key")) for item in schema if item.get("sensitive")
+    }
+    return {
+        key: (_MASKED_SECRET if key in sensitive and value else value)
+        for key, value in config.items()
+    }
+
+
+def _schema_map(schema: list[dict]) -> dict[str, dict]:
+    """建立配置字段白名单。"""
+    return {str(item.get("key")): item for item in schema if item.get("key")}
 
 
 def _visible_in_app_list(plugin: dict) -> bool:
@@ -355,6 +373,7 @@ async def get_plugin_config(name: str, request: Request, _: None = Depends(check
         key = f"{name}.{item['key']}"
         val = await get_config(key)
         current[item["key"]] = val if val is not None else item.get("default", "")
+    safe_current = _mask_config(current, schema)
 
     upload_policies = []
     if upload_schema:
@@ -368,7 +387,11 @@ async def get_plugin_config(name: str, request: Request, _: None = Depends(check
 
     return ok({
         "schema": schema,
-        "current": current,
+        "current": safe_current,
+        "credential_configured": any(
+            bool(current.get(item.get("key")))
+            for item in schema if item.get("sensitive")
+        ),
         "upload_policies": upload_policies,
         "upload_settings_url": "/admin/system?tab=upload",
     })
@@ -410,8 +433,20 @@ async def save_plugin_config(
                 "url": "/admin/system?tab=upload",
             },
         )
+    schema = pm.get_config_schema(name)
+    schema_map = _schema_map(schema)
+    if schema_map:
+        unknown = sorted(set(data.config) - set(schema_map))
+        if unknown:
+            raise HTTPException(status_code=422, detail=f"包含不允许修改的配置字段: {', '.join(unknown)}")
     for key, value in data.config.items():
+        field = schema_map.get(key, {})
+        if field.get("sensitive") and str(value or "").strip() in {"", _MASKED_SECRET, "******"}:
+            # 空值或脱敏占位符表示保留已经保存的凭据。
+            continue
         full_key = f"{name}.{key}"
         await set_config(full_key, str(value))
+    if any(item.get("module") == "oss" and item.get("name") == name for item in pm.discover()):
+        oss_service.invalidate()
     await active_log(f"保存插件配置：{name}", log_type="plugin", request=request)
     return ok(msg="配置已保存")

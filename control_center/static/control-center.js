@@ -38,13 +38,18 @@
                 return backend.value.last_error || '当前没有受控后端进程';
             });
             const operationStatusLabel = computed(() => ({
-                queued: '等待执行', running: '执行中', succeeded: '已完成', failed: '失败'
+                queued: '等待执行', running: '执行中', succeeded: '已完成',
+                partial_success: '部分成功', failed: '失败'
             }[operation.value?.status] || '无操作'));
             const operationTheme = computed(() => ({
-                queued: 'default', running: 'primary', succeeded: 'success', failed: 'danger'
+                queued: 'default', running: 'primary', succeeded: 'success',
+                partial_success: 'warning', failed: 'danger'
             }[operation.value?.status] || 'default'));
             const operationMessage = computed(() => operation.value?.message || '尚未执行后端操作或插件更新');
-            const phaseIndex = { stopping: 0, dry_run: 1, applying: 2, restarting: 3, starting: 3, verifying: 4, succeeded: 5 };
+            const phaseIndex = {
+                stopping: 0, dry_run: 1, applying: 2, restarting: 3,
+                starting: 3, verifying: 4, succeeded: 5, partial_success: 5
+            };
             const stepCurrent = computed(() => phaseIndex[operation.value?.phase] ?? 0);
             const stepStatus = computed(() => operation.value?.status === 'failed' ? 'error' : 'process');
 
@@ -54,7 +59,13 @@
                 if (options.body) headers['Content-Type'] = 'application/json';
                 const response = await fetch(path, { credentials: 'same-origin', ...options, headers });
                 const data = await response.json().catch(() => ({}));
-                if (!response.ok) throw new Error(data.detail || '控制中心请求失败');
+                if (!response.ok) {
+                    const detail = data.detail;
+                    const message = detail && typeof detail === 'object'
+                        ? (detail.message || detail.code || '控制中心请求失败')
+                        : (detail || '控制中心请求失败');
+                    throw new Error(message);
+                }
                 return data;
             };
 

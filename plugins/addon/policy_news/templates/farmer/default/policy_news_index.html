@@ -1,0 +1,17 @@
+{% extends "plugin_page_shell.html" %}
+{% block title %}农业政策资讯 · 慧眼护农{% endblock %}
+{% block content %}
+<section id="page-app" v-cloak class="farmer-cards">
+    <t-card title="农业政策资讯" :bordered="true">
+        <t-list v-if="items.length" :split="true">
+            <t-list-item v-for="item in items" :key="item.id">
+                <a class="policy-news-link" :href="item.url" @click.prevent="openPolicy(item.url)">
+                    <strong>[[ item.title ]]</strong>
+                    <span>[[ item.source ]] · [[ item.published_at || '暂无日期' ]]</span>
+                </a>
+            </t-list-item>
+        </t-list>
+        <t-empty v-else description="暂无政策资讯"></t-empty>
+    </t-card>
+</section>
+{% endblock %}

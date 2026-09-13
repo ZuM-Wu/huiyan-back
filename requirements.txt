@@ -17,3 +17,4 @@ fastmcp==3.4.4
 websockets==17.0.1
 agentscope==2.0.7
 ultralytics==8.4.131
+qiniu==7.18.0

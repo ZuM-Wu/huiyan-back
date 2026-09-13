@@ -54,7 +54,7 @@
                         <span class="hardware-time">[[ formatChinaTime(row.last_sync_time) ]]</span>
                     </template>
                     <template #operation="{ row }">
-                        <t-button theme="primary" variant="text" size="small" @click="openDetail(row)">管理</t-button>
+                        <t-button theme="primary" variant="text" @click="openDetail(row)">管理</t-button>
                     </template>
                 </t-table>
             </t-tab-panel>
@@ -84,7 +84,7 @@
 
     <t-drawer v-model:visible="drawerVisible" class="hardware-drawer" size="820px"
         :header="drawerTitle" :footer="false" :close-btn="true" @close="closeDrawer">
-        <t-descriptions v-if="currentDevice" class="hardware-detail-summary" :column="3" bordered size="small">
+        <t-descriptions v-if="currentDevice" class="hardware-detail-summary" :column="3" bordered>
             <t-descriptions-item label="设备编号">[[ currentDevice.device_name ]]</t-descriptions-item>
             <t-descriptions-item label="设备类型">[[ currentDevice.device_type_label || currentDevice.device_type ]]</t-descriptions-item>
             <t-descriptions-item label="平台状态">[[ currentDevice.available && currentDevice.provider_available ? '可用' : '不可用' ]]</t-descriptions-item>
@@ -130,7 +130,7 @@
         <t-loading v-if="quickDetectWorking && !quickDetectRecord" loading
             text="模型正在处理当前图片" class="hardware-detect-loading"></t-loading>
         <template v-if="quickDetectRecord">
-            <t-descriptions :column="4" bordered size="small" class="hardware-detect-summary">
+            <t-descriptions :column="4" bordered class="hardware-detect-summary">
                 <t-descriptions-item label="地块">[[ quickDetectRecord.area_name ]] / [[ quickDetectRecord.plot_name ]]</t-descriptions-item>
                 <t-descriptions-item label="模型">[[ quickDetectRecord.model_name ]] [[ quickDetectRecord.model_version ]]</t-descriptions-item>
                 <t-descriptions-item label="目标数量">[[ quickDetectRecord.detection_count ]]</t-descriptions-item>

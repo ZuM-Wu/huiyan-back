@@ -1,0 +1,94 @@
+/* ========== 对象存储层级文件管理 ========== */
+.object-storage-manager__dialog .t-dialog__body { overflow-x: hidden; }
+.object-storage-manager__pathbar {
+    flex: 1;
+    min-width: 0;
+    padding: var(--app-spacing-xs) var(--app-spacing-sm);
+    border-bottom: 1px solid var(--app-border);
+    border-radius: var(--app-radius-sm);
+    background: var(--app-bg-container);
+}
+.object-storage-manager__layout {
+    display: grid;
+    grid-template-columns: 280px minmax(0, 1fr);
+    gap: var(--app-spacing-lg);
+    min-height: 360px;
+}
+.object-storage-manager__tree {
+    min-width: 0;
+    max-height: 360px;
+    overflow-y: auto;
+    padding: var(--app-spacing-sm);
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-md);
+    background: var(--app-bg-container);
+}
+.object-storage-manager__files {
+    min-width: 0;
+    max-height: 360px;
+    overflow-y: auto;
+}
+.object-storage-manager__file-list { width: 100%; }
+.object-storage-manager__file-row {
+    display: flex;
+    align-items: center;
+    gap: var(--app-spacing-md);
+    width: 100%;
+    min-width: 0;
+    padding: var(--app-spacing-sm) 0;
+}
+.object-storage-manager__file-thumb {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    flex: 0 0 48px;
+}
+.object-storage-manager__image-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    padding: 0;
+    overflow: hidden;
+    border: 0;
+    border-radius: var(--app-radius-sm);
+    background: transparent;
+    cursor: zoom-in;
+}
+.object-storage-manager__image-thumb {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    border-radius: var(--app-radius-sm);
+}
+.object-storage-manager__file-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: var(--app-radius-sm);
+    color: var(--app-text-secondary);
+    background: var(--app-bg-container);
+}
+.object-storage-manager__file-info { flex: 1; min-width: 0; }
+.object-storage-manager__file-name {
+    overflow: hidden;
+    color: var(--app-text-primary);
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.object-storage-manager__file-meta {
+    margin-top: var(--app-spacing-xs);
+    color: var(--app-text-secondary);
+    font-size: var(--app-font-size-sm);
+}
+.object-storage-manager__page-label {
+    color: var(--app-text-secondary);
+    font-size: var(--app-font-size-sm);
+}

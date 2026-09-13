@@ -143,7 +143,7 @@
             '<div class="image-uploader">' +
             '  <div class="image-uploader__boxes">' +
             '    <div class="image-uploader__trigger" :class="{\'is-loading\': uploading}" @click="triggerPick">' +
-            '      <t-loading v-if="uploading" size="small"></t-loading>' +
+            '      <t-loading v-if="uploading"></t-loading>' +
             '      <template v-else>' +
             '        <t-icon name="add" class="image-uploader__plus"></t-icon>' +
             '        <span class="image-uploader__label">上传图片</span>' +

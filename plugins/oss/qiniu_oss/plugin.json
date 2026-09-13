@@ -1,0 +1,39 @@
+{
+  "name": "qiniu_oss",
+  "title": "七牛云对象存储",
+  "version": "1.0.1",
+  "description": "七牛云对象存储及文件管理",
+  "author": "HuiYan Team",
+  "module": "oss",
+  "owner_id": "qiniu_oss",
+  "surface": "platform",
+  "enabled": true,
+  "default_order": 110,
+  "compatible_app_versions": [">=3.4.0"],
+  "dependencies": [],
+  "conflicts": [],
+  "permissions": [
+    "qiniu_oss:*",
+    "qiniu_oss:config",
+    "qiniu_oss:list",
+    "qiniu_oss:upload",
+    "qiniu_oss:access",
+    "qiniu_oss:delete"
+  ],
+  "capabilities": ["storage.backend", "storage.management", "storage.migration"],
+  "pages": [],
+  "resources": [],
+  "tasks": [],
+  "events": [],
+  "health": {"check": "plugin.qiniu_oss"},
+  "database_schema": {"version": 1, "tables": []},
+  "config": {
+    "access_key": "",
+    "secret_key": "",
+    "bucket": "",
+    "domain": "",
+    "region": "z0",
+    "private": "0",
+    "save_path": ""
+  }
+}

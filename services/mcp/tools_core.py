@@ -19,7 +19,9 @@ from core.db.base import async_session_factory
 from core.db.production_area import ProductionArea, AreaFarmer
 from services.mcp.tool_utils import _current_claims, _farmer_area_bound
 from services.mcp.tools_area import AREA_TOOLS
+from services.mcp.tools_area_write import AREA_WRITE_TOOLS
 from services.mcp.tools_weather import WEATHER_TOOLS
+from services.mcp.tools_hardware import HARDWARE_TOOLS
 
 logger = logging.getLogger(__name__)
 
@@ -72,17 +74,17 @@ async def my_production_areas() -> list[dict]:
 
 
 # 一期只恢复农业主链只读能力。后台运维、农户管理、产区写入、天气强刷和
-# 通知工具继续保持未注册，避免模型通过 MCP 修改业务数据或读取敏感运维信息。
+# 写工具仅开放管理员，并通过权限码限制数据修改范围。
 CORE_TOOLS: list[dict] = [
     {
-        "name": "weather_snapshot",
+        "name": "agri_weather_snapshot",
         "description": "查询指定产区的天气快照（实况、逐时和预报）。参数 area_id 为产区ID。",
         "handler": weather_snapshot,
         "audience": "both",
         "permission_code": "weather:view",
     },
     {
-        "name": "my_production_areas",
+        "name": "agri_my_production_areas",
         "description": "查询当前农户绑定的产区列表，返回每个产区的 id、name 和 code。",
         "handler": my_production_areas,
         "audience": "farmer",
@@ -90,4 +92,6 @@ CORE_TOOLS: list[dict] = [
     },
     *AREA_TOOLS,
     *WEATHER_TOOLS,
+    *AREA_WRITE_TOOLS,
+    *HARDWARE_TOOLS,
 ]

@@ -38,6 +38,34 @@ def _current_claims() -> dict:
     return token.claims
 
 
+def current_claims() -> dict:
+    """插件 MCP 工具使用当前已验证的调用者，不创建替代管理员身份。"""
+    return _current_claims()
+
+
+def positive_id(value: int, field: str) -> int:
+    """拒绝布尔值、非整数和非正数，避免直接内部调用绕过协议校验。"""
+    from services.mcp.errors import McpToolError
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        raise McpToolError("invalid_arguments", f"{field} 必须是正整数")
+    return value
+
+
+async def ensure_plot_access(plot_id: int) -> dict:
+    """先验证当前地块和产区，再应用农户绑定范围。"""
+    from core.hardware_device_service import get_plot_hardware_context
+    from services.mcp.errors import McpToolError
+    positive_id(plot_id, "plot_id")
+    plot = await get_plot_hardware_context(plot_id)
+    if not plot:
+        raise McpToolError("plot_not_found")
+    try:
+        await ensure_farmer_bound(current_claims(), plot["area_id"])
+    except ToolError as exc:
+        raise McpToolError("permission_denied", str(exc)) from None
+    return plot
+
+
 async def _farmer_area_bound(db, farmer_id: int, area_id: int) -> bool:
     """校验农户是否绑定了指定产区（绑定唯一来源: hy_area_farmer）"""
     row = (await db.execute(
@@ -55,11 +83,14 @@ async def ensure_farmer_bound(claims: dict, area_id: int):
     :param claims: 调用者身份 claims（含 user_type / user_id）
     :param area_id: 目标产区ID
     """
-    if claims.get("user_type") != "farmer":
+    from services.mcp.errors import McpToolError
+    if claims.get("user_type") == "admin":
         return
+    if claims.get("user_type") != "farmer":
+        raise McpToolError("permission_denied", "未获取到有效调用者身份")
     async with async_session_factory() as db:
         if not await _farmer_area_bound(db, claims["user_id"], area_id):
-            raise ToolError("您未绑定该产区，无权查询其数据")
+            raise McpToolError("permission_denied", "您未绑定该产区，无权查询其数据")
 
 
 async def admin_identity(claims: dict) -> tuple[int, str]:

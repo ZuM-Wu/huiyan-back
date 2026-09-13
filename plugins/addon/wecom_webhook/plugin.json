@@ -1,7 +1,7 @@
 {
   "name": "wecom_webhook",
   "title": "企业微信通知",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "企业微信群机器人管理员通知渠道，使用数据驱动模板卡片和动作级路由",
   "author": "HuiYan Team",
   "module": "addon",
@@ -19,6 +19,7 @@
   "tasks": ["wecom_notice"],
   "events": [],
   "health": {"check": "plugin.wecom_webhook"},
+  "database_schema": {"version": 1, "tables": [{"name": "hy_wecom_webhook_action", "columns": ["id", "action_key", "action_name", "action_type", "enabled", "webhook_url", "create_time", "update_time"], "indexes": [{"name": "PRIMARY", "columns": ["id"], "unique": true}, {"name": "uk_wecom_action_key", "columns": ["action_key"], "unique": true}]}, {"name": "hy_wecom_webhook_log", "columns": ["id", "action_key", "msgtype", "content", "status", "error_msg", "msg_id", "create_time"], "indexes": [{"name": "PRIMARY", "columns": ["id"], "unique": true}, {"name": "idx_action_key", "columns": ["action_key"], "unique": false}, {"name": "idx_create_time", "columns": ["create_time"], "unique": false}]}]},
   "config": {
     "wecom_webhook.webhook_url": "",
     "wecom_webhook.enabled": "0",

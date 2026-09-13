@@ -1,6 +1,7 @@
 """多来源设备镜像同步；外部失败与设备缺失严格区分。"""
 
 import asyncio
+from contextlib import asynccontextmanager
 
 from sqlalchemy import select
 
@@ -14,9 +15,16 @@ from core.platform.health import platform_health
 _sync_locks: dict[str, asyncio.Lock] = {}
 
 
+@asynccontextmanager
+async def hardware_discovery_guard(owner: str):
+    """串行化来源发现与设备删除；必须先于来源提交门禁获取，防止旧发现结果复活设备。"""
+    async with _sync_locks.setdefault(owner, asyncio.Lock()):
+        yield
+
+
 async def _sync_provider(owner: str) -> dict:
     """同一来源串行发现与提交，防止较旧列表晚返回覆盖较新列表。"""
-    async with _sync_locks.setdefault(owner, asyncio.Lock()):
+    async with hardware_discovery_guard(owner):
         connection = await hardware_provider_registry.connect(owner)
         devices = await connection.list_devices()
         async with connection.commit_guard():

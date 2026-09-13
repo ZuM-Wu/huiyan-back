@@ -2,11 +2,11 @@
 {% block title %}jjr物联网设备管理 - 慧眼护农{% endblock %}
 {% block head %}
 {{ super() }}
-<link rel="stylesheet" href="/static/css/hardware-device.css?v={{ config.app_version }}-iot-cards-2">
+<link rel="stylesheet" href="/static/css/hardware-device.css?v={{ config.app_version }}-hardware-delete-1">
 {% endblock %}
 {% block content %}
 <div id="page-app" v-cloak class="admin-list-page hardware-page"></div>
 {% endblock %}
 {% block scripts %}
-{% for src in plugin_page.scripts %}<script src="/plugin-assets/{{ plugin_name }}/{{ src }}?v={{ config.app_version }}-hardware-schedule-1" data-plugin-asset="{{ plugin_name }}"></script>{% endfor %}
+{% for src in plugin_page.scripts %}<script src="/plugin-assets/{{ plugin_name }}/{{ src }}?v={{ config.app_version }}-hardware-delete-1" data-plugin-asset="{{ plugin_name }}"></script>{% endfor %}
 {% endblock %}

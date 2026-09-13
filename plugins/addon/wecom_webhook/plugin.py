@@ -43,7 +43,7 @@ class Plugin(BasePlugin):
         super().__init__(db_session, config)
         self.name = PLUGIN_NAME
         self.title = "企业微信通知"
-        self.version = "1.0.1"
+        self.version = "1.0.2"
         self.description = "企业微信群机器人管理员通知渠道，使用数据驱动模板卡片和动作级路由"
         self.module = "addon"
         self._config_manager = ConfigManager()
@@ -247,3 +247,5 @@ class Plugin(BasePlugin):
             sql = f.read()
         if sql.strip():
             await self._exec_sql(sql)
+    async def repair_database(self, report: dict) -> dict | bool:
+        return await self._repair_from_install_sql()

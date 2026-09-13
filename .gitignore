@@ -17,6 +17,12 @@ venv/
 *.swp
 *.swo
 
+# 工具缓存目录
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.pytest-tmp/
+
 # OS
 .DS_Store
 Thumbs.db
@@ -44,3 +50,9 @@ runtime/
 # Database
 *.db
 *.sqlite3
+
+# 本地临时文件、模型权重与运行时插件包不进仓库
+tmp_*.txt
+*.zip
+*.pt
+/upload/yolo_model_manager/

@@ -56,7 +56,7 @@
                 </t-tag>
             </template>
             <template #operation="{ row }">
-                <t-button theme="primary" variant="text" size="small" @click="openPlots(row)">查看地块</t-button>
+                <t-button theme="primary" variant="text" @click="openPlots(row)">查看地块</t-button>
             </template>
         </t-table>
 
@@ -64,7 +64,7 @@
         <template v-else-if="level === 1">
             <t-card class="weather-card" :bordered="true" header-bordered title="产区天气" v-if="weatherData || weatherLoading">
                 <template #header>产区天气</template>
-                <t-loading v-if="weatherLoading" size="small" text="加载天气中..."></t-loading>
+                <t-loading v-if="weatherLoading" text="加载天气中..."></t-loading>
                 <template v-else-if="weatherData && weatherData.realtime">
                     <!-- 生效预警条 -->
                     <t-alert v-for="a in (weatherData.alerts || [])" :key="a.alert_id" theme="warning"
@@ -115,7 +115,7 @@
                     </t-tag>
                 </template>
                 <template #operation="{ row }">
-                    <t-button theme="primary" variant="text" size="small" @click="openBatches(row)">查看批次</t-button>
+                    <t-button theme="primary" variant="text" @click="openBatches(row)">查看批次</t-button>
                 </template>
             </t-table>
         </template>
@@ -128,16 +128,16 @@
                 <t-tag variant="light" :theme="batchTheme(row.status)">[[ batchLabel(row.status) ]]</t-tag>
             </template>
             <template #operation="{ row }">
-                <t-button theme="primary" variant="text" size="small" @click="openGdd(row)">积温</t-button>
+                <t-button theme="primary" variant="text" @click="openGdd(row)">积温</t-button>
             </template>
         </t-table>
     </t-card>
 
     <!-- 批次积温弹窗 -->
     <t-dialog v-model:visible="gddVisible" :header="'批次积温 - ' + gddBatchNo" :footer="false" width="480px">
-        <t-loading v-if="gddLoading" size="small" text="计算中..."></t-loading>
+        <t-loading v-if="gddLoading" text="计算中..."></t-loading>
         <template v-else-if="gddData">
-            <t-descriptions :column="1" bordered size="small">
+            <t-descriptions :column="1" bordered>
                 <t-descriptions-item label="起算日期">[[ gddData.start_date || '未设置定植日' ]]</t-descriptions-item>
                 <t-descriptions-item label="基点温度">[[ gddData.base_temp ]]℃</t-descriptions-item>
                 <t-descriptions-item label="活动积温">[[ gddData.active_gdd ]]℃·d</t-descriptions-item>

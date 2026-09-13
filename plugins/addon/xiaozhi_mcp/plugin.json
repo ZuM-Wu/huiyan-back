@@ -1,7 +1,7 @@
 {
   "name": "xiaozhi_mcp",
   "title": "小智 AI MCP",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "通过小智 AI WebSocket 接入点聚合插件专属自定义 MCP 工具",
   "author": "HuiYan Team",
   "module": "addon",
@@ -19,6 +19,7 @@
   "tasks": [],
   "events": [],
   "health": {"check": "plugin.xiaozhi_mcp"},
+  "database_schema": {"version": 1, "tables": [{"name": "hy_plugin_xiaozhi_mcp_server", "columns": ["id", "name", "url", "api_key", "config_json", "tools_cache", "status", "last_test_time", "last_test_status", "last_error", "create_time", "update_time"], "indexes": [{"name": "PRIMARY", "columns": ["id"], "unique": true}]}]},
   "config": {
     "xiaozhi_mcp.enabled": "0",
     "xiaozhi_mcp.endpoint_url": ""

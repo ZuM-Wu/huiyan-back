@@ -99,6 +99,8 @@ def _validate_manifest(plugin_id: str, data: object, manager: PluginManager) -> 
         raise ValueError("插件 manifest compatible_app_versions 必须是非空字符串数组")
     if not isinstance(data.get("health", {}), dict):
         raise ValueError("插件 manifest health 必须是对象")
+    from core.plugin_database_service import validate_database_schema
+    validate_database_schema(data.get("database_schema"))
     return data
 
 

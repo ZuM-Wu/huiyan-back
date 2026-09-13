@@ -101,7 +101,7 @@ async def upload_avatar(
     格式和大小限制从系统配置读取（与管理员端 upload.py 的图片限制一致）。
     """
     attachment = await save_uploaded_image(
-        file, source="farmer_avatar", directory="avatar", use_storage_url=False,
+        file, source="farmer_avatar", directory="avatar", use_storage_url=True,
     )
     relative_url = attachment["url"]
     logger.info("[农户头像] 农户 %s 上传头像: %s", request.state.user_id, relative_url)

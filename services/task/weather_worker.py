@@ -7,6 +7,7 @@
                           （max_instances=1 + coalesce + misfire 宽限，防堆积；
                           注册/重调后 60 秒内先跑首轮，不空等一个完整周期）
 - weather_daily_finalize: 每日 23:55 cron 任务，定格当日日均温
+- weather_daily_backfill: 每小时扫描并回补和风近十日逐日缺口
 - weather_clean:          每日 3:30 cron 任务，硬删过保留期的逐日历史/过期预警
                           （错开 3:00 系统日志清理与 23:55 日终定格）
 
@@ -38,6 +39,7 @@ PULL_TASK_NAME = "weather_pull"
 FINALIZE_TASK_NAME = "weather_daily_finalize"
 CLEAN_TASK_NAME = "weather_clean"
 ALERT_NOTIFY_TASK_NAME = "weather_alert_notify"
+BACKFILL_TASK_NAME = "weather_daily_backfill"
 
 # 作业级参数: 单实例 + 合并错过的执行 + 60 秒错过宽限（防拉取堆积）
 PULL_JOB_KWARGS = {"max_instances": 1, "coalesce": True, "misfire_grace_time": 60}
@@ -153,6 +155,22 @@ async def weather_alert_notify_job():
         await active_log(f"气象预警补推任务异常: {e}", log_type="weather_task")
         raise
 
+async def weather_daily_backfill_job():
+    """任务 success 表示执行完成；业务失败单独记明细，不能伪装为全部补齐。"""
+    from core.weather_service import weather_service
+    stats = await weather_service.backfill_recent_daily()
+    summary = (f"天气历史回补执行完成: 产区{stats['total']}个, 补齐{stats['filled']}天, "
+               f"失败{stats['failed']}, 跳过{stats['skipped']}")
+    await active_log(summary, log_type="weather_task")
+    error_items = stats.get("errors", [])
+    for item in error_items:
+        detail = (f"天气历史回补{item['status']}: 产区{item['area_id']} "
+                  f"日期{item['date'] or '-'} 来源{item['source'] or '未配置'}: {item['reason']}")
+        logger.warning(detail)
+        await active_log(detail, log_type="weather_task")
+    logger.info(summary)
+    return stats
+
 
 async def _enqueue_weather_pull():
     """周期任务入队: 天气全量拉取由队列 Worker 执行"""
@@ -176,6 +194,10 @@ async def _enqueue_weather_alert_notify():
     """周期任务入队: 气象预警通知补推由队列 Worker 执行"""
     from services.task.queue_worker import submit_task
     await submit_task("weather_alert_notify", {}, description="气象预警通知补推")
+
+async def _enqueue_weather_daily_backfill():
+    from services.task.queue_worker import submit_task
+    await submit_task(BACKFILL_TASK_NAME, {}, description="天气历史自动回补")
 
 
 async def register_weather_tasks():
@@ -231,6 +253,13 @@ async def register_weather_tasks():
             description="气象预警通知补推", task_type="weather",
             emit_after_run=False,
         )
+    if not task_manager.scheduler.get_job(BACKFILL_TASK_NAME):
+        task_manager.register_task(
+            BACKFILL_TASK_NAME, _enqueue_weather_daily_backfill, "interval",
+            job_kwargs={"max_instances": 1, "coalesce": True, "misfire_grace_time": 300},
+            first_run_delay=180, minutes=60, description="天气历史自动回补",
+            task_type="weather", emit_after_run=False,
+        )
 
 
 async def apply_weather_schedule():
@@ -274,3 +303,5 @@ async def apply_weather_schedule():
             log_type="weather_task",
         )
     logger.info(f"[天气Worker] 调度已应用（每 {settings['interval_minutes']} 分钟）")
+
+

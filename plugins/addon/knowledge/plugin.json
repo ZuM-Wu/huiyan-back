@@ -1,7 +1,7 @@
 {
   "name": "knowledge",
   "title": "农业知识库",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "农业知识库插件：管理员维护二级分类与知识条目（发生原因/解决方案/典型图片），农户在农户端浏览并提交勘误",
   "author": "HuiYan Team",
   "module": "addon",
@@ -23,6 +23,7 @@
   "tasks": [],
   "events": [],
   "health": {"check": "plugin.knowledge"},
+  "database_schema": {"version": 1, "tables": [{"name": "hy_plugin_knowledge_category", "columns": ["id", "parent_id", "name", "sort_order", "status", "create_time", "update_time"], "indexes": [{"name": "PRIMARY", "columns": ["id"], "unique": true}, {"name": "idx_parent", "columns": ["parent_id"], "unique": false}]}, {"name": "hy_plugin_knowledge_entry", "columns": ["id", "title", "category_id", "crop", "summary", "cause", "solution", "images", "view_count", "sort_order", "admin_id", "create_time", "update_time"], "indexes": [{"name": "PRIMARY", "columns": ["id"], "unique": true}, {"name": "idx_category", "columns": ["category_id"], "unique": false}]}, {"name": "hy_plugin_knowledge_correction", "columns": ["id", "knowledge_id", "farmer_id", "content", "status", "admin_note", "admin_id", "create_time", "handle_time"], "indexes": [{"name": "PRIMARY", "columns": ["id"], "unique": true}, {"name": "idx_knowledge", "columns": ["knowledge_id"], "unique": false}, {"name": "idx_status", "columns": ["status"], "unique": false}]}]},
   "config": {
     "knowledge.allow_correction": "1",
     "knowledge.list_page_size": "10"

@@ -8,7 +8,7 @@
 (function () {
     'use strict';
 
-    const { ref, reactive, onMounted, watch, computed } = Vue;
+    const { ref, reactive, onMounted, watch } = Vue;
     const { MessagePlugin, DialogPlugin } = TDesign;
 
     HuiYan.createPage({
@@ -117,35 +117,14 @@
                 { key: 'permission', title: '权限/菜单缓存', desc: '清除权限节点与菜单树缓存', endpoint: '/cache/clear_permission', theme: 'primary' }
             ];
 
-            // ========== Tab 4: 存储设置 ==========
-            const storageLoading = ref(false);
-            const storageList = ref([]);
-            const currentStorageMethod = ref('');
-            const storageMethod = ref('');
-            const testingConnection = ref(false);
-            const switchDialogVisible = ref(false);
-            const switchTargetMethod = ref('');
-            const switchTargetName = ref('');
-            const switchPassword = ref('');
-            const switching = ref(false);
-            const storageColumns = [
-                { colKey: 'title', title: '插件名称', minWidth: 120 },
-                { colKey: 'author', title: '开发者', minWidth: 100 },
-                { colKey: 'version', title: '版本', width: 100 },
-                { colKey: 'status', title: '状态', width: 100, cell: 'status' },
-                { colKey: 'has_data', title: '是否存在数据', width: 120, cell: 'has_data' },
-                { colKey: 'is_current', title: '当前使用', width: 100, cell: 'is_current' },
-                { colKey: 'op', title: '操作', width: 120, cell: 'op', fixed: 'right' },
-            ];
-            const storageMethodOptions = computed(() => {
-                return storageList.value
-                    .filter(item => item.status === 1)
-                    .map(item => ({ label: item.title, value: item.name }));
-            });
-            const currentStorageMethodLabel = computed(() => {
-                const found = storageList.value.find(item => item.name === currentStorageMethod.value);
-                return found ? found.title : currentStorageMethod.value;
-            });
+            const storageSettings = window.HuiYanStorageSettings.create({ request, message: MessagePlugin });
+            const {
+                storageLoading, storageList, currentStorageMethodLabel, storageMethod, storageMethodOptions,
+                installingStoragePlugin, storageColumns, testingConnection, testConnection, switchDialogVisible,
+                switchTargetName, switchPassword, switching, openSwitchDialog, openSwitchDialogFromSelect,
+                confirmSwitch, installStoragePlugin, storageManager, openStorageConfig, openStorageFiles,
+                migratingStoragePlugin, openStorageMigration, fetchStorageList,
+            } = storageSettings;
 
             // ========== 数据获取 ==========
 
@@ -338,68 +317,6 @@
                 fetchStorageList();
             });
 
-            // ========== Tab 4: 存储设置方法 ==========
-            const fetchStorageList = () => {
-                storageLoading.value = true;
-                return request.get('/oss/list').then(res => {
-                    // OSS 接口遵循统一响应信封，列表载荷位于 response.data.data
-                    const data = (res.data && res.data.data) || res.data || res;
-                    currentStorageMethod.value = data.current_method || 'local_oss';
-                    storageMethod.value = currentStorageMethod.value;
-                    storageList.value = (data.list || []).map(item => ({
-                        ...item,
-                        is_current: item.name === currentStorageMethod.value
-                    }));
-                }).catch(() => {}).finally(() => { storageLoading.value = false; });
-            };
-
-            const testConnection = () => {
-                testingConnection.value = true;
-                request.post('/oss/test').then(res => {
-                    const data = (res.data && res.data.data) || res.data || res;
-                    if (data.status === 200 || data.success === true) {
-                        MessagePlugin.success('连接成功：' + (data.msg || data.message || ''));
-                    } else {
-                        MessagePlugin.error('连接失败：' + (data.msg || data.message || '未知错误'));
-                    }
-                }).catch(() => {}).finally(() => { testingConnection.value = false; });
-            };
-
-            const openSwitchDialog = (row) => {
-                switchTargetMethod.value = row.name;
-                switchTargetName.value = row.title;
-                switchPassword.value = '';
-                switchDialogVisible.value = true;
-            };
-
-            const openSwitchDialogFromSelect = () => {
-                if (storageMethod.value === currentStorageMethod.value) {
-                    MessagePlugin.info('存储方式未变更');
-                    return;
-                }
-                const target = storageList.value.find(item => item.name === storageMethod.value);
-                switchTargetMethod.value = storageMethod.value;
-                switchTargetName.value = target ? target.title : storageMethod.value;
-                switchPassword.value = '';
-                switchDialogVisible.value = true;
-            };
-
-            const confirmSwitch = () => {
-                if (!switchPassword.value) {
-                    MessagePlugin.warning('请输入管理员密码');
-                    return;
-                }
-                switching.value = true;
-                request.put('/oss/switch', {
-                    oss_method: switchTargetMethod.value,
-                    password: switchPassword.value
-                }).then(() => {
-                    MessagePlugin.success('存储方式已切换');
-                    switchDialogVisible.value = false;
-                    fetchStorageList();
-                }).catch(() => {}).finally(() => { switching.value = false; });
-            };
-
             return {
                 activeTab, accessSubTab, saving,
                 // Tab 1
@@ -413,10 +330,13 @@
                 clearing, cacheActions, doClear,
                 // Tab 5 - 存储设置
                 storageLoading, storageList, currentStorageMethodLabel,
-                storageMethod, storageMethodOptions,
+                storageMethod, storageMethodOptions, installingStoragePlugin,
                 storageColumns, testingConnection, testConnection,
                 switchDialogVisible, switchTargetName, switchPassword,
-                switching, openSwitchDialog, openSwitchDialogFromSelect, confirmSwitch
+                switching, openSwitchDialog, openSwitchDialogFromSelect, confirmSwitch,
+                installStoragePlugin,
+                storageManager, openStorageConfig, openStorageFiles
+                , migratingStoragePlugin, openStorageMigration
             };
         }
     });

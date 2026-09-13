@@ -22,8 +22,28 @@ except ImportError:  # 兼容旧版 FastMCP
 from services.mcp.auth import ApiKeyVerifier
 from services.mcp.middleware import PermissionFilterMiddleware
 
+
+class McpPathMiddleware:
+    """内部归一化 MCP 尾斜杠，保留原 Authorization，避免客户端重定向丢头。"""
+
+    def __init__(self, app, mount_path: str):
+        self.app = app
+        self.mount_path = mount_path.rstrip("/")
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http" and scope.get("path") == self.mount_path:
+            scope = dict(scope)
+            scope["path"] = self.mount_path + "/"
+            scope["raw_path"] = scope["path"].encode("utf-8")
+        await self.app(scope, receive, send)
+
 # FastMCP 单例：所有工具注册/注销均作用于该实例
-mcp = FastMCP("慧眼护农MCP", auth=ApiKeyVerifier())
+mcp = FastMCP(
+    "慧眼护农MCP",
+    version="3.4.0",
+    instructions="系统 MCP 能力版本 3.4.0：农业、硬件及启用插件。全局精简：最多64工具，8000估算Tokens，描述120字符，单次工具结果1024字节。truncated表示省略；确认工具须用户确认后传confirmed=true。",
+    auth=ApiKeyVerifier(),
+)
 mcp.add_middleware(PermissionFilterMiddleware())
 
 

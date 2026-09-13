@@ -89,11 +89,9 @@
                     row-key="id" hover @page-change="onPageChange">
                     <template #category_id="{ row }">[[ categoryName(row.category_id) ]]</template>
                     <template #actions="{ row }">
-                        <t-button v-permission="'knowledge:update'" theme="primary" variant="text"
-                            size="small" @click="openEntryEdit(row)">编辑</t-button>
+                        <t-button v-permission="'knowledge:update'" theme="primary" variant="text" @click="openEntryEdit(row)">编辑</t-button>
                         <t-popconfirm content="确认删除该知识条目？" @confirm="removeEntry(row)">
-                            <t-button v-permission="'knowledge:delete'" theme="danger" variant="text"
-                                size="small">删除</t-button>
+                            <t-button v-permission="'knowledge:delete'" theme="danger" variant="text">删除</t-button>
                         </t-popconfirm>
                     </template>
                 </t-table>

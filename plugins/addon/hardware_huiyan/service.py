@@ -6,6 +6,8 @@ from fastapi import HTTPException
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from core.db.base import async_session_factory
+from core.hardware_management import delete_hardware_mirror
+from core.hardware_sync import hardware_discovery_guard
 from core.hardware_provider import hardware_provider_registry
 from core.time_utils import china_now, CHINA_TIMEZONE
 from core.hardware_types import HardwareMetric
@@ -102,3 +104,26 @@ async def read_device_realtime(device_id: str) -> dict:
     """公开查询直接读取最近上报数据，不经过后台的周期采集快照。"""
     row = await read_registered_device(device_id)
     return {"device_id": device_id, "identifiers": row["metadata"].get("identifiers", []), "last_seen": row["last_seen"]}
+
+
+async def delete_registered_device(device_id: str) -> dict:
+    """删除注册和镜像必须原子提交；与同步串行，避免删除前的发现结果晚到重建镜像。"""
+    async with hardware_discovery_guard("hardware_huiyan"):
+        connection = await hardware_provider_registry.connect("hardware_huiyan")
+        async with connection.commit_guard(), async_session_factory() as db, db.begin():
+            # 插件自行检查私有表，不让平台公共门面依赖插件表名。
+            engine = await db.scalar(text(
+                "SELECT ENGINE FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() "
+                "AND TABLE_NAME='hy_huiyan_iot_device'"
+            ))
+            if not engine or engine.lower() != "innodb":
+                raise HTTPException(409, "设备数据表不支持安全事务删除，请先停机备份并转换为 InnoDB")
+            row = (await db.execute(text(
+                "SELECT device_id FROM hy_huiyan_iot_device WHERE device_id=:device_id FOR UPDATE"
+            ), {"device_id": device_id})).first()
+            if row is None:
+                raise HTTPException(404, "设备不存在")
+            await delete_hardware_mirror(db, "hardware_huiyan", device_id)
+            await db.execute(text("DELETE FROM hy_huiyan_iot_device WHERE device_id=:device_id"),
+                             {"device_id": device_id})
+    return {"device_id": device_id, "deleted": True}

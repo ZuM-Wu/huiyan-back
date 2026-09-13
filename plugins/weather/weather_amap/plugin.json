@@ -1,7 +1,7 @@
 {
   "name": "weather_amap",
   "title": "高德气象",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "高德开放平台气象数据源，提供区县级实况与3~4天逐日预报（无逐时/无预警）",
   "author": "HuiYan Team",
   "module": "weather",
@@ -19,6 +19,7 @@
   "tasks": [],
   "events": [],
   "health": {"check": "plugin.weather_amap"},
+  "database_schema": {"version": 1, "tables": []},
   "config": {
     "weather_amap.key": ""
   }

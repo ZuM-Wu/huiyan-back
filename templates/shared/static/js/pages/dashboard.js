@@ -169,6 +169,24 @@
                 return '--';
             };
 
+            /* 列表类型标签使用语义主题：仅改变首页展示，不修改挂件返回数据。 */
+            const logTagTheme = function (widget, log) {
+                const widgetName = widget && widget.name;
+                const logType = String((log && log.type) || '').trim();
+                if (widgetName === 'policy_news_latest') {
+                    if (logType === '广西农业农村厅') return 'success';
+                    if (logType === '农业农村部') return 'primary';
+                    return 'default';
+                }
+                if (widgetName === 'knowledge_recent_records' && logType === '知识') {
+                    return 'primary';
+                }
+                if (widgetName === 'yolo_recent_records' && logType === '识别') {
+                    return 'primary';
+                }
+                return 'default';
+            };
+
             /* ================================================================
              * 为 stat_card 类型挂件补充 sub 字段（当前无内置 stat_card 挂件，预留钩子）
              * ================================================================ */
@@ -183,6 +201,15 @@
             /* ================================================================
              * 待办事项 todo 挂件 — 点击磁贴直达对应管理页（SPA 局部加载优先）
              * ================================================================ */
+
+            const goWidgetLog = function (item) {
+                if (!item || !item.url) return;
+                if (window.HuiYan && typeof HuiYan.loadPage === 'function') {
+                    HuiYan.loadPage(item.url);
+                } else {
+                    window.location.href = item.url;
+                }
+            };
 
             const goTodo = function (item) {
                 if (!item || !item.url) return;
@@ -339,7 +366,9 @@
                 showWidgets,
                 onToggle,
                 formatStatValue,
-                goTodo
+                logTagTheme,
+                goTodo,
+                goWidgetLog
             };
         }
     });

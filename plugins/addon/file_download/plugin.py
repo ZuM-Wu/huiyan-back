@@ -67,7 +67,7 @@ class Plugin(BasePlugin):
         super().__init__(db_session, config)
         self.name = PLUGIN_NAME
         self.title = "文件下载"
-        self.version = "1.0.1"
+        self.version = "1.0.2"
         self.description = "管理员分文件夹上传文件并控制可见范围，农户在农户端浏览下载"
         self.module = "addon"
         self._config_manager = ConfigManager()
@@ -236,3 +236,5 @@ class Plugin(BasePlugin):
                     item.unlink()
                 except OSError:
                     logger.warning("[file_download] 物理文件删除失败: %s", item)
+    async def repair_database(self, report: dict) -> dict | bool:
+        return await self._repair_from_install_sql()

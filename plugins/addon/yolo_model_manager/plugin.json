@@ -1,7 +1,7 @@
 {
   "name": "yolo_model_manager",
   "title": "智能识别",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "执行生长记录仪快捷检测，查询识别记录并管理 YOLO 模型与地块绑定",
   "author": "HuiYan Team",
   "module": "addon",
@@ -9,11 +9,23 @@
   "surface": "admin",
   "enabled": true,
   "default_order": 110,
-  "compatible_app_versions": [">=3.4.0"],
+  "compatible_app_versions": [
+    ">=3.4.0"
+  ],
   "dependencies": [],
   "conflicts": [],
-  "permissions": ["yolo_model_manager:list", "yolo_model_manager:record:create", "yolo_model_manager:detect", "yolo_model_manager:analysis"],
-  "capabilities": ["yolo_model.manage", "yolo.recognition.record", "yolo.recognition.detect", "yolo.recognition.analysis"],
+  "permissions": [
+    "yolo_model_manager:list",
+    "yolo_model_manager:record:create",
+    "yolo_model_manager:detect",
+    "yolo_model_manager:analysis"
+  ],
+  "capabilities": [
+    "yolo_model.manage",
+    "yolo.recognition.record",
+    "yolo.recognition.detect",
+    "yolo.recognition.analysis"
+  ],
   "pages": [
     {
       "page_key": "plugin_yolo_model_manager",
@@ -21,16 +33,27 @@
       "route": "/admin/plugin/yolo_model_manager/yolo_model_manager",
       "template": "yolo_model_manager.html",
       "permission": "yolo_model_manager:list",
-      "styles": ["yolo_model_manager.css"],
-      "scripts": ["yolo_model_manager.js"]
+      "styles": [
+        "yolo_model_manager.css"
+      ],
+      "scripts": [
+        "yolo_model_manager_helpers.js",
+        "yolo_model_manager.js"
+      ]
     }
   ],
   "resources": [
     "static/yolo_model_manager.css",
-    "static/yolo_model_manager.js"
+    "static/yolo_model_manager.js",
+    "static/yolo_model_manager_helpers.js"
   ],
-  "tasks": ["yolo_recognition_detect"],
+  "tasks": [
+    "yolo_recognition_detect"
+  ],
   "events": [],
-  "health": {"check": "plugin.yolo_model_manager"},
+  "health": {
+    "check": "plugin.yolo_model_manager"
+  },
+  "database_schema": {"version": 1, "tables": [{"name": "hy_plugin_yolo_model_manager_model", "columns": ["id", "name", "version", "description", "default_confidence", "filename", "origin_name", "file_format", "file_size", "sha256", "labels", "admin_id", "create_time", "update_time"], "indexes": [{"name": "PRIMARY", "columns": ["id"], "unique": true}, {"name": "idx_yolo_model_format", "columns": ["file_format"], "unique": false}, {"name": "idx_yolo_model_create_time", "columns": ["create_time"], "unique": false}]}, {"name": "hy_plugin_yolo_model_manager_binding", "columns": ["id", "model_id", "plot_id", "admin_id", "create_time", "update_time"], "indexes": [{"name": "PRIMARY", "columns": ["id"], "unique": true}, {"name": "uk_yolo_model_manager_plot", "columns": ["plot_id"], "unique": true}, {"name": "idx_yolo_model_manager_model", "columns": ["model_id"], "unique": false}]}, {"name": "hy_plugin_yolo_model_manager_recognition", "columns": ["id", "area_id", "area_name", "plot_id", "plot_name", "model_id", "model_name", "model_version", "task_id", "source_device_id", "image_identifier", "image_url", "annotated_image_url", "image_width", "image_height", "detections", "detection_count", "max_confidence", "recognized_at", "admin_id", "create_time"], "indexes": [{"name": "PRIMARY", "columns": ["id"], "unique": true}, {"name": "uk_yolo_recognition_task", "columns": ["task_id"], "unique": true}, {"name": "idx_yolo_recognition_plot_time", "columns": ["plot_id", "recognized_at"], "unique": false}, {"name": "idx_yolo_recognition_model_time", "columns": ["model_id", "recognized_at"], "unique": false}, {"name": "idx_yolo_recognition_device_time", "columns": ["source_device_id", "recognized_at"], "unique": false}, {"name": "idx_yolo_recognition_time", "columns": ["recognized_at"], "unique": false}]}]},
   "config": {}
 }

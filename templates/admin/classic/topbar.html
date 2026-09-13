@@ -5,5 +5,14 @@
             <t-icon name="view-list"/>
         </t-button>
     </div>
-    <div class="topbar-right"></div>
+    <div class="topbar-right">
+        <div v-if="migrationVisible" class="topbar-migration" :class="'topbar-migration--' + migrationProgressStatus">
+            <div class="topbar-migration__label">
+                <span>[[ migrationPhaseLabel ]]</span>
+                <span v-if="migrationJob">[[ migrationJob.processed_files || 0 ]] / [[ migrationJob.total_files || 0 ]] 个文件</span>
+            </div>
+            <t-progress class="topbar-migration__progress" :percentage="migrationPercent"
+                :status="migrationProgressStatus" />
+        </div>
+    </div>
 </header>

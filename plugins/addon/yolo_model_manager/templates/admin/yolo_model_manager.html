@@ -67,7 +67,7 @@
                             <span>[[ formatConfidence(row.max_confidence) ]]</span>
                         </template>
                         <template #record_actions="{ row }">
-                            <t-button variant="text" theme="primary" size="small"
+                            <t-button variant="text" theme="primary"
                                 @click="openRecordDetail(row)">详情</t-button>
                         </template>
                         <template #empty>
@@ -115,7 +115,7 @@
                             <div class="ymm-model-name">
                                 <div class="ymm-model-heading">
                                     <span class="ymm-primary-text">[[ row.name ]]</span>
-                                    <t-tag v-if="row.version" theme="default" variant="light" size="small">
+                                    <t-tag v-if="row.version" theme="default" variant="light">
                                         [[ row.version ]]
                                     </t-tag>
                                 </div>
@@ -158,15 +158,15 @@
                             <span>[[ formatConfidence(row.default_confidence) ]]</span>
                         </template>
                         <template #actions="{ row }">
-                            <t-space size="small" class="ymm-actions">
+                            <t-space class="ymm-actions">
                                 <t-button v-permission="'yolo_model_manager:bind'" variant="text"
-                                    theme="primary" size="small" @click="openBindings(row)">绑定</t-button>
+                                    theme="primary" @click="openBindings(row)">绑定</t-button>
                                 <t-button v-permission="'yolo_model_manager:update'" variant="text"
-                                    theme="default" size="small" @click="openEdit(row)">编辑</t-button>
+                                    theme="default" @click="openEdit(row)">编辑</t-button>
                                 <t-button v-permission="'yolo_model_manager:download'" variant="text"
-                                    theme="default" size="small" @click="downloadModel(row)">下载</t-button>
+                                    theme="default" @click="downloadModel(row)">下载</t-button>
                                 <t-button v-permission="'yolo_model_manager:delete'" variant="text"
-                                    theme="danger" size="small" @click="confirmDelete(row)">删除</t-button>
+                                    theme="danger" @click="confirmDelete(row)">删除</t-button>
                             </t-space>
                         </template>
                         <template #empty>
@@ -189,7 +189,7 @@
                     <t-icon name="image"></t-icon>
                     <span>暂无标注图</span>
                 </div>
-                <t-descriptions :column="2" bordered size="small" class="ymm-record-detail-meta">
+                <t-descriptions :column="2" bordered class="ymm-record-detail-meta">
                     <t-descriptions-item label="地块">
                         [[ recordDetail.area_name ]] / [[ recordDetail.plot_name ]]
                     </t-descriptions-item>
@@ -206,7 +206,7 @@
                 <section class="ymm-record-detail-section">
                     <h3 class="ymm-record-detail-section-title">目标明细</h3>
                     <t-table :data="recordDetailDetections" :columns="detectionColumns"
-                        row-key="row_key" size="small" hover table-layout="fixed">
+                        row-key="row_key" hover table-layout="fixed">
                         <template #detection_confidence="{ row }">
                             [[ formatConfidence(row.confidence) ]]
                         </template>

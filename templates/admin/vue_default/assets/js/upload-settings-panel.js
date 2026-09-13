@@ -29,9 +29,9 @@
                                     <div class="upload-policy-title">
                                         [[ policy.label ]]
                                         <t-tag v-if="policy.plugin_status === 1" theme="success"
-                                            variant="light" size="small">已启用</t-tag>
+                                            variant="light">已启用</t-tag>
                                         <t-tag v-else-if="policy.owner !== 'core'" theme="default"
-                                            variant="light" size="small">未启用</t-tag>
+                                            variant="light">未启用</t-tag>
                                     </div>
                                     <div class="upload-policy-desc">[[ policy.description ]]</div>
                                 </div>

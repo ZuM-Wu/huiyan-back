@@ -11,7 +11,7 @@ from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from control_center.auth import ALLOWED_ORIGINS, LocalSessionManager
 from control_center.log_store import ControlLog
@@ -30,7 +30,23 @@ class BootstrapBody(BaseModel):
     token: str
 
 
-def create_app(shutdown_callback: Callable[[], None] | None = None) -> FastAPI:  # noqa: C901
+class BatchApplyBody(BaseModel):
+    """按 operation_id 精确选择控制中心要应用的计划。"""
+
+    operation_ids: list[str] = Field(..., min_length=1)
+
+
+def _runtime_error(status: int, exc: RuntimeError) -> HTTPException:
+    """把控制中心已知运行态冲突转换为稳定业务错误码。"""
+    message = str(exc)
+    if "8000 端口" in message or "127.0.0.1:8000 正在监听" in message:
+        detail = {"code": "backend_running", "message": message}
+    else:
+        detail = message
+    return HTTPException(status_code=status, detail=detail)
+
+
+def create_app(shutdown_callback: Callable[[], None] | None = None) -> FastAPI:  # noqa: C901, PLR0915
     """创建与业务后端相互独立的本机控制应用。"""
     log = ControlLog(RUNTIME_DIR)
     auth = LocalSessionManager(RUNTIME_DIR)
@@ -102,7 +118,7 @@ def create_app(shutdown_callback: Callable[[], None] | None = None) -> FastAPI: 
         except ValueError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         except RuntimeError as exc:
-            raise HTTPException(status_code=409, detail=str(exc)) from exc
+            raise _runtime_error(409, exc) from exc
         return job.public()
 
     @app.post("/api/plugin-updates/apply-all", status_code=202)
@@ -111,6 +127,18 @@ def create_app(shutdown_callback: Callable[[], None] | None = None) -> FastAPI: 
         try:
             return service.submit_update(apply_all=True).public()
         except (ValueError, RuntimeError) as exc:
+            if isinstance(exc, RuntimeError):
+                raise _runtime_error(409, exc) from exc
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    @app.post("/api/plugin-updates/apply-batch", status_code=202)
+    async def apply_batch_updates(body: BatchApplyBody, request: Request):
+        auth.require(request, write=True)
+        try:
+            return service.submit_update_many(body.operation_ids).public()
+        except (ValueError, RuntimeError) as exc:
+            if isinstance(exc, RuntimeError):
+                raise _runtime_error(409, exc) from exc
             raise HTTPException(status_code=409, detail=str(exc)) from exc
 
     @app.post("/api/plugin-updates/{operation_id}/apply", status_code=202)
@@ -119,6 +147,8 @@ def create_app(shutdown_callback: Callable[[], None] | None = None) -> FastAPI: 
         try:
             return service.submit_update(operation_id=operation_id).public()
         except (ValueError, RuntimeError) as exc:
+            if isinstance(exc, RuntimeError):
+                raise _runtime_error(409, exc) from exc
             raise HTTPException(status_code=409, detail=str(exc)) from exc
 
     @app.get("/api/operations/{job_id}")

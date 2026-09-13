@@ -26,12 +26,12 @@
                     </template>
                     <template #actions="{ row }">
                         <t-space>
-                            <t-button v-permission="'admin:update'" theme="primary" variant="text" size="small" @click="openEdit(row)">编辑</t-button>
+                            <t-button v-permission="'admin:update'" theme="primary" variant="text" @click="openEdit(row)">编辑</t-button>
                             <t-button v-permission="'admin:status'" :theme="row.status === 1 ? 'warning' : 'success'"
-                                variant="text" size="small" @click="toggleStatus(row)">
+                                variant="text" @click="toggleStatus(row)">
                                 [[ row.status === 1 ? '禁用' : '启用' ]]
                             </t-button>
-                            <t-button v-permission="'admin:delete'" theme="danger" variant="text" size="small" @click="confirmDelete(row)">删除</t-button>
+                            <t-button v-permission="'admin:delete'" theme="danger" variant="text" @click="confirmDelete(row)">删除</t-button>
                         </t-space>
                     </template>
                 </t-table>
@@ -55,8 +55,8 @@
                     </template>
                     <template #actions="{ row }">
                         <t-space>
-                            <t-button v-permission="'role:update'" theme="primary" variant="text" size="small" @click="openRoleEdit(row)">编辑</t-button>
-                            <t-button v-if="row.is_system !== 1" v-permission="'role:delete'" theme="danger" variant="text" size="small" @click="confirmRoleDelete(row)">删除</t-button>
+                            <t-button v-permission="'role:update'" theme="primary" variant="text" @click="openRoleEdit(row)">编辑</t-button>
+                            <t-button v-if="row.is_system !== 1" v-permission="'role:delete'" theme="danger" variant="text" @click="confirmRoleDelete(row)">删除</t-button>
                         </t-space>
                     </template>
                 </t-table>

@@ -20,6 +20,8 @@ def plan_to_dict(row) -> dict:
         "applied_at": row.applied_at.isoformat() if row.applied_at else None,
         "error_reason": row.error_reason or "", "identity": row.identity or "system",
         "confirmed_by": row.confirmed_by or "", "task_id": row.task_id,
+        "operation_type": getattr(row, "operation_type", "upgrade") or "upgrade",
+        "diagnostics_json": getattr(row, "diagnostics_json", "{}") or "{}",
     }
 
 
@@ -59,6 +61,8 @@ async def persist_plan(plan: dict) -> bool:
             "applied_at": datetime.fromisoformat(plan["applied_at"]) if plan.get("applied_at") else None,
             "error_reason": str(plan.get("error_reason") or ""), "identity": str(plan.get("identity") or "system"),
             "confirmed_by": str(plan.get("confirmed_by") or ""), "task_id": plan.get("task_id"),
+            "operation_type": str(plan.get("operation_type") or "upgrade"),
+            "diagnostics_json": str(plan.get("diagnostics_json") or "{}"),
         }
         async with async_session_factory() as db:
             row = (await db.execute(select(PluginUpdatePlanModel).where(
