@@ -39,12 +39,12 @@ _MASKED_SECRET = "********"
 
 
 def _mask_config(config: dict, schema: list[dict]) -> dict:
-    """按插件 Schema 脱敏配置，不把凭据返回给浏览器。"""
-    sensitive = {
-        str(item.get("key")) for item in schema if item.get("sensitive")
+    """仅按密码字段类型脱敏配置，普通字段保留实际值。"""
+    password_fields = {
+        str(item.get("key")) for item in schema if item.get("type") == "password"
     }
     return {
-        key: (_MASKED_SECRET if key in sensitive and value else value)
+        key: (_MASKED_SECRET if key in password_fields and value else value)
         for key, value in config.items()
     }
 
@@ -441,8 +441,8 @@ async def save_plugin_config(
             raise HTTPException(status_code=422, detail=f"包含不允许修改的配置字段: {', '.join(unknown)}")
     for key, value in data.config.items():
         field = schema_map.get(key, {})
-        if field.get("sensitive") and str(value or "").strip() in {"", _MASKED_SECRET, "******"}:
-            # 空值或脱敏占位符表示保留已经保存的凭据。
+        if field.get("type") == "password" and str(value or "").strip() in {"", _MASKED_SECRET, "******"}:
+            # 密码字段的空值或脱敏占位符表示保留已经保存的凭据；普通字段允许清空。
             continue
         full_key = f"{name}.{key}"
         await set_config(full_key, str(value))

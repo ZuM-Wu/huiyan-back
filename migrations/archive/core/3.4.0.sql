@@ -1,5 +1,5 @@
 -- ============================================
--- 慧眼护农 核心表初始建表 SQL
+-- 慧眼护农 3.4.0 核心表初始建表 SQL
 -- 版本: 3.4.0
 -- 对标 ZJMF: plugin/plugin_hook/configuration/admin/client/auth/system_log
 -- ============================================
@@ -157,16 +157,14 @@ CREATE TABLE IF NOT EXISTS `hy_menu` (
 INSERT IGNORE INTO `hy_plugin` (`name`, `title`, `version`, `module`, `status`) VALUES
 ('system', '系统核心', '3.4.0', 'addon', 1);
 
--- 超级管理员由应用运行时种子逻辑创建（初始密码通过 .env 的 ADMIN_INIT_PASSWORD 配置），归档不再内嵌任何凭据。
+-- 超级管理员由应用首次启动时读取 ADMIN_INIT_PASSWORD 创建；发布归档不内置账号密码。
 
 -- 管理员角色
 INSERT IGNORE INTO `hy_admin_role` (`id`, `name`, `description`, `is_system`) VALUES
 (1, '超级管理员', '系统内置超级管理员，拥有所有权限', 1),
 (2, '运营管理员', '日常运营管理角色', 1);
 
--- 管理员-角色绑定
-INSERT IGNORE INTO `hy_admin_role_link` (`admin_id`, `role_id`) VALUES
-(1, 1);
+-- 管理员-角色绑定由应用种子流程在管理员创建后写入。
 
 -- 系统默认配置（对标 ZJMF 预设配置）
 INSERT IGNORE INTO `hy_configuration` (`key`, `value`, `description`) VALUES

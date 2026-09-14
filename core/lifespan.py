@@ -143,7 +143,7 @@ def _register_core_notice_hooks(degraded: list[str]):
         degraded.append("notice_hooks")
 
 
-async def startup(app):  # noqa: PLR0915  12步启动流程语句数超限，属固有结构
+async def startup(app):  # noqa: C901, PLR0912, PLR0915  12步启动流程属固有结构
     """
     12步启动流程
 
@@ -162,7 +162,7 @@ async def startup(app):  # noqa: PLR0915  12步启动流程语句数超限，属
     12. 输出启动摘要日志
     """
     logger.info("=" * 60)
-    logger.info("  慧眼护农 3.4.0 启动中...")
+    logger.info("  慧眼护农 3.4.1 启动中...")
     logger.info("=" * 60)
 
     # 降级组件追踪列表：各启动步骤 except 时追加组件名，启动结束后挂载到 app.state
@@ -249,9 +249,32 @@ async def startup(app):  # noqa: PLR0915  12步启动流程语句数超限，属
             if s == 2:
                 router_manager.mark_disabled(n)
 
-        # 过滤：只加载在文件系统中实际存在的已启用插件
+        # 过滤：只加载文件存在且兼容当前应用版本的已启用插件。
         discovered_names = {d["name"] for d in discovered}
-        valid_enabled = [(n, m) for n, m in enabled_plugins if n in discovered_names]
+        valid_enabled = []
+        compatibility_failed = False
+        for name, module_name in enabled_plugins:
+            if name not in discovered_names:
+                continue
+            try:
+                metadata = pm.load_metadata(name)
+                constraints = metadata.get("compatible_app_versions", [])
+                if constraints and not pm.is_app_version_compatible(constraints):
+                    compatibility_failed = True
+                    router_manager.mark_disabled(name)
+                    logger.error(
+                        "插件 '%s' 不兼容当前应用版本 %s，已跳过启动加载: %s",
+                        name, settings.app_version, constraints,
+                    )
+                    continue
+            except (OSError, TypeError, ValueError) as exc:
+                compatibility_failed = True
+                router_manager.mark_disabled(name)
+                logger.error("插件 '%s' manifest 校验失败，已跳过启动加载: %s", name, exc)
+                continue
+            valid_enabled.append((name, module_name))
+        if compatibility_failed:
+            degraded.append("plugin_compatibility")
         logger.info(f"[ 6/12] 数据库插件注册: {len(valid_enabled)} 个已启用")
     except Exception as e:
         logging.warning(f"[启动容错] 步骤 6 失败: {e}")
@@ -442,7 +465,7 @@ async def _init_scheduler_and_widgets(app, degraded: list[str]):
 
 async def shutdown():
     """应用关闭"""
-    logger.info("慧眼护农 3.4.0 正在关闭...")
+    logger.info("慧眼护农 3.4.1 正在关闭...")
     # 发布系统关闭瞬时事件，插件据此清理长连接等资源。
     try:
         from core.events import event_bus

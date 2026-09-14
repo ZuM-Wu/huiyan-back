@@ -1,27 +1,78 @@
 {% extends "plugin_page_shell.html" %}
 {% block title %}农业政策资讯 - 慧眼护农{% endblock %}
 {% block content %}
-<div id="page-app" v-cloak class="policy-news-page">
-    <t-card title="农业政策资讯" :bordered="true">
-        <template #actions>
-            <t-button v-permission="'policy_news:clear'" theme="default" variant="outline" @click="clearItems">
-                <template #icon><t-icon name="delete"></t-icon></template>清理历史
-            </t-button>
-            <t-button v-permission="'policy_news:refresh'" theme="primary" :loading="refreshing" @click="refreshItems">
-                <template #icon><t-icon name="refresh"></t-icon></template>立即刷新
-            </t-button>
+<div id="page-app" v-cloak class="admin-list-page policy-news-page">
+    <t-card class="policy-news-card">
+        <template #header>
+            <div class="plugin-toolbar-wrap policy-news-toolbar-wrap">
+                <div class="card-header-toolbar">
+                    <div class="card-header-toolbar-left">
+                        <span class="policy-news-title">农业政策资讯</span>
+                    </div>
+                </div>
+                <div class="card-header-toolbar">
+                    <div class="card-header-toolbar-left">
+                        <t-button v-permission="'policy_news:refresh'" theme="primary" :loading="refreshing" @click="refreshItems">
+                            <template #icon><t-icon name="refresh"></t-icon></template>
+                            立即刷新
+                        </t-button>
+                        <t-button v-permission="'policy_news:clear'" theme="danger" @click="clearItems">
+                            <template #icon><t-icon name="delete"></t-icon></template>
+                            清理历史
+                        </t-button>
+                    </div>
+                    <div class="card-header-toolbar-right policy-news-summary">
+                        <span>已收录 [[ items.length ]] 条政策</span>
+                        <t-tag :theme="sourceSummaryTheme" variant="light">[[ sourceSummaryText ]]</t-tag>
+                    </div>
+                </div>
+            </div>
         </template>
-        <t-alert v-if="errorMessage" theme="warning" :message="errorMessage" close="false"></t-alert>
+
+        <t-alert v-if="errorMessage" class="policy-news-alert" theme="warning"
+            :message="errorMessage" :close="false"></t-alert>
+
         <t-tabs v-model="activeTab" theme="normal" :destroy-on-hide="false" class="policy-news-tabs">
             <t-tab-panel value="policy-list" label="政策列表">
-                <t-table :data="items" :columns="columns" :loading="loading" row-key="id" hover>
+                <t-skeleton v-if="loading" :row-col="[8]" animation="gradient"></t-skeleton>
+                <t-table v-else :data="pagedItems" :columns="columns" :pagination="pagination"
+                    row-key="id" hover table-layout="fixed" class="policy-news-table"
+                    @page-change="onPolicyPageChange">
                     <template #title="{ row }">
-                        <a :href="row.url" @click.prevent="openPolicy(row.url)">[[ row.title ]]</a>
+                        <t-link theme="primary" hover="color" class="policy-news-title-link"
+                            @click="openPolicy(row.url)">[[ row.title ]]</t-link>
                     </template>
+                    <template #source="{ row }">
+                        <t-tag theme="primary" variant="light">[[ row.source ]]</t-tag>
+                    </template>
+                    <template #published_at="{ row }">
+                        <span class="policy-news-date">[[ row.published_at || '-' ]]</span>
+                    </template>
+                    <template #empty><t-empty description="暂无政策资讯"></t-empty></template>
                 </t-table>
             </t-tab-panel>
+
             <t-tab-panel value="source-status" label="来源状态">
-                <t-table :data="sources" :columns="sourceColumns" :loading="loading" row-key="source"></t-table>
+                <t-skeleton v-if="loading" :row-col="[4]" animation="gradient"></t-skeleton>
+                <t-table v-else :data="sources" :columns="sourceColumns" row-key="source"
+                    hover table-layout="fixed" class="policy-news-table">
+                    <template #source="{ row }">
+                        <t-tag theme="primary" variant="light">[[ row.source ]]</t-tag>
+                    </template>
+                    <template #last_success_at="{ row }">
+                        <span class="policy-news-date">[[ formatDateTime(row.last_success_at) ]]</span>
+                    </template>
+                    <template #status="{ row }">
+                        <t-tag :theme="sourceStatusTheme(row)" variant="light">[[ sourceStatusText(row) ]]</t-tag>
+                    </template>
+                    <template #item_count="{ row }">
+                        <span class="policy-news-item-count">[[ row.item_count || 0 ]]</span>
+                    </template>
+                    <template #last_error="{ row }">
+                        <span class="policy-news-error-text">[[ row.last_error || '-' ]]</span>
+                    </template>
+                    <template #empty><t-empty description="暂无来源状态"></t-empty></template>
+                </t-table>
             </t-tab-panel>
         </t-tabs>
     </t-card>

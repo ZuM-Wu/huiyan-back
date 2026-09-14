@@ -9,7 +9,7 @@
 .xiaozhi-actions, .xiaozhi-source-tags, .xiaozhi-form-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--app-spacing-sm); }
 .xiaozhi-form-actions { justify-content: flex-end; padding-top: var(--app-spacing-md); }
 .xiaozhi-status-value { color: var(--app-text-primary); word-break: break-word; }
-.xiaozhi-mask, .xiaozhi-muted { color: var(--app-text-secondary); font-size: var(--app-font-size-sm); }
+.xiaozhi-muted { color: var(--app-text-secondary); font-size: var(--app-font-size-sm); }
 .xiaozhi-runtime-alert, .xiaozhi-source-tags, .xiaozhi-tool-table, .xiaozhi-cache-alert { margin-top: var(--app-spacing-md); }
 .xiaozhi-page .xiaozhi-tool-table .t-table__content { overflow-x: auto !important; }
 .xiaozhi-control-stack { width: 100%; }
@@ -46,10 +46,9 @@
                                 <t-form-item label="小智 WSS 接入点" name="endpoint_url">
                                     <div class="xiaozhi-control-stack">
                                         <div class="xiaozhi-field">
-                                            <t-input v-model="form.endpoint_url" type="password" placeholder="请输入 wss:// 接入点" clearable></t-input>
+                                            <t-input v-model="form.endpoint_url" type="text" placeholder="请输入 wss:// 接入点" clearable></t-input>
                                             <t-button v-if="config.endpoint_configured" theme="danger" variant="text" @click="clearEndpoint"><template #icon><t-icon name="delete"></t-icon></template>清除</t-button>
                                         </div>
-                                        <div class="xiaozhi-mask">[[ config.endpoint_url || '未配置' ]]</div>
                                     </div>
                                 </t-form-item>
                                 <div class="xiaozhi-form-actions" v-permission="'xiaozhi_mcp:manage'">

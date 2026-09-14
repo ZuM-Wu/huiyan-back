@@ -1,4 +1,4 @@
-"""慧眼护农 3.4.0 主入口
+"""慧眼护农 3.4.1 主入口
 单进程: FastAPI 托管 API + 前端静态文件
 
 部署约束: 仅支持单 worker 部署（uvicorn 默认单进程）。
@@ -158,7 +158,7 @@ else:
     mcp_app = None
     _app_lifespan = lifespan
 
-app = FastAPI(title="慧眼护农 3.4.0", version="3.4.0", lifespan=_app_lifespan)
+app = FastAPI(title="慧眼护农 3.4.1", version="3.4.1", lifespan=_app_lifespan)
 
 if agentscope_app is not None:
     # AgentScope 原生资源路由统一形成 /api/ai 入口。
@@ -302,9 +302,9 @@ async def health(request: Request):
     if degraded:
         return {
             "code": 200, "status": "degraded", "components": degraded,
-            "platform": platform_components, "version": "3.4.0",
+            "platform": platform_components, "version": "3.4.1",
         }
     return {
         "code": 200, "status": "ok", "components": [],
-        "platform": platform_components, "version": "3.4.0",
+        "platform": platform_components, "version": "3.4.1",
     }

@@ -3,21 +3,55 @@
 {% block head %}<link rel="stylesheet" href="/static/css/plugin-database.css?v={{ config.app_version }}">{% endblock %}
 {% block content %}
 <div id="page-app" v-cloak class="plugin-database-page">
-  <t-card title="插件数据库体检">
-    <template #header><div class="plugin-db-header"><span class="plugin-db-title">插件数据库体检</span><t-space><t-button theme="primary" :loading="scanning" @click="scan">刷新扫描</t-button><t-button @click="loadConfig">扫描配置</t-button></t-space></div></template>
-    <t-alert v-if="warning" theme="warning" class="plugin-db-warning">[[ warning ]]</t-alert>
-    <div class="plugin-db-stats"><div v-for="item in stats" :key="item.key" class="plugin-db-stat"><span>[[ item.label ]]</span><strong>[[ item.value ]]</strong></div></div>
-    <div class="plugin-db-filters"><t-input v-model="keyword" placeholder="插件名称或标题" clearable/><t-input v-model="module" placeholder="模块" clearable/><t-select v-model="status" placeholder="状态" clearable :options="statusOptions"/><t-button theme="primary" @click="load">查询</t-button></div>
-    <t-table :data="rows" :columns="columns" :loading="loading" row-key="plugin_name" hover>
+  <t-card class="plugin-db-card">
+    <template #header>
+      <div class="plugin-toolbar-wrap plugin-db-toolbar-wrap">
+        <div class="card-header-toolbar">
+          <div class="card-header-toolbar-left">
+            <span class="plugin-db-title">插件数据库体检</span>
+          </div>
+        </div>
+        <div class="card-header-toolbar">
+          <div class="card-header-toolbar-left">
+            <t-button theme="primary" :loading="scanning" @click="scan">刷新扫描</t-button>
+            <t-button theme="default" @click="loadConfig">扫描配置</t-button>
+          </div>
+          <div class="card-header-toolbar-right plugin-db-filter-group">
+            <t-input v-model="keyword" placeholder="请输入插件名称或标题" clearable class="search-input" @enter="query"></t-input>
+            <t-input v-model="module" placeholder="请输入模块" clearable class="search-input--md" @enter="query"></t-input>
+            <t-select v-model="status" placeholder="请选择状态" clearable class="filter-select" :options="statusOptions" @change="query"></t-select>
+            <t-button theme="primary" @click="query">查询</t-button>
+            <t-button theme="default" @click="resetFilter">重置</t-button>
+          </div>
+        </div>
+      </div>
+    </template>
+    <t-skeleton v-if="loading" :row-col="[6]" animation="gradient"></t-skeleton>
+    <t-table v-else :data="rows" :columns="columns" :pagination="pagination" row-key="plugin_name" hover class="plugin-db-table" @page-change="onPageChange">
       <template #plugin_name="{row}"><strong>[[ row.title || row.plugin_name ]]</strong><div class="plugin-db-muted">[[ row.plugin_name ]]</div></template>
-      <template #schema_status="{row}"><t-tag :theme="row.schema_status === 'current' || row.schema_status === 'not_applicable' ? 'success' : 'warning'">[[ row.schema_status ]]</t-tag></template>
-      <template #status="{row}"><t-tag :theme="row.status === 'current' ? 'success' : 'warning'">[[ row.status ]]</t-tag></template>
-      <template #op="{row}"><t-space><t-button variant="text" @click="showDetail(row)">详情</t-button><t-button v-if="row.status === 'schema_mismatch'" variant="text" @click="prepareRepair(row)">生成修复计划</t-button><t-button v-if="row.status === 'version_mismatch'" variant="text" @click="prepareUpgrade(row)">生成升级计划</t-button><t-button v-if="row.pending_operation_id" variant="text" @click="openControlCenter(row)">打开本地控制中心</t-button></t-space></template>
+      <template #schema_status="{row}"><t-tag :theme="schemaStatusTheme(row.schema_status)" variant="light">[[ schemaStatusLabel(row.schema_status) ]]</t-tag></template>
+      <template #status="{row}"><t-tag :theme="statusTheme(row.status)" variant="light">[[ statusLabel(row.status) ]]</t-tag></template>
+      <template #last_scan_at="{row}"><span class="plugin-db-time">[[ formatScanTime(row.last_scan_at) ]]</span></template>
+      <template #op="{row}">
+        <t-space>
+          <t-button theme="primary" variant="text" @click="showDetail(row)">详情</t-button>
+          <t-button v-if="row.status === 'schema_mismatch'" theme="primary" variant="text" @click="prepareRepair(row)">生成修复计划</t-button>
+          <t-button v-if="row.status === 'version_mismatch'" theme="primary" variant="text" @click="prepareUpgrade(row)">生成升级计划</t-button>
+          <t-button v-if="row.pending_operation_id" theme="primary" variant="text" @click="openControlCenter(row)">打开本地控制中心</t-button>
+        </t-space>
+      </template>
+      <template #empty><t-empty description="暂无数据"></t-empty></template>
     </t-table>
-    <t-pagination v-model="page" :page-size="limit" :total="total" @change="load"/>
   </t-card>
   <t-drawer v-model:visible="detailVisible" header="插件数据库详情" size="520px"><pre class="plugin-db-report">[[ detailReport ]]</pre></t-drawer>
-  <t-dialog v-model:visible="configVisible" header="扫描配置" :confirm-btn="{content:'保存'}" @confirm="saveConfig"><t-form :data="config"><t-form-item label="启用定时扫描"><t-switch v-model="config.enabled"/></t-form-item><t-form-item label="扫描周期"><t-select v-model="config.interval_hours" :options="[{label:'1 小时',value:1},{label:'6 小时',value:6},{label:'12 小时',value:12},{label:'24 小时',value:24}]"/></t-form-item></t-form></t-dialog>
+  <t-dialog v-model:visible="configVisible" header="扫描配置" :confirm-btn="{content:'保存'}" @confirm="saveConfig">
+    <t-form :data="config">
+      <t-form-item label="启用定时扫描">
+        <t-radio-group v-model="config.enabled"><t-radio :value="true">启用</t-radio><t-radio :value="false">关闭</t-radio></t-radio-group>
+      </t-form-item>
+      <t-form-item label="扫描周期"><t-select v-model="config.interval_hours" :options="[{label:'1 小时',value:1},{label:'6 小时',value:6},{label:'12 小时',value:12},{label:'24 小时',value:24}]"></t-select></t-form-item>
+    </t-form>
+  </t-dialog>
 </div>
 {% endblock %}
 {% block scripts %}<script src="/static/js/pages/plugin-database.js?v={{ config.app_version }}"></script>{% endblock %}

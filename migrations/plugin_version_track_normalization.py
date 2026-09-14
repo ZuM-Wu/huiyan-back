@@ -16,7 +16,6 @@ TARGET_VERSIONS = {
     "zhima_credit": ("1.0.0", "1.0.1"),
     "mail_smtp": ("1.0.0", "1.0.1"),
     "local_oss": ("1.0.0", "1.0.1"),
-    "sms_idcsmart": ("1.0.0", "1.0.1"),
     "weather_amap": ("1.0.0", "1.0.1"),
     "weather_qweather": ("1.1.1", "1.1.2"),
 }

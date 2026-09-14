@@ -88,6 +88,7 @@ async def _cleanup_plugin_records(name: str, db, metadata: dict) -> None:
     from core.db.menu import Menu
     from core.db.nav import Nav
     from core.db.plugin import PluginModel
+    from core.db.plugin_database_state import PluginDatabaseStateModel
 
     await unregister_plugin_permissions(name)
     extra_prefixes = {
@@ -101,4 +102,8 @@ async def _cleanup_plugin_records(name: str, db, metadata: dict) -> None:
         Menu.path.like(f"%/plugin/{name}/%"),
     )))
     await db.execute(delete(Nav).where(Nav.plugin == name))
+    # 卸载后删除平台体检快照，避免已移除插件继续显示为版本不一致。
+    await db.execute(delete(PluginDatabaseStateModel).where(
+        PluginDatabaseStateModel.plugin_name == name
+    ))
     await db.execute(delete(PluginModel).where(PluginModel.name == name))

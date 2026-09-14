@@ -20,6 +20,7 @@
       "surface": "admin",
       "route": "/admin/plugin/policy_news/policy_news",
       "template": "policy_news.html",
+      "styles": ["policy_news.css"],
       "scripts": ["policy_news.js"]
     },
     {
@@ -30,7 +31,7 @@
       "scripts": ["policy_news_farmer.js"]
     }
   ],
-  "resources": ["static/policy_news.js", "static/policy_news_farmer.js"],
+  "resources": ["static/policy_news.css", "static/policy_news.js", "static/policy_news_farmer.js"],
   "tasks": ["policy_news.refresh"],
   "events": [],
   "health": {"check": "plugin.policy_news"},

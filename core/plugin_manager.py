@@ -1,5 +1,5 @@
 """
-插件管理器 — 慧眼护农 3.4.0 核心骨架
+插件管理器 — 慧眼护农 3.4.1 核心骨架
 
 BasePlugin: 插件抽象基类，install() 必须完成五步操作
 PluginManager: 插件发现、安装、卸载、启用、禁用、升级
@@ -26,7 +26,7 @@ _VERSION_PATTERN = re.compile(
 )
 _MIGRATION_PATTERN = re.compile(r"^upgrade_(?P<old>[^_]+)_(?P<new>[^_]+)\.sql$")
 _VALID_NAV_TYPES = frozenset({"admin", "frontend"})
-_REMOVED_PLUGIN_NAMES: frozenset[str] = frozenset()
+_REMOVED_PLUGIN_NAMES: frozenset[str] = frozenset({"sms_idcsmart"})
 
 
 class _RepairDatabaseProxy:
@@ -129,6 +129,40 @@ def compare_versions(left: str, right: str) -> int:
     return (left_key > right_key) - (left_key < right_key)
 
 
+_COMPATIBILITY_RE = re.compile(
+    r"^(?P<operator>>=|<=|==|=|>|<)?\s*(?P<version>.+?)\s*$"
+)
+
+
+def is_app_version_compatible(
+    constraints: object, app_version: str | None = None
+) -> bool:
+    """判断插件声明的版本范围是否覆盖当前应用版本。"""
+    if not isinstance(constraints, list) or not constraints:
+        return False
+    current = app_version or settings.app_version
+    for raw_constraint in constraints:
+        if not isinstance(raw_constraint, str):
+            continue
+        match = _COMPATIBILITY_RE.fullmatch(raw_constraint.strip())
+        if not match:
+            continue
+        try:
+            comparison = compare_versions(current, match.group("version"))
+        except ValueError:
+            continue
+        operator = match.group("operator") or "=="
+        if (
+            (operator in {"=", "=="} and comparison == 0)
+            or (operator == ">=" and comparison >= 0)
+            or (operator == ">" and comparison > 0)
+            or (operator == "<=" and comparison <= 0)
+            or (operator == "<" and comparison < 0)
+        ):
+            return True
+    return False
+
+
 # 12 类插件目录名
 PLUGIN_MODULES = [
     "addon", "gateway", "sms", "mail", "captcha", "certification",
@@ -155,6 +189,11 @@ class PluginManager(PluginUpgradeMixin):
     def compare_versions(left: str, right: str) -> int:
         """比较两个插件版本号，供管理 API 通过公开管理器入口调用。"""
         return compare_versions(left, right)
+
+    @staticmethod
+    def is_app_version_compatible(constraints: object) -> bool:
+        """判断插件 manifest 是否兼容当前应用版本。"""
+        return is_app_version_compatible(constraints, settings.app_version)
 
     def get_config_schema(self, name: str) -> List[dict]:
         """读取插件配置 Schema，隐藏插件模块定位和实例化细节。"""

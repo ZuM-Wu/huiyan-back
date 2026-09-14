@@ -1,8 +1,54 @@
-.plugin-database-page .plugin-db-header{display:flex;align-items:center;justify-content:space-between;gap:var(--app-spacing-md)}
-.plugin-db-title{font-size:20px;font-weight:700;color:var(--app-text-primary)}
-.plugin-db-warning{margin-bottom:var(--app-spacing-md)}
-.plugin-db-stats{display:grid;grid-template-columns:repeat(5,1fr);gap:var(--app-spacing-md);margin-bottom:var(--app-spacing-lg)}
-.plugin-db-stat{border:1px solid var(--app-border);border-radius:var(--app-radius);padding:var(--app-spacing-md);display:flex;flex-direction:column;gap:8px;background:var(--app-bg-secondary)}
-.plugin-db-stat span,.plugin-db-muted{color:var(--app-text-secondary);font-size:12px}.plugin-db-stat strong{font-size:24px;color:var(--app-text-primary)}
-.plugin-db-filters{display:flex;gap:var(--app-spacing-sm);margin-bottom:var(--app-spacing-md)}.plugin-db-filters .t-input,.plugin-db-filters .t-select{width:220px}
-.plugin-db-report{white-space:pre-wrap;word-break:break-word;color:var(--app-text-primary);font-size:13px;line-height:1.6}
+/* 插件数据库体检页：复用后台列表页工具栏、卡片、表格和主题令牌。 */
+.plugin-database-page .plugin-db-card > .t-card__header {
+    border-bottom: 1px solid var(--app-border);
+}
+
+.plugin-db-toolbar-wrap {
+    gap: var(--app-spacing-md);
+}
+
+.plugin-db-title {
+    color: var(--app-text-primary);
+    font-size: var(--app-font-size-lg);
+    font-weight: 600;
+    line-height: 1.5;
+    white-space: nowrap;
+}
+
+.plugin-db-filter-group {
+    margin-left: auto;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.plugin-db-filter-group .search-input {
+    width: 240px;
+}
+
+.plugin-db-filter-group .search-input--md {
+    width: 200px;
+}
+
+.plugin-db-table {
+    min-width: 0;
+}
+
+.plugin-db-table .plugin-db-muted {
+    color: var(--app-text-secondary);
+    font-size: var(--app-font-size-sm);
+    line-height: 1.5;
+}
+
+.plugin-db-table .plugin-db-time {
+    color: var(--app-text-secondary);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.plugin-db-report {
+    color: var(--app-text-primary);
+    font-size: var(--app-font-size-sm);
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
