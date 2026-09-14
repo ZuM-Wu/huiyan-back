@@ -7,7 +7,6 @@
 (function (window) {
     'use strict';
 
-    var MASKED = '********';
     // 文件管理器默认每页 10 条，后续只需调整此常量即可改变单页高度。
     var FILE_PAGE_SIZE = 10;
     var IMAGE_EXTENSIONS = /\.(?:avif|bmp|gif|jpe?g|png|svg|webp)$/i;
@@ -122,7 +121,7 @@
                         Object.keys(configForm).forEach(function (key) { delete configForm[key]; });
                         (schema.value || []).forEach(function (item) {
                             var value = (data.current || {})[item.key] ?? item.default ?? '';
-                            configForm[item.key] = item.sensitive ? ''
+                            configForm[item.key] = item.type === 'password' ? ''
                                 : (item.type === 'switch' && value !== '' ? String(value) : value);
                         });
                     }).catch(function (error) {
@@ -272,7 +271,7 @@
                 currentPage, expandedFolders, previewUrls, previewLoading,
                 openConfig, saveConfig, testConnection, openFiles, openFolder, selectFolder, loadFiles,
                 nextPage, previousPage, pickFile, upload, download, copyUrl, remove, loadPreviewUrl,
-                isImage, fileName, formatSize, formatTime, masked: MASKED
+                isImage, fileName, formatSize, formatTime
             };
         },
         template: `
@@ -281,7 +280,7 @@
                 <t-form v-else :data="configForm" @submit="saveConfig">
                     <t-form-item v-for="item in schema" :key="item.key" :label="item.label || item.key">
                         <t-input v-if="item.type !== 'select' && item.type !== 'switch'" v-model="configForm[item.key]"
-                            :type="item.type === 'password' ? 'password' : 'text'" :placeholder="item.sensitive ? '留空保留已保存凭据' : item.placeholder"></t-input>
+                            :type="item.type === 'password' ? 'password' : 'text'" :placeholder="item.type === 'password' ? '留空保留已保存凭据' : item.placeholder"></t-input>
                         <t-select v-else-if="item.type === 'select'" v-model="configForm[item.key]" :options="item.options || []"></t-select>
                         <t-radio-group v-else v-model="configForm[item.key]">
                             <t-radio v-for="option in (item.options || [{label: '启用', value: '1'}, {label: '停用', value: '0'}])"

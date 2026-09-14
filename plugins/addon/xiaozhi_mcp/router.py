@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """小智 AI MCP 管理员端配置与运行监控接口。"""
-from urllib.parse import urlsplit, urlunsplit
+from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
@@ -82,19 +82,6 @@ async def _raw_config() -> dict[str, str]:
     return values
 
 
-def _mask_endpoint(endpoint_url: str) -> str:
-    if not endpoint_url:
-        return ""
-    parsed = urlsplit(endpoint_url)
-    host = parsed.hostname or ""
-    if ":" in host:
-        host = f"[{host}]"
-    try:
-        netloc = f"{host}:{parsed.port}" if parsed.port else host
-    except ValueError:
-        netloc = host
-    return urlunsplit((parsed.scheme, netloc, parsed.path, "", ""))
-
 
 def _validate_endpoint(endpoint_url: str) -> None:
     parsed = urlsplit(endpoint_url)
@@ -106,18 +93,18 @@ def _validate_endpoint(endpoint_url: str) -> None:
         raise HTTPException(status_code=422, detail="接入点必须是有效的 wss:// 地址")
 
 
-def _masked_config(raw: dict[str, str]) -> dict:
+def _config_payload(raw: dict[str, str]) -> dict:
     return {
         "enabled": raw["enabled"] == "1",
-        "endpoint_url": _mask_endpoint(raw["endpoint_url"]),
+        "endpoint_url": raw["endpoint_url"],
         "endpoint_configured": bool(raw["endpoint_url"]),
     }
 
 
 @router.get("/config", dependencies=[Depends(require_permission("xiaozhi_mcp:list"))])
 async def get_xiaozhi_config():
-    """获取不含查询参数和嵌入式凭据的插件配置。"""
-    return ok(_masked_config(await _raw_config()))
+    """获取小智插件配置，返回完整 WSS 接入点供管理员编辑。"""
+    return ok(_config_payload(await _raw_config()))
 
 
 @router.put("/config", dependencies=[Depends(require_permission("xiaozhi_mcp:manage"))])
@@ -143,7 +130,7 @@ async def update_xiaozhi_config(data: XiaozhiConfigUpdate, request: Request):
     else:
         await xiaozhi_bridge.stop("插件配置为停用")
     await active_log("更新小智 AI MCP 配置", "xiaozhi_mcp_config", request=request)
-    return ok(_masked_config(resulting), msg="配置已保存")
+    return ok(_config_payload(resulting), msg="配置已保存")
 
 
 async def _save_changes(current: dict[str, str], resulting: dict[str, str]) -> None:

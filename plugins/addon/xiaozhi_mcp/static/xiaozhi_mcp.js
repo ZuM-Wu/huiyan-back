@@ -92,6 +92,7 @@
                     const res = await request.get('/xiaozhi-mcp/config');
                     Object.assign(config, responseData(res));
                     form.enabled = config.enabled ? 1 : 0;
+                    form.endpoint_url = config.endpoint_url || '';
                 } finally { configLoading.value = false; }
             };
             const loadStatus = async () => {
@@ -127,7 +128,6 @@
                 saving.value = true;
                 try {
                     await request.put('/xiaozhi-mcp/config', { enabled: form.enabled === 1, endpoint_url: form.endpoint_url });
-                    form.endpoint_url = '';
                     MessagePlugin.success('配置已保存');
                     await Promise.all([loadConfig(), loadStatus(), loadTools()]);
                 } catch (error) { MessagePlugin.error(errorText(error, '保存失败')); }
