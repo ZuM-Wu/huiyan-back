@@ -155,14 +155,18 @@ CREATE TABLE IF NOT EXISTS `hy_menu` (
 
 -- 系统核心由框架层直接提供，不写入 hy_plugin，避免被识别为 addon 插件。
 
--- 超级管理员由应用首次启动时读取 ADMIN_INIT_PASSWORD 创建；发布归档不内置账号密码。
+-- 超级管理员（密码: 123456）
+INSERT IGNORE INTO `hy_admin` (`id`, `username`, `password`, `nickname`, `status`) VALUES
+(1, 'admin', '$12$/3VXJFgyLYddUXVFf0/58OlZSx7v20sWUz5Yn.wa3GhtDtzLS3j3C', '超级管理员', 1);
 
 -- 管理员角色
 INSERT IGNORE INTO `hy_admin_role` (`id`, `name`, `description`, `is_system`) VALUES
 (1, '超级管理员', '系统内置超级管理员，拥有所有权限', 1),
 (2, '运营管理员', '日常运营管理角色', 1);
 
--- 管理员-角色绑定由应用种子流程在管理员创建后写入。
+-- 管理员-角色绑定
+INSERT IGNORE INTO `hy_admin_role_link` (`admin_id`, `role_id`) VALUES
+(1, 1);
 
 -- 系统默认配置（对标 ZJMF 预设配置）
 INSERT IGNORE INTO `hy_configuration` (`key`, `value`, `description`) VALUES
