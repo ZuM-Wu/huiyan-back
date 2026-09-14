@@ -153,9 +153,7 @@ CREATE TABLE IF NOT EXISTS `hy_menu` (
 -- 种子数据（对标 ZJMF 安装即用）
 -- ============================================
 
--- 系统核心插件注册
-INSERT IGNORE INTO `hy_plugin` (`name`, `title`, `version`, `module`, `status`) VALUES
-('system', '系统核心', '3.4.0', 'addon', 1);
+-- 系统核心由框架层直接提供，不写入 hy_plugin，避免被识别为 addon 插件。
 
 -- 超级管理员由应用首次启动时读取 ADMIN_INIT_PASSWORD 创建；发布归档不内置账号密码。
 

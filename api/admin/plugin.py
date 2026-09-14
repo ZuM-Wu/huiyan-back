@@ -35,6 +35,8 @@ _EXCLUDE_FROM_APP_LIST = {
     "sms", "mail", "certification", "oss", "weather", "llm",
 }
 _REMOVED_PLUGIN_NAMES = {"admin_notifier"}
+# 系统核心已归入框架层，不属于可安装、可启停或可卸载的 addon。
+_CORE_PLUGIN_NAMES = {"system"}
 _MASKED_SECRET = "********"
 
 
@@ -59,12 +61,16 @@ def _visible_in_app_list(plugin: dict) -> bool:
     return (
         plugin.get("module") not in _EXCLUDE_FROM_APP_LIST
         and plugin.get("name") not in _REMOVED_PLUGIN_NAMES
+        and plugin.get("name") not in _CORE_PLUGIN_NAMES
     )
 
 
 def _visible_in_discovery(plugin: dict, scope: str) -> bool:
     """按发现范围过滤插件，同时始终隐藏明确退役的插件。"""
-    if plugin.get("name") in _REMOVED_PLUGIN_NAMES:
+    if (
+        plugin.get("name") in _REMOVED_PLUGIN_NAMES
+        or plugin.get("name") in _CORE_PLUGIN_NAMES
+    ):
         return False
     return scope == "all" or _visible_in_app_list(plugin)
 
@@ -93,7 +99,10 @@ async def list_plugins(
     """
     all_plugins = await list_all_plugins()
     if module:
-        plugins = [p for p in all_plugins if p["module"] == module]
+        plugins = [
+            p for p in all_plugins
+            if p["module"] == module and p["name"] not in _CORE_PLUGIN_NAMES
+        ]
     else:
         plugins = [p for p in all_plugins if _visible_in_app_list(p)]
     return ok({

@@ -503,21 +503,26 @@ async def _seed_data() -> bool:
 
     admin_created = False
     async with async_session_factory() as db:
-        # SEED_VERSION 门控：版本一致说明种子已是最新，整体跳过（避免每次启动大量 DB 探测）
-        # 修改任何种子内容后必须递增 core/seed.py 的 SEED_VERSION，否则存量库不会重新执行
-        version_row = (await db.execute(
-            select(ConfigurationModel).where(ConfigurationModel.key == "seed_version")
-        )).scalar_one_or_none()
-        if version_row and version_row.value == SEED_VERSION:
-            logger.info("[种子数据] seed_version=%s 已最新，跳过种子流程", SEED_VERSION)
-            return admin_created
-
-        # 清理历史遗留的“系统核心”虚拟插件记录（已归入框架层，不再入库）
+        # 清理历史遗留的“系统核心”虚拟插件记录（已归入框架层，不再入库）。
+        # 此清理必须位于 SEED_VERSION 门控之前，否则存量库在种子版本未变化时
+        # 会跳过清理，导致旧记录继续作为 addon 出现在应用列表中。
         stale = (await db.execute(
             select(PluginModel).where(PluginModel.name == "system")
         )).scalar_one_or_none()
         if stale:
             await db.delete(stale)
+            logger.info("[种子数据] 已清理历史遗留的系统核心虚拟插件记录")
+
+        # SEED_VERSION 门控：版本一致说明种子已是最新，整体跳过（避免每次启动大量 DB 探测）
+        # 修改任何种子内容后必须递增 core/seed.py 的 SEED_VERSION，否则新种子不会在存量环境生效
+        version_row = (await db.execute(
+            select(ConfigurationModel).where(ConfigurationModel.key == "seed_version")
+        )).scalar_one_or_none()
+        if version_row and version_row.value == SEED_VERSION:
+            if stale:
+                await db.commit()
+            logger.info("[种子数据] seed_version=%s 已最新，跳过种子流程", SEED_VERSION)
+            return admin_created
 
         # 超级管理员（首次创建或密码算法升级）
         existing_admin = (await db.execute(
