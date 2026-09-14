@@ -378,7 +378,7 @@ async def seed_configuration(db):
         ),
         "site_footer": (
             '[{"title":"产品","links":[{"label":"功能介绍","href":"#features"}]},'
-            '{"title":"支持","links":[{"label":"联系我们","href":"mailto:1910442675@qq.com"}]}]',
+            '{"title":"支持","links":[{"label":"联系我们","href":"mailto:support@example.com"}]}]',
             "官网页脚分组（JSON 数组）",
         ),
         "site_banner": (
