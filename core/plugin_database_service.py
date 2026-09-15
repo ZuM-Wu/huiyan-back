@@ -12,7 +12,7 @@ import logging
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import select, text
+from sqlalchemy import delete, select, text
 
 from core.db.base import async_session_factory
 from core.db.plugin import PluginModel
@@ -25,6 +25,8 @@ from core.plugin_manager import PLUGIN_MODULES, PluginManager
 from core.time_utils import china_now
 
 logger = logging.getLogger(__name__)
+_CORE_PLUGIN_NAMES = frozenset({"system"})
+
 
 class PluginDatabaseService:
     """扫描、状态转换和修复计划生成门面。"""
@@ -165,6 +167,18 @@ class PluginDatabaseService:
         try:
             meta, schema = self._load_manifest(name)
             report.update(title=str(meta.get("title") or name), disk_version=str(meta.get("version") or ""), expected_schema_digest=schema_digest(schema), repair_supported=self._repair_supported(name, meta))
+            constraints = meta.get("compatible_app_versions", [])
+            if constraints and not self.manager.is_app_version_compatible(constraints):
+                report.update(
+                    status="invalid_manifest",
+                    last_failure_at=now,
+                    error_reason=f"插件不兼容当前应用版本: {constraints}",
+                    report={
+                        "compatibility_error": "当前应用版本不在插件兼容范围内",
+                        "compatible_app_versions": constraints,
+                    },
+                )
+                return report
         except Exception as exc:
             report.update(
                 status="invalid_manifest", error_reason=str(exc),
@@ -197,8 +211,8 @@ class PluginDatabaseService:
                 report["report"]["migration_chain"] = []
                 report["report"]["migration_error"] = str(exc)
         pending = await self._pending(name)
-        has_pending = bool(pending and pending.get("status") == "awaiting_restart")
-        if has_pending:
+        has_pending = bool(pending is not None and pending.get("status") == "awaiting_restart")
+        if has_pending and pending is not None:
             report["pending_operation_id"] = pending.get("operation_id", "")
         status = resolve_status(
             awaiting_restart=has_pending,
@@ -226,11 +240,45 @@ class PluginDatabaseService:
                 if hasattr(row, key) and key != "plugin_name":
                     setattr(row, key, value)
 
+    async def refresh_plugin_state(self, db, name: str) -> dict:
+        """在已有事务中刷新单个插件快照，供停机升级完成后立即收敛状态。"""
+        installed = (await db.execute(
+            select(PluginModel).where(PluginModel.name == name)
+        )).scalar_one_or_none()
+        discovered = next(
+            (item for item in self.manager.discover() if item.get("name") == name),
+            None,
+        )
+        if discovered:
+            report = await self._build_report(
+                db, name, str(discovered.get("module") or ""), installed,
+            )
+        else:
+            module_name = str(getattr(installed, "module", "") or "")
+            missing_manifest = (
+                self.manager.plugins_dir / module_name / name / "plugin.json"
+                if module_name else self.manager.plugins_dir / name / "plugin.json"
+            )
+            report = {
+                "plugin_name": name, "module": module_name,
+                "title": getattr(installed, "title", name),
+                "db_version": str(getattr(installed, "version", "") or ""),
+                "disk_version": "", "status": "missing_files",
+                "schema_status": "unverified",
+                "report": {"missing_files": [str(missing_manifest)]},
+                "error_reason": "插件目录或 plugin.json 缺失",
+                "expected_schema_digest": "", "repair_supported": False,
+                "pending_operation_id": "", "last_failure_at": china_now(),
+                "last_scan_at": china_now(),
+            }
+        await self._save_report(db, report)
+        return report
+
     async def scan(self, *, task_id: str | None = None) -> dict:
         """扫描全部磁盘插件及已登记但缺失目录的插件。"""
         if self.__class__._active_task_id and self.__class__._active_task_id != task_id:
             return {"task_id": self.__class__._active_task_id, "reused": True}
-        task_id = task_id or f"plugin-db-scan-{hashlib.sha1(str(china_now()).encode()).hexdigest()[:16]}"
+        task_id = task_id or f"plugin-db-scan-{hashlib.sha256(str(china_now()).encode()).hexdigest()[:16]}"
         self.__class__._active_task_id = task_id
         try:
             async with async_session_factory() as db:
@@ -263,7 +311,7 @@ class PluginDatabaseService:
                             "last_scan_at": china_now(),
                         })
                 for name, row in installed.items():
-                    if name in discovered:
+                    if name in discovered or name in _CORE_PLUGIN_NAMES:
                         continue
                     module_name = str(getattr(row, "module", "") or "")
                     missing_manifest = (
@@ -282,6 +330,14 @@ class PluginDatabaseService:
                     })
                 for report in reports:
                     await self._save_report(db, report)
+                # 全量扫描成功后清理已不再发现的插件快照；扫描失败时保留旧快照，避免误删诊断数据。
+                report_names = {str(report.get("plugin_name") or "") for report in reports}
+                if report_names:
+                    await db.execute(delete(PluginDatabaseStateModel).where(
+                        ~PluginDatabaseStateModel.plugin_name.in_(report_names)
+                    ))
+                else:
+                    await db.execute(delete(PluginDatabaseStateModel))
                 await db.commit()
             self.__class__._last_scan_at = china_now()
             self.__class__._last_scan_failure = None

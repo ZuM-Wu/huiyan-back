@@ -170,10 +170,15 @@
             // 启用/停用插件
             const togglePlugin = (row, status) => {
                 const action = status === 1 ? 'enable' : 'disable';
-                request.post('/plugin/' + action + '/' + row.name).then(() => {
+                request.post('/plugin/' + action + '/' + row.name, null, { skipAutoError: true }).then(() => {
                     MessagePlugin.success(status === 1 ? '已启用' : '已停用');
                     fetchData();
-                }).catch(() => { MessagePlugin.error('操作失败'); });
+                }).catch((error) => {
+                    const responseData = (error && error.response && error.response.data) || {};
+                    const detail = responseData.detail;
+                    const message = responseData.msg || (typeof detail === 'string' ? detail : detail && detail.message);
+                    MessagePlugin.error(message || '操作失败');
+                });
             };
 
             // 插件安装会动态注册权限节点。立即刷新当前会话权限缓存，

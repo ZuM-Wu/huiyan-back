@@ -1,0 +1,80 @@
+{
+  "name": "production_area_management",
+  "title": "产区管理",
+  "version": "1.0.0",
+  "description": "产区管理演示插件：固定演示流程、真实产区天气与积温、模拟 MCP 任务生成和任务反馈",
+  "author": "HuiYan Team",
+  "module": "addon",
+  "owner_id": "production_area_management",
+  "surface": "admin",
+  "enabled": true,
+  "default_order": 40,
+  "compatible_app_versions": [">=3.4.0"],
+  "dependencies": [],
+  "conflicts": [],
+  "permissions": [
+    "production_area_management:list",
+    "production_area_management:log:generate",
+    "production_area_management:task:generate",
+    "production_area_management:feedback",
+    "production_area_management:reset"
+  ],
+  "capabilities": ["production_area_management.demo"],
+  "pages": [
+    {
+      "page_key": "plugin_production_area_management",
+      "surface": "admin",
+      "route": "/admin/plugin/production_area_management/index",
+      "template": "index.html",
+      "styles": ["index.css", "index-detail.css"],
+      "scripts": ["index.js"]
+    }
+  ],
+  "resources": ["static/index.css", "static/index-detail.css", "static/index.js"],
+  "tasks": [],
+  "events": [],
+  "database_schema": {
+    "version": 1,
+    "tables": [
+      {
+        "name": "hy_plugin_production_area_management_log",
+        "columns": [
+          "id", "area_id", "area_name", "title", "content", "stage",
+          "weather_json", "gdd_json", "is_latest", "is_seed", "create_time"
+        ],
+        "indexes": [
+          {"name": "PRIMARY", "columns": ["id"], "unique": true},
+          {"name": "idx_pam_log_area", "columns": ["area_id"], "unique": false},
+          {"name": "idx_pam_log_latest", "columns": ["is_latest"], "unique": false},
+          {"name": "idx_pam_log_create_time", "columns": ["create_time"], "unique": false}
+        ]
+      },
+      {
+        "name": "hy_plugin_production_area_management_task",
+        "columns": [
+          "id", "log_id", "title", "description", "ai_summary", "priority",
+          "assignee", "status", "plan_time", "completed_time", "mcp_trace",
+          "is_seed", "create_time", "update_time"
+        ],
+        "indexes": [
+          {"name": "PRIMARY", "columns": ["id"], "unique": true},
+          {"name": "idx_pam_task_log", "columns": ["log_id"], "unique": false},
+          {"name": "idx_pam_task_status", "columns": ["status"], "unique": false}
+        ]
+      },
+      {
+        "name": "hy_plugin_production_area_management_feedback",
+        "columns": [
+          "id", "task_id", "admin_id", "admin_name", "result", "content",
+          "metrics_json", "create_time"
+        ],
+        "indexes": [
+          {"name": "PRIMARY", "columns": ["id"], "unique": true},
+          {"name": "idx_pam_feedback_task", "columns": ["task_id"], "unique": false},
+          {"name": "idx_pam_feedback_create_time", "columns": ["create_time"], "unique": false}
+        ]
+      }
+    ]
+  }
+}
+

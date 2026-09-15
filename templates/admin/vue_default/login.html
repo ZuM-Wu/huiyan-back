@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>管理员登录 - 慧眼护农</title>
-    <link rel="icon" href="/static/img/favicon.png" type="image/png">
+    <link rel="icon" href="{{ brand_config.site_favicon }}" type="image/png">
+    <script>window.__HUIYAN_BRAND_CONFIG__ = {{ brand_config | tojson }};</script>
     <style>[v-cloak]{display:none!important;}</style>
     <!-- TDesign Vue Next CSS（本地 vendor，无外网依赖） -->
     <link rel="stylesheet" href="/static/vendor/tdesign/tdesign.min.css">
@@ -167,7 +168,7 @@
     <!-- 顶部栏（仅 Logo，无文字） -->
     <div class="login-topbar">
         <div class="login-topbar__logo">
-            <img :src="siteLogo" alt="Logo">
+            <img src="{{ brand_config.site_logo }}" alt="Logo">
         </div>
     </div>
 
@@ -198,8 +199,6 @@
 
                 <t-button theme="primary" class="login-btn" type="submit" :loading="loading">登录</t-button>
             </t-form>
-
-            <p class="login-hint">默认账号: admin / 1910MaoYang.a</p>
         </div>
     </div>
 

@@ -15,6 +15,7 @@ import logging
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
+from core.config_service import get_brand_config
 from core.theme_manager import theme_manager
 from core.view_controller import _error_html
 
@@ -40,7 +41,7 @@ class FarmerViewController:
         # ---- 登录页（独立布局，不继承 base.html）----
         @app.get("/farmer/login", response_class=HTMLResponse)
         async def farmer_login(request: Request):
-            return self._render("login.html", request, {"page": "login"})
+            return await self._render("login.html", request, {"page": "login"})
 
         # ---- 插件农户端页面: /farmer/plugin/{name}/{page} ----
         @app.get("/farmer/plugin/{name}/{page}", response_class=HTMLResponse)
@@ -53,7 +54,7 @@ class FarmerViewController:
                     status_code=404,
                 )
             try:
-                return self._render(declaration["template"], request, {
+                return await self._render(declaration["template"], request, {
                     "page": page, "plugin_name": name, "plugin_page": declaration,
                 })
             except Exception:
@@ -66,21 +67,21 @@ class FarmerViewController:
         # 必须在 /farmer/{page} 之前注册，避免 message_id 被当作 page 参数
         @app.get("/farmer/inbox/{message_id}", response_class=HTMLResponse)
         async def farmer_inbox_detail(request: Request, message_id: int):
-            return self._render("inbox_detail.html", request, {"page": "inbox_detail", "message_id": message_id})
+            return await self._render("inbox_detail.html", request, {"page": "inbox_detail", "message_id": message_id})
 
         # ---- 农户端系统页面: /farmer/{page} ----
         @app.get("/farmer/{page}", response_class=HTMLResponse)
         async def farmer_page(request: Request, page: str):
             tpl_name = f"{page}.html" if not page.endswith(".html") else page
             try:
-                return self._render(tpl_name, request, {"page": page})
+                return await self._render(tpl_name, request, {"page": page})
             except Exception:
                 return HTMLResponse(
                     content=_error_html("页面不存在", f"农户端页面 '{page}' 未找到"),
                     status_code=404,
                 )
 
-    def _render(self, template_name: str, request: Request, context: dict) -> HTMLResponse:
+    async def _render(self, template_name: str, request: Request, context: dict) -> HTMLResponse:
         """使用农户端主题 Jinja2 环境渲染模板
 
         支持临时预览：URL 携带 `?__theme=xxx` 时临时使用指定主题渲染
@@ -89,7 +90,7 @@ class FarmerViewController:
         preview = request.query_params.get("__theme")
         env = theme_manager.get_env("farmer", preview=preview)
         template = env.get_template(template_name)
-        ctx = {"request": request}
+        ctx = {"request": request, "brand_config": await get_brand_config()}
         ctx.update(context)
         return HTMLResponse(content=template.render(ctx))
 

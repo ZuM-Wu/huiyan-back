@@ -2,8 +2,8 @@
 <aside id="sidebar-app" v-cloak class="sidebar">
     <div class="sidebar-logo">
         <a class="sidebar-logo__link" href="/farmer/home" aria-label="返回农户首页">
-            <img :src="siteLogo" alt="Logo" class="sidebar-logo__img sidebar-logo--full">
-            <img src="/static/img/favicon.png" alt="Logo" class="sidebar-logo__img sidebar-logo--mini">
+            <img src="{{ brand_config.site_logo }}" alt="Logo" class="sidebar-logo__img sidebar-logo--full">
+            <img src="{{ brand_config.site_favicon }}" alt="Logo" class="sidebar-logo__img sidebar-logo--mini">
             <span class="farmer-sidebar-brand">慧眼护农</span>
         </a>
     </div>

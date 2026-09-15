@@ -6,6 +6,7 @@
 为系统核心功能，不依赖任何插件。
 """
 import logging
+from datetime import timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
@@ -19,6 +20,7 @@ from core.task_query_service import (
 from services.task.task_monitor import task_monitor
 from core.response import ok
 from core.log.active_log import active_log
+from core.time_utils import china_now
 
 logger = logging.getLogger(__name__)
 
@@ -81,12 +83,17 @@ async def cleanup_logs(
     retention_days: int = Query(30, ge=1, le=3650, description="日志保留天数"),
 ):
     """删除保留期限之前的任务执行日志，不影响队列和其他日志。"""
+    cutoff_time = china_now() - timedelta(days=retention_days)
     count = await task_monitor.clean_expired_logs(retention_days)
     await active_log(
         f"清理任务执行日志，保留{retention_days}天，删除{count}条",
         "task_monitor_clear_logs", request=request,
     )
-    return ok({"deleted_count": count, "retention_days": retention_days}, msg="任务日志清理完成")
+    return ok({
+        "deleted_count": count,
+        "retention_days": retention_days,
+        "cutoff_time": cutoff_time.isoformat(sep=" ", timespec="seconds"),
+    }, msg="任务日志清理完成")
 
 
 @router.get("/logs/{log_id}")

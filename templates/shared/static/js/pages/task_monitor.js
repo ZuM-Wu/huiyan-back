@@ -322,7 +322,8 @@
                 };
                 confirmDialog = DialogPlugin.confirm({
                     header: '确认清理日志',
-                    body: '将删除 ' + cleanupRetentionDays.value + ' 天以前的任务执行日志，且无法恢复，是否继续？',
+                    body: '仅删除 ' + cleanupRetentionDays.value + ' 天以前的日志，保留最近 '
+                        + cleanupRetentionDays.value + ' 天；此操作无法恢复，是否继续？',
                     onConfirm: async () => {
                         closeConfirmDialog();
                         cleanupLoading.value = true;
@@ -330,7 +331,14 @@
                             const res = await request.delete('/task-monitor/logs/cleanup', {
                                 params: { retention_days: cleanupRetentionDays.value },
                             });
-                            MessagePlugin.success('已清理 ' + res.data.data.deleted_count + ' 条任务日志');
+                            const data = res.data.data;
+                            if (data.deleted_count === 0) {
+                                MessagePlugin.warning(
+                                    '没有早于 ' + data.cutoff_time + ' 的任务日志，保留期内日志未删除'
+                                );
+                            } else {
+                                MessagePlugin.success('已清理 ' + data.deleted_count + ' 条任务日志');
+                            }
                             cleanupDialogVisible.value = false;
                             fetchLogs();
                         } catch (e) {

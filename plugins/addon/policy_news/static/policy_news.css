@@ -1,0 +1,71 @@
+/* 农业政策资讯管理页：复用后台列表页标题、工具栏、Tab、表格和状态反馈规范。 */
+.policy-news-page .policy-news-card > .t-card__header {
+    border-bottom: 1px solid var(--app-border);
+}
+
+.policy-news-toolbar-wrap {
+    gap: var(--app-spacing-md);
+}
+
+.policy-news-title {
+    color: var(--app-text-primary);
+    font-size: var(--app-font-size-lg);
+    font-weight: 600;
+    line-height: var(--app-line-height);
+    white-space: nowrap;
+}
+
+.policy-news-summary {
+    margin-left: auto;
+    color: var(--app-text-secondary);
+    font-size: var(--app-font-size-sm);
+    white-space: nowrap;
+}
+
+.policy-news-page .policy-news-alert {
+    margin: var(--app-spacing-md) var(--app-spacing-lg) 0;
+}
+
+.policy-news-page .policy-news-tabs > .t-tabs__content {
+    padding-bottom: var(--app-spacing-md);
+}
+
+.policy-news-table {
+    min-width: 0;
+}
+
+.policy-news-title-link {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.policy-news-title-link .t-link__content {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.policy-news-date,
+.policy-news-error-text {
+    color: var(--app-text-secondary);
+}
+
+.policy-news-error-text {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.policy-news-item-count {
+    color: var(--app-text-primary);
+    font-weight: 600;
+}
+
+.policy-news-table .t-table__content > table {
+    width: 100%;
+    min-width: 100%;
+}

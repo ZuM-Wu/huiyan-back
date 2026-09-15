@@ -1,0 +1,420 @@
+@charset "UTF-8";
+/*
+ * 产区管理演示插件 - 任务详情与模拟 MCP 弹窗样式
+ *
+ * 与 index.css 共用同一套 --app-* 语义令牌，颜色随 <html data-theme> 切换，
+ * 样式层不声明任何硬编码色值，仅面向 PC 桌面浏览器。
+ */
+
+/* ---------- 任务详情抽屉 ---------- */
+.pam-detail-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 80px 0;
+}
+
+.pam-detail {
+    display: flex;
+    flex-direction: column;
+    gap: var(--app-card-gap);
+}
+
+.pam-detail-title {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--app-spacing-md);
+}
+
+.pam-detail-title h3 {
+    margin: var(--app-spacing-xs) 0 0;
+    font-size: var(--app-font-size-lg);
+    font-weight: 600;
+    color: var(--app-text-primary);
+}
+
+.pam-detail-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--app-spacing-md);
+    padding: var(--app-spacing-md);
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-md);
+    background: var(--app-bg-container);
+}
+
+.pam-detail-grid > div {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: var(--app-font-size-sm);
+    color: var(--app-text-secondary);
+}
+
+.pam-detail-grid b {
+    font-size: var(--app-font-size-md);
+    font-weight: 600;
+    color: var(--app-text-primary);
+}
+
+.pam-detail-section {
+    border-radius: var(--app-radius-md);
+    background: var(--app-bg-container);
+}
+
+.pam-detail-text {
+    margin: var(--app-spacing-sm) 0 0;
+    font-size: var(--app-font-size-md);
+    line-height: var(--app-line-height);
+    color: var(--app-text-secondary);
+}
+
+.pam-source-log strong {
+    display: block;
+    font-size: var(--app-font-size-md);
+    color: var(--app-text-primary);
+}
+
+.pam-source-log p {
+    margin: var(--app-spacing-sm) 0;
+    font-size: var(--app-font-size-md);
+    line-height: var(--app-line-height);
+    color: var(--app-text-secondary);
+}
+
+/* ---------- 模拟轨迹 ---------- */
+.pam-trace-list,
+.pam-feedback-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--app-spacing-md);
+    margin-top: var(--app-spacing-sm);
+}
+
+.pam-trace-item {
+    display: flex;
+    gap: var(--app-spacing-sm);
+}
+
+.pam-trace-dot {
+    flex-shrink: 0;
+    width: 8px;
+    height: 8px;
+    margin-top: 8px;
+    border-radius: var(--app-radius-pill);
+    background: var(--app-brand-color);
+}
+
+.pam-trace-body {
+    flex: 1;
+    min-width: 0;
+}
+
+.pam-trace-line,
+.pam-feedback-head {
+    display: flex;
+    align-items: center;
+    gap: var(--app-spacing-sm);
+}
+
+.pam-trace-line {
+    justify-content: space-between;
+}
+
+.pam-trace-line strong,
+.pam-feedback-person {
+    font-size: var(--app-font-size-md);
+    font-weight: 600;
+    color: var(--app-text-primary);
+}
+
+.pam-trace-line span {
+    font-size: var(--app-font-size-sm);
+    color: var(--app-text-placeholder);
+}
+
+.pam-trace-body code {
+    display: inline-block;
+    margin: var(--app-spacing-xs) 0;
+    padding: 1px var(--app-spacing-sm);
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-sm);
+    background: var(--app-bg-card);
+    font-size: var(--app-font-size-sm);
+    color: var(--app-brand-color);
+}
+
+.pam-trace-body p {
+    margin: 0;
+    font-size: var(--app-font-size-sm);
+    line-height: var(--app-line-height);
+    color: var(--app-text-secondary);
+}
+
+.pam-feedback-item {
+    padding: var(--app-spacing-md);
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-md);
+    background: var(--app-bg-card);
+}
+
+.pam-feedback-head .pam-time {
+    margin-left: auto;
+}
+
+.pam-feedback-item p {
+    margin: var(--app-spacing-sm) 0 0;
+    font-size: var(--app-font-size-md);
+    line-height: var(--app-line-height);
+    color: var(--app-text-secondary);
+}
+
+.pam-metric-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--app-spacing-sm);
+    margin-top: var(--app-spacing-sm);
+}
+
+.pam-metric-tags span {
+    padding: 2px var(--app-spacing-sm);
+    border-radius: var(--app-radius-sm);
+    background: var(--app-neutral-light);
+    font-size: var(--app-font-size-sm);
+    color: var(--app-text-secondary);
+}
+
+/* ---------- 反馈表单 ---------- */
+.pam-feedback-form .pam-metric-editor {
+    display: flex;
+    flex-direction: column;
+    gap: var(--app-spacing-sm);
+    width: 100%;
+}
+
+.pam-metric-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr auto;
+    gap: var(--app-spacing-sm);
+    align-items: center;
+}
+
+.pam-form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--app-spacing-sm);
+    margin-top: var(--app-spacing-md);
+}
+
+/* ---------- MCP 弹窗 ---------- */
+.pam-mcp-head {
+    display: flex;
+    align-items: center;
+    gap: var(--app-spacing-md);
+    padding-bottom: var(--app-spacing-md);
+    border-bottom: 1px solid var(--app-border);
+}
+
+.pam-mcp-orbit {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 48px;
+    height: 48px;
+    border-radius: var(--app-radius-pill);
+    background: var(--app-brand-light);
+    color: var(--app-brand-color);
+    font-size: 24px;
+    animation: pam-orbit-pulse 2.4s var(--app-ease-standard) infinite;
+}
+
+.pam-mcp-orbit.is-done {
+    animation: none;
+    background: var(--app-success-light);
+    color: var(--app-success);
+}
+
+@keyframes pam-orbit-pulse {
+    0%,
+    100% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 var(--app-brand-light);
+    }
+    50% {
+        transform: scale(1.06);
+        box-shadow: 0 0 0 10px var(--app-brand-light);
+    }
+}
+
+.pam-mcp-title {
+    font-size: var(--app-font-size-lg);
+    font-weight: 600;
+    color: var(--app-text-primary);
+}
+
+.pam-mcp-subtitle {
+    margin-top: var(--app-spacing-xs);
+    font-size: var(--app-font-size-sm);
+    line-height: var(--app-line-height);
+    color: var(--app-text-secondary);
+}
+
+.pam-mcp-steps {
+    display: flex;
+    flex-direction: column;
+    gap: var(--app-spacing-sm);
+    margin: var(--app-spacing-md) 0;
+}
+
+.pam-mcp-step {
+    display: flex;
+    gap: var(--app-spacing-md);
+    padding: var(--app-spacing-md);
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-md);
+    background: var(--app-bg-container);
+    opacity: 0.6;
+    transition: background var(--app-duration-base) var(--app-ease-out),
+        border-color var(--app-duration-base) var(--app-ease-out),
+        opacity var(--app-duration-base) var(--app-ease-out);
+}
+
+.pam-mcp-step.is-running {
+    border-color: var(--app-brand-color);
+    background: var(--app-brand-light);
+    opacity: 1;
+}
+
+.pam-mcp-step.is-success {
+    opacity: 1;
+}
+
+.pam-mcp-step.is-failed {
+    border-color: var(--app-error);
+    background: var(--app-error-light);
+    opacity: 1;
+}
+
+.pam-mcp-step-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+    border-radius: var(--app-radius-pill);
+    background: var(--app-bg-card);
+    color: var(--app-text-placeholder);
+    font-size: var(--app-font-size-lg);
+}
+
+.pam-mcp-step.is-running .pam-mcp-step-icon {
+    color: var(--app-brand-color);
+}
+
+.pam-mcp-step.is-running .pam-mcp-step-icon .t-icon {
+    animation: pam-spin 1s linear infinite;
+}
+
+.pam-mcp-step.is-success .pam-mcp-step-icon {
+    color: var(--app-success);
+}
+
+.pam-mcp-step.is-failed .pam-mcp-step-icon {
+    color: var(--app-error);
+}
+
+@keyframes pam-spin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.pam-mcp-step-body {
+    flex: 1;
+    min-width: 0;
+}
+
+.pam-mcp-step-line {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--app-spacing-sm);
+}
+
+.pam-mcp-step-line strong {
+    font-size: var(--app-font-size-md);
+    font-weight: 600;
+    color: var(--app-text-primary);
+}
+
+.pam-mcp-step-line span {
+    font-size: var(--app-font-size-sm);
+    color: var(--app-text-placeholder);
+}
+
+.pam-mcp-step-body code {
+    display: inline-block;
+    margin: var(--app-spacing-xs) 0;
+    padding: 1px var(--app-spacing-sm);
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-sm);
+    background: var(--app-bg-card);
+    font-size: var(--app-font-size-sm);
+    color: var(--app-brand-color);
+}
+
+.pam-mcp-step-body p {
+    margin: 0;
+    font-size: var(--app-font-size-sm);
+    line-height: var(--app-line-height);
+    color: var(--app-text-secondary);
+}
+
+.pam-mcp-error {
+    color: var(--app-error);
+}
+
+.pam-mcp-result {
+    display: flex;
+    align-items: center;
+    gap: var(--app-spacing-md);
+    padding: var(--app-spacing-md);
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-md);
+    background: var(--app-success-light);
+    color: var(--app-success);
+}
+
+.pam-mcp-result > div {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.pam-mcp-result strong {
+    font-size: var(--app-font-size-md);
+    color: var(--app-text-primary);
+}
+
+.pam-mcp-result span {
+    font-size: var(--app-font-size-sm);
+    color: var(--app-text-secondary);
+}
+
+.pam-mcp-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--app-spacing-sm);
+    margin-top: var(--app-spacing-lg);
+}
+
+/* 新增任务行高亮：生成后定位到列表中的目标任务 */
+.pam-task-table .pam-row-highlight > td {
+    background: var(--app-brand-light);
+}

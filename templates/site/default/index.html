@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 
-{% block title %}{{ site_banner.title | default(config.site_name, true) }} - {{ site_banner.subtitle | default('官网', true) }}{% endblock %}
+{% block title %}{{ site_banner.title | default(brand_config.site_name, true) }} - {{ site_banner.subtitle | default('官网', true) }}{% endblock %}
 
 {% block content %}
 {# ========== Banner 区 ========== #}
@@ -9,7 +9,7 @@
     style="background-image: url('{{ site_banner.background }}');"
     {% endif %}>
     <div class="site-banner-inner">
-        <h1 class="site-banner-title">{{ site_banner.title | default(config.site_name, true) }}</h1>
+        <h1 class="site-banner-title">{{ site_banner.title | default(brand_config.site_name, true) }}</h1>
         <p class="site-banner-subtitle">{{ site_banner.subtitle | default('智慧农业业务系统', true) }}</p>
         <div class="site-banner-actions">
             <a class="site-btn site-btn-primary site-btn-lg" href="/admin/login">登录使用</a>

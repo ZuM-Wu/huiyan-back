@@ -1,36 +1,125 @@
 (function () {
-    const { ref, reactive, computed, onMounted } = Vue;
-    const { MessagePlugin, DialogPlugin } = TDesign;
+    const { ref, reactive, onMounted } = Vue;
+    const { MessagePlugin } = TDesign;
+
+    const statusLabels = Object.freeze({
+        current: '正常',
+        version_mismatch: '版本不一致',
+        local_newer: '安装版较新',
+        schema_mismatch: '结构不一致',
+        missing_files: '文件缺失',
+        invalid_manifest: '清单异常',
+        not_installed: '未安装',
+        unverified: '待核验',
+        awaiting_restart: '待重启生效',
+    });
+    const schemaStatusLabels = Object.freeze({
+        current: '正常',
+        not_applicable: '不涉及',
+        mismatch: '结构不一致',
+        unverified: '待核验',
+    });
+
     HuiYan.createPage({
         setup() {
-            const rows = ref([]), loading = ref(false), scanning = ref(false), total = ref(0), page = ref(1), limit = 20;
-            const keyword = ref(''), module = ref(''), status = ref('');
-            const detailVisible = ref(false), detailReport = ref(''), configVisible = ref(false);
+            const rows = ref([]);
+            const loading = ref(false);
+            const scanning = ref(false);
+            const keyword = ref('');
+            const module = ref('');
+            const status = ref('');
+            const detailVisible = ref(false);
+            const detailReport = ref('');
+            const configVisible = ref(false);
             const config = reactive({ enabled: true, interval_hours: 6 });
-            const summary = ref({});
+            const pagination = reactive({ current: 1, pageSize: 20, total: 0, showJumper: false });
             const columns = [
-                { colKey: 'plugin_name', title: '插件', minWidth: 180, cell: 'plugin_name' },
-                { colKey: 'module', title: '模块', width: 100 }, { colKey: 'db_version', title: '数据库版本', width: 120 },
-                { colKey: 'disk_version', title: '文件版本', width: 120 }, { colKey: 'schema_status', title: '结构状态', width: 120, cell: 'schema_status' },
-                { colKey: 'status', title: '运行状态', width: 130, cell: 'status' }, { colKey: 'last_scan_at', title: '最近扫描', width: 170 }, { colKey: 'op', title: '操作', width: 250, cell: 'op' },
+                { colKey: 'plugin_name', title: '插件', minWidth: 220, cell: 'plugin_name' },
+                { colKey: 'module', title: '模块', width: 120 },
+                { colKey: 'db_version', title: '数据库版本', width: 120 },
+                { colKey: 'disk_version', title: '文件版本', width: 120 },
+                { colKey: 'schema_status', title: '结构状态', width: 120, cell: 'schema_status' },
+                { colKey: 'status', title: '运行状态', width: 140, cell: 'status' },
+                { colKey: 'last_scan_at', title: '最近扫描', width: 180, cell: 'last_scan_at' },
+                { colKey: 'op', title: '操作', width: 280, cell: 'op' },
             ];
-            const statusOptions = ['current', 'version_mismatch', 'local_newer', 'schema_mismatch', 'missing_files', 'not_installed'].map(value => ({ label: value, value }));
-            const stats = computed(() => [
-                { key: 'total', label: '插件总数', value: total.value }, { key: 'version', label: '待升级', value: summary.value.version_mismatch || 0 },
-                { key: 'schema', label: '结构异常', value: summary.value.schema_mismatch || 0 }, { key: 'files', label: '文件异常', value: summary.value.missing_files || 0 },
-                { key: 'uninstalled', label: '未安装/未纳管', value: (summary.value.not_installed || 0) + (summary.value.unverified || 0) },
-            ]);
-            const warning = computed(() => { const bad = stats.value.slice(1).reduce((sum, item) => sum + Number(item.value || 0), 0); return bad ? `检测到 ${bad} 项异常，建议先刷新扫描，再通过本地控制中心执行停机计划。` : ''; });
-            const load = () => { loading.value = true; request.get('/plugin-database/status', { params: { page: page.value, limit, keyword: keyword.value, module: module.value, status: status.value } }).then(res => { const data = res.data.data || res.data || {}; rows.value = data.list || []; total.value = data.total || 0; summary.value = data.summary || {}; }).finally(() => { loading.value = false; }); };
-            const scan = () => { scanning.value = true; request.post('/plugin-database/scan').then(() => MessagePlugin.success('扫描任务已提交')).finally(() => { scanning.value = false; }); };
-            const showDetail = row => { detailVisible.value = true; detailReport.value = JSON.stringify({ ...row, report: row.report || {} }, null, 2); };
-            const prepareRepair = row => request.post(`/plugin-database/${row.plugin_name}/repair/prepare`).then(() => MessagePlugin.success('修复计划已生成')).catch(() => {});
-            const prepareUpgrade = row => request.post('/plugin-database/prepare-batch', { names: [row.plugin_name] }).then(() => MessagePlugin.success('升级计划已生成')).catch(() => {});
-            const openControlCenter = row => { window.open(`http://127.0.0.1:8765/?operation_id=${encodeURIComponent(row.pending_operation_id || '')}`, '_blank', 'noopener'); };
-            const loadConfig = () => { request.get('/plugin-database/config').then(res => Object.assign(config, res.data.data || res.data || {})); configVisible.value = true; };
-            const saveConfig = () => request.put('/plugin-database/config', config).then(() => { MessagePlugin.success('扫描配置已保存'); configVisible.value = false; }).catch(() => {});
+            const statusOptions = Object.entries(statusLabels).map(([value, label]) => ({ label, value }));
+
+            // 状态值由后端保存英文枚举，页面统一转换为中文，避免管理员直接阅读内部标识。
+            const statusLabel = value => statusLabels[value] || value || '未知';
+            const schemaStatusLabel = value => schemaStatusLabels[value] || value || '未知';
+            const statusTheme = value => value === 'current' ? 'success' : 'warning';
+            const schemaStatusTheme = value => value === 'current' || value === 'not_applicable' ? 'success' : 'warning';
+            const formatScanTime = value => value ? String(value).replace('T', ' ').replace(/\.\d+$/, '') : '-';
+
+            // 查询时回到第一页；翻页时保留筛选条件并只更新当前页。
+            const load = () => {
+                loading.value = true;
+                return request.get('/plugin-database/status', {
+                    params: {
+                        page: pagination.current,
+                        limit: pagination.pageSize,
+                        keyword: keyword.value.trim(),
+                        module: module.value.trim(),
+                        status: status.value,
+                    },
+                }).then(res => {
+                    const data = res.data.data || res.data || {};
+                    rows.value = data.list || [];
+                    pagination.total = data.total || 0;
+                }).finally(() => {
+                    loading.value = false;
+                });
+            };
+            const query = () => {
+                pagination.current = 1;
+                return load();
+            };
+            const resetFilter = () => {
+                keyword.value = '';
+                module.value = '';
+                status.value = '';
+                return query();
+            };
+            const onPageChange = pageInfo => {
+                pagination.current = pageInfo.current;
+                pagination.pageSize = pageInfo.pageSize;
+                return load();
+            };
+            const scan = () => {
+                scanning.value = true;
+                request.post('/plugin-database/scan').then(() => MessagePlugin.success('扫描任务已提交')).finally(() => {
+                    scanning.value = false;
+                });
+            };
+            const showDetail = row => {
+                detailVisible.value = true;
+                detailReport.value = JSON.stringify({ ...row, report: row.report || {} }, null, 2);
+            };
+            const prepareRepair = row => request.post(`/plugin-database/${row.plugin_name}/repair/prepare`)
+                .then(() => MessagePlugin.success('修复计划已生成')).catch(() => {});
+            const prepareUpgrade = row => request.post('/plugin-database/prepare-batch', { names: [row.plugin_name] })
+                .then(() => MessagePlugin.success('升级计划已生成')).catch(() => {});
+            const openControlCenter = row => {
+                window.open(`http://127.0.0.1:8765/?operation_id=${encodeURIComponent(row.pending_operation_id || '')}`, '_blank', 'noopener');
+            };
+            const loadConfig = () => {
+                configVisible.value = true;
+                request.get('/plugin-database/config').then(res => Object.assign(config, res.data.data || res.data || {}));
+            };
+            const saveConfig = () => request.put('/plugin-database/config', config).then(() => {
+                MessagePlugin.success('扫描配置已保存');
+                configVisible.value = false;
+            }).catch(() => {});
+
             onMounted(load);
-            return { rows, loading, scanning, total, page, limit, keyword, module, status, columns, statusOptions, stats, warning, detailVisible, detailReport, configVisible, config, load, scan, showDetail, prepareRepair, prepareUpgrade, openControlCenter, loadConfig, saveConfig };
-        }
+            return {
+                rows, loading, scanning, keyword, module, status, pagination, columns, statusOptions,
+                detailVisible, detailReport, configVisible, config,
+                statusLabel, schemaStatusLabel, statusTheme, schemaStatusTheme, formatScanTime,
+                load, query, resetFilter, onPageChange, scan, showDetail, prepareRepair,
+                prepareUpgrade, openControlCenter, loadConfig, saveConfig,
+            };
+        },
     });
 })();

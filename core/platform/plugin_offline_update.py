@@ -6,6 +6,7 @@ import shutil
 import socket
 import json
 import asyncio
+import logging
 from core.time_utils import china_now
 from pathlib import Path
 
@@ -26,6 +27,7 @@ from core.plugin_manager import PluginManager
 
 WORK_DIR = Path(BASE_DIR) / "runtime" / "plugin-update-work"
 BACKUP_DIR = Path(BASE_DIR) / "runtime" / "plugin-update-backups"
+logger = logging.getLogger(__name__)
 
 
 def backend_is_listening(host: str = "127.0.0.1", port: int = 8000) -> bool:
@@ -134,7 +136,28 @@ async def _mark_applied(plan: dict) -> dict:
     return dict(plan)
 
 
-async def apply_update_plan(plan: dict, *, dry_run: bool = False) -> dict:  # noqa: C901, PLR0912
+async def _refresh_plugin_database_state(manager: PluginManager, plugin_name: str) -> dict:
+    """升级事务提交后刷新单插件体检快照，避免后台继续展示旧版本。"""
+    from core.plugin_database_service import PluginDatabaseService
+
+    async with async_session_factory() as db:
+        report = await PluginDatabaseService(manager).refresh_plugin_state(db, plugin_name)
+        await db.commit()
+    return report
+
+
+def _ensure_current_snapshot(plugin_name: str, report: dict) -> None:
+    """拒绝把版本或结构仍异常的插件计划标记为 applied。"""
+    if report.get("status") != "current":
+        raise RuntimeError(
+            f"插件 '{plugin_name}' 升级后体检未收敛: "
+            f"{report.get('status') or 'unknown'}"
+        )
+    if report.get("schema_status") == "mismatch":
+        raise RuntimeError(f"插件 '{plugin_name}' 升级后数据库结构仍不完整")
+
+
+async def apply_update_plan(plan: dict, *, dry_run: bool = False) -> dict:  # noqa: C901, PLR0912, PLR0915
     """校验并应用单个停机更新计划。"""
     if plan.get("status") not in {"awaiting_restart", "applying"}:
         raise ValueError(f"更新计划当前状态不可执行: {plan.get('status')}")
@@ -143,6 +166,7 @@ async def apply_update_plan(plan: dict, *, dry_run: bool = False) -> dict:  # no
     manager = PluginManager()
     live, work_root, _staged_path, backup = _paths(plan, manager)
     swapped = False
+    snapshot_synced = False
     if plan.get("status") == "applying" and live.is_dir() and backup.exists():
         try:
             swapped = str(manager.load_metadata(str(plan["plugin_id"])).get("version") or "") == str(
@@ -156,6 +180,11 @@ async def apply_update_plan(plan: dict, *, dry_run: bool = False) -> dict:  # no
             if not live.is_dir() or str(manager.load_metadata(str(plan["plugin_id"])).get("version") or "") != database_version:
                 raise RuntimeError("数据库已升级但插件代码未处于目标版本，需要人工恢复")
             if not dry_run:
+                snapshot = await _refresh_plugin_database_state(
+                    manager, str(plan["plugin_id"]),
+                )
+                _ensure_current_snapshot(str(plan["plugin_id"]), snapshot)
+                snapshot_synced = True
                 result = await _mark_applied(plan)
                 backup_root = BACKUP_DIR / str(plan["operation_id"])
                 if backup_root.exists():
@@ -195,6 +224,11 @@ async def apply_update_plan(plan: dict, *, dry_run: bool = False) -> dict:  # no
         if not upgraded and database_version != str(plan["target_version"]):
             error = manager.get_upgrade_error(str(plan["plugin_id"]))
             raise RuntimeError(error.message if error else "插件迁移失败")
+        snapshot = await _refresh_plugin_database_state(
+            manager, str(plan["plugin_id"]),
+        )
+        _ensure_current_snapshot(str(plan["plugin_id"]), snapshot)
+        snapshot_synced = True
         result = await _mark_applied(plan)
         if backup.exists():
             _remove_runtime_tree(BACKUP_DIR / str(plan["operation_id"]), BACKUP_DIR)
@@ -202,6 +236,19 @@ async def apply_update_plan(plan: dict, *, dry_run: bool = False) -> dict:  # no
     except Exception as exc:
         database_version = await installed_version(str(plan["plugin_id"]))
         if not dry_run and database_version == str(plan["target_version"]):
+            if not snapshot_synced:
+                try:
+                    snapshot = await _refresh_plugin_database_state(
+                        manager, str(plan["plugin_id"]),
+                    )
+                    _ensure_current_snapshot(str(plan["plugin_id"]), snapshot)
+                    snapshot_synced = True
+                except Exception as snapshot_exc:
+                    reason = f"插件数据库已提交，但体检快照同步失败: {snapshot_exc}"
+                    logger.error(reason, exc_info=True)
+                    plan.update(status="failed", restart_required=False, error_reason=reason)
+                    await persist_plan(plan)
+                    raise RuntimeError(reason) from snapshot_exc
             return await _mark_applied(plan)
         if not dry_run and swapped and backup.exists():
             if live.exists():

@@ -1,6 +1,6 @@
 """
 Widget 挂件引擎
-慧眼护农 3.4.0 仪表盘挂件子系统
+慧眼护农 3.4.1 仪表盘挂件子系统
 
 负责挂件的注册、排序、启停以及数据库持久化（每个管理员的显示配置）
 """
@@ -14,6 +14,63 @@ from sqlalchemy import select
 from core.db.base import async_session_factory
 
 logger = logging.getLogger(__name__)
+
+
+def _string_list(value) -> list[str]:
+    """仅保留非空字符串，避免异常 JSON 污染挂件标识。"""
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, str) and item]
+
+
+def _string_set(value) -> set[str]:
+    """兼容列表、集合和字典键，统一过滤挂件标识。"""
+    if isinstance(value, dict):
+        value = value.keys()
+    if not isinstance(value, (list, tuple, set)):
+        return set()
+    return {item for item in value if isinstance(item, str) and item}
+
+
+def _parse_widget_state(raw) -> dict | None:
+    """解析旧数组或新字典配置，不在此处按运行时注册表剪裁。"""
+    try:
+        stored = json.loads(raw) if isinstance(raw, str) else raw
+    except (json.JSONDecodeError, TypeError):
+        return None
+    if isinstance(stored, list):
+        widgets = _string_list(stored)
+        return {
+            "widgets": widgets,
+            "hidden": set(),
+            "known": set(widgets),
+            "legacy": True,
+        }
+    if isinstance(stored, dict):
+        widgets = _string_list(stored.get("widgets", []))
+        return {
+            "widgets": widgets,
+            "hidden": _string_set(stored.get("hidden", [])),
+            "known": _string_set(stored.get("known", [])) | set(widgets),
+            "legacy": False,
+        }
+    return None
+
+
+def _merge_widget_order(old_widgets: list[str], requested: list[str], preserved: set[str]) -> list[str]:
+    """将用户排序写入可用挂件槽位，保留暂不可用挂件的原位置。"""
+    requested = [name for name in requested if name not in preserved]
+    requested_iter = iter(requested)
+    result: list[str] = []
+    for name in old_widgets:
+        if name in preserved:
+            result.append(name)
+            continue
+        next_name = next(requested_iter, None)
+        if next_name:
+            result.append(next_name)
+    result.extend(name for name in requested_iter if name)
+    return list(dict.fromkeys(result))
 
 
 class BaseWidget(ABC):
@@ -127,55 +184,50 @@ class WidgetEngine:
     # 数据库持久化 — 管理员个人级配置
     # ================================================================
 
-    async def get_widget_config(self, admin_id: int) -> List[str]:
-        """
-        从数据库读取该管理员的挂件显示列表（有序）
-
-        首次访问（无记录）时返回全部已注册挂件按权重排序的默认列表
-        """
+    async def _load_widget_state(self, admin_id: int) -> dict | None:
+        """读取管理员挂件配置，返回未按当前注册表剪裁的原始状态。"""
         from core.db.widget import AdminWidget
-        admin_widgets = self._admin_widgets()
 
         async with async_session_factory() as db:
             result = await db.execute(
                 select(AdminWidget.widgets).where(AdminWidget.admin_id == admin_id)
             )
             row = result.scalar_one_or_none()
+        return _parse_widget_state(row) if row else None
 
-        if row:
-            try:
-                stored = json.loads(row) if isinstance(row, str) else row
-                if isinstance(stored, list):
-                    # 兼容旧版数组配置：存量管理员首次升级时补齐新挂件。
-                    widget_list = [w for w in stored if w in admin_widgets]
-                    known = set(widget_list)
-                    widget_list.extend(
-                        w.name for w in sorted(admin_widgets.values(), key=lambda w: w.weight)
-                        if w.name not in known and w.name not in self._disabled
-                    )
-                    await self.save_widget_config(admin_id, widget_list, known_widgets=admin_widgets)
-                    return widget_list
-                if isinstance(stored, dict):
-                    widget_list = stored.get("widgets", [])
-                    hidden = set(stored.get("hidden", []))
-                    known = set(stored.get("known", []))
-                    widget_list = [w for w in widget_list if w in admin_widgets and w not in hidden]
-                    new_widgets = [
-                        w.name for w in sorted(admin_widgets.values(), key=lambda w: w.weight)
-                        if w.name not in known and w.name not in hidden and w.name not in self._disabled
-                    ]
-                    if new_widgets:
-                        widget_list.extend(new_widgets)
-                        known.update(admin_widgets)
-                        await self.save_widget_config(admin_id, widget_list, hidden=hidden, known_widgets=known)
-                    return widget_list
-            except (json.JSONDecodeError, TypeError, AttributeError):
-                pass
+    async def get_widget_config(self, admin_id: int) -> List[str]:
+        """
+        从数据库读取该管理员的挂件显示列表（有序）
 
-        return [
+        首次访问（无记录）时返回全部已注册挂件按权重排序的默认列表。
+        插件停用只影响本次返回值，不改写其他挂件的持久化布局。
+        """
+        admin_widgets = self._admin_widgets()
+        available = set(admin_widgets) - self._disabled
+        state = await self._load_widget_state(admin_id)
+        if state is None:
+            return [
+                w.name for w in sorted(admin_widgets.values(), key=lambda w: w.weight)
+                if w.name in available
+            ]
+
+        hidden = state["hidden"]
+        known = state["known"]
+        persisted_widgets = [name for name in state["widgets"] if name not in hidden]
+        widget_list = [name for name in persisted_widgets if name in available]
+        new_widgets = [
             w.name for w in sorted(admin_widgets.values(), key=lambda w: w.weight)
-            if w.name not in self._disabled
+            if w.name in available and w.name not in known and w.name not in hidden
         ]
+        if state["legacy"] or new_widgets:
+            persisted_widgets.extend(new_widgets)
+            widget_list.extend(new_widgets)
+            known.update(new_widgets)
+            known.update(admin_widgets)
+            await self.save_widget_config(
+                admin_id, persisted_widgets, hidden=hidden, known_widgets=known,
+            )
+        return widget_list
 
     async def save_widget_config(self, admin_id: int, widget_list: List[str], hidden=None, known_widgets=None):
         """
@@ -188,30 +240,30 @@ class WidgetEngine:
         from core.db.widget import AdminWidget
         from sqlalchemy import text as sa_text
 
-        async with async_session_factory() as db:
-            # 读取旧状态，保存排序时必须保留管理员主动隐藏的挂件。
-            existing = (await db.execute(
-                select(AdminWidget.widgets).where(AdminWidget.admin_id == admin_id)
-            )).scalar_one_or_none()
-            old_hidden = set()
-            if existing:
-                try:
-                    stored = json.loads(existing) if isinstance(existing, str) else existing
-                    if isinstance(stored, dict):
-                        old_hidden = set(stored.get("hidden", []))
-                except (json.JSONDecodeError, TypeError):
-                    pass
-            hidden = old_hidden if hidden is None else set(hidden)
-            declared = known_widgets if known_widgets is not None else self._admin_widgets()
-            known = set(declared)
-            known.intersection_update(self._admin_widgets())
-            widget_list = [name for name in widget_list if name in self._admin_widgets()]
-            widgets_json = json.dumps({
-                "widgets": widget_list,
-                "hidden": sorted(hidden),
-                "known": sorted(known),
-            }, ensure_ascii=False)
+        state = await self._load_widget_state(admin_id)
+        old_widgets = list(state["widgets"]) if state else []
+        old_known = set(state["known"]) if state else set()
+        old_hidden = set(state["hidden"]) if state else set()
+        hidden = old_hidden if hidden is None else _string_set(hidden)
+        declared = _string_set(known_widgets if known_widgets is not None else ())
+        # known 只增不减，避免插件停用期间的短时缺失导致其他挂件被永久遗忘。
+        registered = set(self._admin_widgets())
+        known = set(old_widgets) | old_known | declared | registered
+        allowed = known | registered
+        requested = [
+            name for name in _string_list(widget_list)
+            if name in allowed and name not in hidden
+        ]
+        old_visible = [name for name in old_widgets if name not in hidden]
+        preserved = set(old_visible) - set(requested)
+        ordered = _merge_widget_order(old_visible, requested, preserved)
+        widgets_json = json.dumps({
+            "widgets": ordered,
+            "hidden": sorted(hidden),
+            "known": sorted(known),
+        }, ensure_ascii=False)
 
+        async with async_session_factory() as db:
             # 幂等 upsert：有则更新，无则插入
             exist_result = await db.execute(
                 select(AdminWidget.id).where(AdminWidget.admin_id == admin_id)
@@ -228,7 +280,7 @@ class WidgetEngine:
 
             await db.commit()
 
-        logger.info(f"[WidgetEngine] 管理员 {admin_id} 挂件配置已保存: {widget_list}")
+        logger.info(f"[WidgetEngine] 管理员 {admin_id} 挂件配置已保存: {ordered}")
 
     async def toggle_widget(self, admin_id: int, widget_name: str, enabled: bool) -> List[str]:
         """
@@ -241,22 +293,18 @@ class WidgetEngine:
 
         返回: 更新后的挂件显示列表
         """
-        widget_list = await self.get_widget_config(admin_id)
-        if widget_name not in self._admin_widgets():
-            return widget_list
-        hidden = set()
-        from core.db.widget import AdminWidget
-        async with async_session_factory() as db:
-            raw = (await db.execute(
-                select(AdminWidget.widgets).where(AdminWidget.admin_id == admin_id)
-            )).scalar_one_or_none()
-        if raw:
-            try:
-                stored = json.loads(raw) if isinstance(raw, str) else raw
-                if isinstance(stored, dict):
-                    hidden = set(stored.get("hidden", []))
-            except (json.JSONDecodeError, TypeError):
-                pass
+        available_widgets = self._admin_widgets()
+        if widget_name not in available_widgets or widget_name in self._disabled:
+            return await self.get_widget_config(admin_id)
+        state = await self._load_widget_state(admin_id)
+        hidden = set(state["hidden"]) if state else set()
+        widget_list = (
+            [name for name in state["widgets"] if name not in hidden]
+            if state else [
+                w.name for w in sorted(available_widgets.values(), key=lambda w: w.weight)
+                if w.name not in self._disabled
+            ]
+        )
         if enabled:
             if widget_name not in widget_list:
                 widget_list.append(widget_name)
@@ -265,11 +313,9 @@ class WidgetEngine:
             widget_list.remove(widget_name)
             hidden.add(widget_name)
 
-        await self.save_widget_config(
-            admin_id, widget_list, hidden=hidden,
-            known_widgets=self._admin_widgets(),
-        )
-        return widget_list
+        await self.save_widget_config(admin_id, widget_list, hidden=hidden)
+        available = set(available_widgets) - self._disabled
+        return [name for name in widget_list if name in available and name not in hidden]
 
     async def get_dashboard(self, admin_id: int) -> dict:
         """

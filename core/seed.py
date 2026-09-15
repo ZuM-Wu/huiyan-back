@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 # 种子版本号：与 hy_configuration.seed_version 比对，一致时整体跳过种子流程
 # 重要约定：任何人修改本模块/seed_nav/seed_notice 的种子内容后，必须递增此版本号，
 # 否则新种子不会在存量环境生效（启动修复/新增项依赖种子流程重新执行）
-SEED_VERSION = "19"
+SEED_VERSION = "20"
 # 版本变更记录：
 # - v10：菜单/导航/通知/权限码种子当前版本（站内信管理并入通知日志页 Tab、移除独立预警记录页等历史变更已固化）
 # - v11：seed_notice 修复天气邮件通知默认启用问题
@@ -27,6 +27,7 @@ SEED_VERSION = "19"
 # - v16：新增硬件设备管理页面、导航与细粒度权限
 # - v17：新增任务监控日志清理权限
 # - v19：新增插件数据库体检系统页面、菜单、权限和扫描配置
+# - v20：官网页脚移除“联系我们”邮箱链接，清理个人邮箱信息
 
 
 async def seed_menus(db):
@@ -377,8 +378,7 @@ async def seed_configuration(db):
             "官网顶部导航菜单（JSON 数组）",
         ),
         "site_footer": (
-            '[{"title":"产品","links":[{"label":"功能介绍","href":"#features"}]},'
-            '{"title":"支持","links":[{"label":"联系我们","href":"mailto:1910442675@qq.com"}]}]',
+            '[{"title":"产品","links":[{"label":"功能介绍","href":"#features"}]}]',
             "官网页脚分组（JSON 数组）",
         ),
         "site_banner": (

@@ -289,6 +289,7 @@
                 <t-input-number v-model="cleanupRetentionDays" :min="1" :max="3650" theme="normal" />
             </t-form-item>
         </t-form>
+        <div class="form-help-text">仅删除保留期以前的日志；例如填写 30，最近 30 天日志会保留。</div>
         <div class="dialog-footer">
             <t-button theme="danger" :loading="cleanupLoading" @click="cleanupLogs">确认清理</t-button>
             <t-button theme="default" :disabled="cleanupLoading" @click="cleanupDialogVisible = false">取消</t-button>

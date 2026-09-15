@@ -18,6 +18,9 @@
 (function (window) {
     'use strict';
 
+    // 品牌配置由服务端在首屏从数据库注入，不再异步替换默认 Logo。
+    var brandConfig = window.__HUIYAN_BRAND_CONFIG__ || {};
+
     var ref = Vue.ref;
     var computed = Vue.computed;
     var reactive = Vue.reactive;
@@ -171,7 +174,8 @@
             });
         };
 
-        var siteLogo = ref('/static/img/logo.png');
+        var siteLogo = ref(brandConfig.site_logo);
+        var siteFavicon = ref(brandConfig.site_favicon);
         var userInfo = reactive({ nickname: '', username: '' });
         var isCollapsed = sidebarCollapsed;
 
@@ -240,14 +244,6 @@
                     // 从 API 或缓存加载菜单树
                     loadMenus();
 
-                    // 站点 Logo
-                    axios.get('/api/admin/v1/config/site').then(function (res) {
-                        var list = (res.data.data && res.data.data.list) || [];
-                        list.forEach(function (item) {
-                            if (item.key === 'site_logo' && item.value) { siteLogo.value = item.value; }
-                        });
-                    }).catch(function () { /* 使用默认 Logo */ });
-
                     // 用户信息（昵称、邮箱等补充字段）
                     request.get('/me').then(function (res) {
                         var d = res.data.data || res.data || {};
@@ -275,6 +271,7 @@
                     expandedMenus: expandedMenus,
                     isCollapsed: isCollapsed,
                     siteLogo: siteLogo,
+                    siteFavicon: siteFavicon,
                     displayName: displayName,
                     avatarText: avatarText,
                     onMenuChange: onMenuChange,
@@ -324,16 +321,7 @@
         var rootOptions = Object.assign({}, pageOptions, {
             setup: function () {
                 // 站点品牌（公开配置，无需登录）
-                var site = reactive({ siteName: '慧眼护农', copyright: '' });
-                onMounted(function () {
-                    axios.get('/api/admin/v1/config/site').then(function (res) {
-                        var list = (res.data.data && res.data.data.list) || [];
-                        list.forEach(function (item) {
-                            if (item.key === 'site_name' && item.value) { site.siteName = item.value; }
-                            if (item.key === 'copyright') { site.copyright = item.value; }
-                        });
-                    }).catch(function () { /* 忽略：使用默认品牌 */ });
-                });
+                var site = reactive({ siteName: brandConfig.site_name });
 
                 var userState = typeof userSetup === 'function' ? (userSetup() || {}) : {};
                 return Object.assign({}, toRefs(site), userState);

@@ -1,6 +1,6 @@
 -- ============================================
--- 慧眼护农 V4 核心表初始建表 SQL
--- 版本: 4.0.0
+-- 慧眼护农 3.4.0 核心表初始建表 SQL
+-- 版本: 3.4.0
 -- 对标 ZJMF: plugin/plugin_hook/configuration/admin/client/auth/system_log
 -- ============================================
 
@@ -153,11 +153,11 @@ CREATE TABLE IF NOT EXISTS `hy_menu` (
 -- 种子数据（对标 ZJMF 安装即用）
 -- ============================================
 
--- 系统核心插件注册
-INSERT IGNORE INTO `hy_plugin` (`name`, `title`, `version`, `module`, `status`) VALUES
-('system', '系统核心', '4.0.0', 'addon', 1);
+-- 系统核心由框架层直接提供，不写入 hy_plugin，避免被识别为 addon 插件。
 
--- 超级管理员由应用运行时种子逻辑创建（初始密码通过 .env 的 ADMIN_INIT_PASSWORD 配置），归档不再内嵌任何凭据。
+-- 超级管理员（密码: 123456）
+INSERT IGNORE INTO `hy_admin` (`id`, `username`, `password`, `nickname`, `status`) VALUES
+(1, 'admin', '$12$/3VXJFgyLYddUXVFf0/58OlZSx7v20sWUz5Yn.wa3GhtDtzLS3j3C', '超级管理员', 1);
 
 -- 管理员角色
 INSERT IGNORE INTO `hy_admin_role` (`id`, `name`, `description`, `is_system`) VALUES
@@ -171,7 +171,7 @@ INSERT IGNORE INTO `hy_admin_role_link` (`admin_id`, `role_id`) VALUES
 -- 系统默认配置（对标 ZJMF 预设配置）
 INSERT IGNORE INTO `hy_configuration` (`key`, `value`, `description`) VALUES
 ('site_name', '慧眼护农', '系统名称'),
-('system_version', '4.0.0', '系统版本'),
+('system_version', '3.4.0', '系统版本'),
 ('lang_admin', 'zh-cn', '后台默认语言'),
 ('lang_farmer', 'zh-cn', '前台默认语言'),
 ('jwt_expire_admin', '7200', '管理员JWT过期时间(秒)'),

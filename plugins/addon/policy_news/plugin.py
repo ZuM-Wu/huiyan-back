@@ -74,6 +74,7 @@ class Plugin(BasePlugin):
                 "nav_type": "admin",
                 "audience": "admin",
                 "template": "policy_news.html",
+                "styles": ["policy_news.css"],
                 "scripts": ["policy_news.js"],
                 "permission": "policy_news:list",
                 "api_base": "/api/admin/v1/plugins/policy_news",

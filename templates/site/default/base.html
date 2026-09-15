@@ -3,10 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}{{ site_banner.title | default(config.site_name, true) }} - 官网{% endblock %}</title>
+    <title>{% block title %}{{ site_banner.title | default(brand_config.site_name, true) }} - 官网{% endblock %}</title>
     <meta name="keywords" content="{{ config.site_keywords }}">
-    <meta name="description" content="{{ site_banner.subtitle | default(config.site_description, true) }}">
-    <link rel="icon" href="{{ config.site_favicon or '/static/img/favicon.png' }}" type="image/png">
+    <meta name="description" content="{{ site_banner.subtitle | default(brand_config.site_subtitle, true) }}">
+    <link rel="icon" href="{{ brand_config.site_favicon }}" type="image/png">
+    <script>window.__HUIYAN_BRAND_CONFIG__ = {{ brand_config | tojson }};</script>
     <!-- 主题防闪烁：页面加载前从 localStorage 读取主题偏好，写入 <html data-theme> 属性 -->
     <script>(function(){try{var t=localStorage.getItem('site_theme');if(t==='dark'){document.documentElement.setAttribute('data-theme','dark');}}catch(e){}})();</script>
     <!-- Design Token（统一令牌，与后台 / 农户端共享色彩 / 字号 / 间距） -->
@@ -22,8 +23,8 @@
         <div class="site-nav-inner">
             <!-- Logo + 项目名 -->
             <a class="site-brand" href="/">
-                <img class="site-brand-logo" src="{{ config.site_logo or '/static/img/logo.png' }}" alt="{{ config.site_name }}">
-                <span class="site-brand-name">{{ config.site_name }}</span>
+                <img class="site-brand-logo" src="{{ brand_config.site_logo }}" alt="{{ brand_config.site_name }}">
+                <span class="site-brand-name">{{ brand_config.site_name }}</span>
             </a>
 
             <!-- 中部导航菜单（来自 site_nav 配置） -->

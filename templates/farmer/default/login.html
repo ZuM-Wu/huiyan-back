@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>登录 · 慧眼护农 农户端</title>
-    <link rel="icon" href="/static/img/favicon.png" type="image/png">
+    <link rel="icon" href="{{ brand_config.site_favicon }}" type="image/png">
+    <script>window.__HUIYAN_BRAND_CONFIG__ = {{ brand_config | tojson }};</script>
     <!-- 主题防闪烁：页面加载前从 localStorage 读取主题偏好 -->
     <script>(function(){try{var t=localStorage.getItem('farmer_theme');if(t==='dark'){document.documentElement.setAttribute('data-theme','dark');}}catch(e){}})();</script>
     <style>[v-cloak]{display:none!important;}</style>
@@ -211,7 +212,7 @@ HuiYanFarmer.createApp({
         /* ===== 视图模式：login / reset ===== */
         var mode = ref('login');
         var loading = ref(false);
-        var siteName = ref('慧眼护农');
+        var siteName = ref((window.__HUIYAN_BRAND_CONFIG__ || {}).site_name);
 
         /* ===== 双轴切换状态（对标 ZJMF） ===== */
         var isPassOrCode = ref(true);   // true=密码模式, false=验证码模式
@@ -300,7 +301,6 @@ HuiYanFarmer.createApp({
                 var list = (res.data && res.data.list) || [];
                 var map = {};
                 list.forEach(function (item) { map[item.key] = item.value; });
-                if (map.site_name) siteName.value = map.site_name;
 
                 /* 解析注册开关（控制"立即注册"链接显隐） */
                 var allowReg = parseInt(map.allow_farmer_register) === 1;

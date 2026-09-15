@@ -10,7 +10,7 @@ import zipfile
 from pathlib import Path, PurePosixPath
 from urllib.parse import urlsplit
 
-from core.config import BASE_DIR
+from core.config import BASE_DIR, settings
 from core.plugin_manager import PluginManager
 
 
@@ -97,6 +97,10 @@ def _validate_manifest(plugin_id: str, data: object, manager: PluginManager) -> 
     compatible = data.get("compatible_app_versions", [])
     if not isinstance(compatible, list) or any(not isinstance(item, str) or not item.strip() for item in compatible):
         raise ValueError("插件 manifest compatible_app_versions 必须是非空字符串数组")
+    if compatible and not manager.is_app_version_compatible(compatible):
+        raise ValueError(
+            f"插件包不兼容当前应用版本 {settings.app_version}: {compatible}"
+        )
     if not isinstance(data.get("health", {}), dict):
         raise ValueError("插件 manifest health 必须是对象")
     from core.plugin_database_service import validate_database_schema

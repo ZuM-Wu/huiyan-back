@@ -1,0 +1,384 @@
+@charset "UTF-8";
+/*
+ * 产区管理演示插件样式
+ *
+ * 全部颜色、圆角、阴影与间距均引用 theme.css 暴露的 --app-* 语义令牌，
+ * 由 <html data-theme> 自动切换明亮与深色模式，样式层不声明任何硬编码色值。
+ * 仅面向 1280x900 及以上的 PC 桌面浏览器，不提供小屏断点。
+ */
+
+.pam-page {
+    --pam-gap: var(--app-spacing-md);
+    display: flex;
+    flex-direction: column;
+    gap: var(--pam-gap);
+    padding-bottom: var(--app-spacing-xl);
+}
+
+/* ---------- 页头 ---------- */
+.pam-page-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--app-spacing-lg);
+    padding: var(--app-spacing-lg) var(--app-spacing-xl);
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-lg);
+    background: linear-gradient(135deg, var(--app-brand-light), var(--app-bg-card) 62%);
+    box-shadow: var(--app-shadow-1);
+}
+
+.pam-kicker {
+    font-size: var(--app-font-size-sm);
+    letter-spacing: 0.08em;
+    color: var(--app-brand-color);
+      font-weight: 600;
+}
+
+.pam-title {
+    margin: var(--app-spacing-xs) 0 0;
+    font-size: var(--app-font-size-xl);
+    font-weight: 600;
+    color: var(--app-text-primary);
+}
+
+.pam-subtitle {
+    margin: var(--app-spacing-xs) 0 0;
+    max-width: 560px;
+    font-size: var(--app-font-size-md);
+    line-height: var(--app-line-height);
+    color: var(--app-text-secondary);
+}
+
+.pam-header-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--app-spacing-sm);
+    flex-shrink: 0;
+}
+
+.pam-alert {
+    border-radius: var(--app-radius-md);
+}
+
+.pam-loading {
+    padding: var(--app-spacing-lg) var(--app-spacing-xl);
+    border-radius: var(--app-radius-lg);
+    background: var(--app-bg-card);
+}
+
+.pam-tabs {
+    padding: var(--app-spacing-xs) var(--app-spacing-md) var(--app-spacing-md);
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-lg);
+    background: var(--app-bg-card);
+    box-shadow: var(--app-shadow-1);
+}
+
+/* ---------- 概览指标卡 ---------- */
+.pam-overview-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--app-card-gap);
+    margin: var(--app-spacing-md) 0 var(--app-card-gap);
+}
+
+.pam-metric-card {
+    border-radius: var(--app-radius-lg);
+    background: var(--app-bg-container);
+}
+
+.pam-card-label {
+    font-size: var(--app-font-size-sm);
+    color: var(--app-text-secondary);
+}
+
+.pam-area-name {
+    margin-top: var(--app-spacing-sm);
+    font-size: var(--app-font-size-xl);
+    font-weight: 600;
+    color: var(--app-text-primary);
+}
+
+.pam-area-region {
+    margin-top: var(--app-spacing-xs);
+    font-size: var(--app-font-size-md);
+    color: var(--app-text-secondary);
+}
+
+.pam-area-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--app-spacing-sm);
+    margin-top: var(--app-spacing-md);
+    font-size: var(--app-font-size-sm);
+    color: var(--app-text-secondary);
+}
+
+.pam-weather-main {
+    display: flex;
+    align-items: baseline;
+    gap: var(--app-spacing-xs);
+    margin: var(--app-spacing-sm) 0 var(--app-spacing-md);
+    color: var(--app-text-primary);
+}
+
+.pam-weather-main strong {
+    font-size: 34px;
+    font-weight: 600;
+    line-height: 1.1;
+}
+
+.pam-weather-main > span {
+    font-size: var(--app-font-size-md);
+    color: var(--app-text-secondary);
+}
+
+.pam-metric-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--app-spacing-md);
+    font-size: var(--app-font-size-sm);
+    color: var(--app-text-secondary);
+}
+
+.pam-metric-list b {
+    font-weight: 600;
+    color: var(--app-text-primary);
+}
+
+.pam-source-line {
+    margin-top: var(--app-spacing-md);
+    padding-top: var(--app-spacing-sm);
+    border-top: 1px solid var(--app-border);
+    font-size: var(--app-font-size-sm);
+    color: var(--app-text-placeholder);
+}
+
+.pam-gdd-values {
+    display: flex;
+    gap: var(--app-spacing-lg);
+    margin: var(--app-spacing-sm) 0 var(--app-spacing-md);
+}
+
+.pam-gdd-values > div {
+    display: flex;
+    align-items: baseline;
+    gap: var(--app-spacing-xs);
+    flex-direction: column;
+}
+
+.pam-gdd-values span {
+    font-size: var(--app-font-size-sm);
+    color: var(--app-text-secondary);
+}
+
+.pam-gdd-values strong {
+    font-size: 30px;
+    font-weight: 600;
+    line-height: 1.1;
+    color: var(--app-brand-color);
+}
+
+.pam-gdd-values em {
+    font-style: normal;
+    font-size: var(--app-font-size-sm);
+    color: var(--app-text-secondary);
+}
+
+.pam-gdd-meta {
+    padding-top: var(--app-spacing-sm);
+    border-top: 1px solid var(--app-border);
+}
+
+/* ---------- 时间线卡片 ---------- */
+.pam-timeline-card,
+.pam-task-toolbar,
+.pam-table-card {
+    border-radius: var(--app-radius-lg);
+    background: var(--app-bg-card);
+    box-shadow: var(--app-shadow-1);
+}
+
+.pam-task-table table {
+    table-layout: fixed !important;
+    width: 100% !important;
+}
+
+.pam-card-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--app-spacing-md);
+}
+
+.pam-card-title {
+    font-size: var(--app-font-size-lg);
+    font-weight: 600;
+    color: var(--app-text-primary);
+}
+
+.pam-card-caption {
+    margin-top: var(--app-spacing-xs);
+    font-size: var(--app-font-size-sm);
+    color: var(--app-text-secondary);
+}
+
+.pam-empty-wrap {
+    padding: var(--app-spacing-xl) 0;
+}
+
+.pam-log-list {
+    display: flex;
+    flex-direction: column;
+}
+
+.pam-log-item {
+    display: flex;
+    gap: var(--app-spacing-md);
+    padding: var(--app-spacing-md) 0;
+    border-bottom: 1px solid var(--app-border);
+}
+
+.pam-log-item:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.pam-log-marker {
+    position: relative;
+    flex-shrink: 0;
+    width: 12px;
+    height: 12px;
+    margin-top: 6px;
+    border: 2px solid var(--app-border-hover);
+    border-radius: var(--app-radius-pill);
+    background: var(--app-bg-card);
+}
+
+.pam-log-marker.is-latest {
+    border-color: var(--app-brand-color);
+    background: var(--app-brand-color);
+    box-shadow: 0 0 0 4px var(--app-brand-light);
+}
+
+.pam-log-body {
+    flex: 1;
+    min-width: 0;
+}
+
+.pam-log-topline {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--app-spacing-md);
+}
+
+.pam-log-title-row {
+    display: flex;
+    align-items: center;
+    gap: var(--app-spacing-sm);
+    min-width: 0;
+}
+
+.pam-log-title-row h3 {
+    margin: 0;
+    font-size: var(--app-font-size-md);
+    font-weight: 600;
+    color: var(--app-text-primary);
+}
+
+.pam-time {
+    flex-shrink: 0;
+    font-size: var(--app-font-size-sm);
+    color: var(--app-text-placeholder);
+}
+
+.pam-log-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--app-spacing-md);
+    margin: var(--app-spacing-sm) 0;
+    font-size: var(--app-font-size-sm);
+    color: var(--app-text-secondary);
+}
+
+.pam-log-meta span {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--app-spacing-xs);
+}
+
+.pam-log-content {
+    margin: 0;
+    font-size: var(--app-font-size-md);
+    line-height: var(--app-line-height);
+    color: var(--app-text-secondary);
+}
+
+.pam-log-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--app-spacing-sm);
+    margin-top: var(--app-spacing-sm);
+}
+
+.pam-log-chips span {
+    padding: 2px var(--app-spacing-sm);
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-pill);
+    background: var(--app-bg-container);
+    font-size: var(--app-font-size-sm);
+    color: var(--app-text-secondary);
+}
+
+/* ---------- 任务列表 ---------- */
+.pam-task-toolbar {
+    margin: var(--app-spacing-md) 0 var(--app-card-gap);
+}
+
+.pam-toolbar-left {
+    display: flex;
+    align-items: center;
+    gap: var(--app-spacing-md);
+}
+
+.pam-toolbar-hint {
+    font-size: var(--app-font-size-sm);
+    color: var(--app-text-secondary);
+}
+
+.pam-task-title-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.pam-task-title {
+    font-weight: 600;
+    color: var(--app-text-primary);
+}
+
+.pam-task-subtitle {
+    overflow: hidden;
+    font-size: var(--app-font-size-sm);
+    color: var(--app-text-placeholder);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pam-feedback-summary {
+    display: inline-block;
+    overflow: hidden;
+    max-width: 100%;
+    color: var(--app-text-secondary);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pam-muted {
+    color: var(--app-text-placeholder);
+}
+

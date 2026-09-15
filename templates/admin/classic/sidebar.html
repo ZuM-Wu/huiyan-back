@@ -4,8 +4,8 @@
         <!-- 配置了跳转地址时渲染为 <a>（按跳转方式 _self/_blank），否则降级为 <span> 不可点击 -->
         <component :is="logoUrl ? 'a' : 'span'" class="sidebar-logo__link"
                    :href="logoUrl || null" :target="logoUrl ? logoTarget : null">
-            <img :src="siteLogo" alt="Logo" class="sidebar-logo__img sidebar-logo--full">
-            <img :src="siteFavicon" alt="Logo" class="sidebar-logo__img sidebar-logo--mini">
+            <img src="{{ brand_config.site_logo }}" alt="Logo" class="sidebar-logo__img sidebar-logo--full">
+            <img src="{{ brand_config.site_favicon }}" alt="Logo" class="sidebar-logo__img sidebar-logo--mini">
         </component>
     </div>
 
