@@ -240,10 +240,22 @@ async def disable_plugin(name: str, request: Request):
     """禁用插件（注销钩子 + 路由门禁拦截，即时生效）"""
     pm, router_mgr = _managers(request)
     async with async_session_factory() as db:
-        success = await pm.disable(name, db, router_manager=router_mgr)
+        try:
+            success = await pm.disable(name, db, router_manager=router_mgr)
+        except Exception as exc:
+            logger.exception("禁用插件 '%s' 时发生未处理异常", name)
+            try:
+                await db.rollback()
+            except Exception:
+                logger.exception("禁用插件 '%s' 后回滚数据库会话失败", name)
+            raise HTTPException(status_code=503, detail={
+                "code": "plugin_disable_failed",
+                "message": f"插件 '{name}' 禁用失败，状态未完成提交",
+            }) from exc
         if not success:
             raise HTTPException(status_code=503, detail={
-                "code": "plugin_disable_failed", "message": f"插件 '{name}' 禁用失败",
+                "code": "plugin_disable_failed",
+                "message": f"插件 '{name}' 禁用失败，运行时状态已回滚",
             })
         await active_log(f"禁用插件：{name}", log_type="plugin", request=request)
         return ok(msg=f"插件 '{name}' 已禁用")

@@ -45,6 +45,17 @@ def _metric_summary(snapshot: dict | None) -> dict:
             "metrics": metrics[:MAX_METRICS], "omitted_count": max(0, len(metrics) - MAX_METRICS)}
 
 
+def _normalize_device_items(results: list[dict | BaseException]) -> list[dict]:
+    """把并行读取中的单项异常收口为可公开的设备错误，保持部分成功语义。"""
+    normalized: list[dict] = []
+    for item in results:
+        if isinstance(item, dict):
+            normalized.append(item)
+        else:
+            normalized.append({"code": "device_unavailable", "reason": "设备暂不可用"})
+    return normalized
+
+
 async def _bound_devices(plot_id: int) -> tuple[list[dict], int]:
     devices = await list_hardware_devices_for_plot(plot_id)
     semaphore = asyncio.Semaphore(DEVICE_INFO_CONCURRENCY)
@@ -118,34 +129,22 @@ async def hardware_plot_latest(plot_id: int) -> dict:
     """读取地块设备最新快照，不发起外部请求。"""
     plot = await ensure_plot_access(plot_id)
     devices, omitted = await _bound_devices(plot_id)
-    items = await asyncio.gather(
+    results = await asyncio.gather(
         *(_read_metrics(info, live=False) for info in devices),
         return_exceptions=True,
     )
-    items = [
-        item if isinstance(item, dict) else {
-            "code": "device_unavailable", "reason": "设备暂不可用",
-        }
-        for item in items
-    ]
-    return _plot_result(plot, list(items), omitted)
+    return _plot_result(plot, _normalize_device_items(results), omitted)
 
 
 async def hardware_plot_realtime(plot_id: int) -> dict:
     """现场读取地块实时指标；单设备最多等待五秒，允许部分成功。"""
     plot = await ensure_plot_access(plot_id)
     devices, omitted = await _bound_devices(plot_id)
-    items = await asyncio.gather(
+    results = await asyncio.gather(
         *(_read_metrics(info, live=True) for info in devices),
         return_exceptions=True,
     )
-    items = [
-        item if isinstance(item, dict) else {
-            "code": "device_unavailable", "reason": "设备暂不可用",
-        }
-        for item in items
-    ]
-    return _plot_result(plot, list(items), omitted)
+    return _plot_result(plot, _normalize_device_items(results), omitted)
 
 
 async def hardware_device_detail(device_id: int) -> dict:

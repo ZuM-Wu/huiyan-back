@@ -23,7 +23,7 @@ import logging
 from fastapi import APIRouter, FastAPI, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
-from core.config_service import get_config
+from core.config_service import get_brand_config, get_config
 from core.db.base import async_session_factory
 from core.config_manager import ConfigManager
 from core.theme_manager import theme_manager
@@ -115,6 +115,7 @@ class SiteViewController:
 
         ctx = {
             "request":     request,
+            "brand_config": await get_brand_config(),
             "site_theme":  theme_manager.get_active("site"),
             "site_nav":    _json_loads_or(raw_nav,    []),
             "site_footer": _json_loads_or(raw_footer, []),

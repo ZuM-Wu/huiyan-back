@@ -1,10 +1,14 @@
 """插件 owner 门禁和任务生命周期适配。"""
 
+import logging
+
 from core.platform.audit import audit_log
 from core.platform.task import cancel_owner, pause_owner, resume_owner
 from core.platform.plugin import plugin_platform
 from core.platform.resource import resource_registry
 from core.platform.health import platform_health
+
+logger = logging.getLogger(__name__)
 
 
 async def begin_uninstall(name: str, router_manager=None) -> None:
@@ -31,21 +35,42 @@ def register_plugin_resources(name: str, load_metadata) -> None:
         platform_health.mark(f"plugin:{name}:resource", "degraded", str(exc))
 
 
-async def pause_plugin_owner(name: str, router_manager=None) -> bool:
-    """禁用前暂停 owner 任务；失败时恢复 owner gate。"""
-    from core.hardware_provider import hardware_provider_registry
-    await hardware_provider_registry.block_owner(name)
-    if router_manager:
-        router_manager.mark_disabled(name)
+async def restore_plugin_owner_after_failed_disable(name: str, router_manager=None) -> bool:
+    """禁用预提交失败后逐项恢复 owner 门禁和暂停任务。"""
+    restored = True
     try:
-        await pause_owner(name)
-    except Exception:
+        from core.hardware_provider import hardware_provider_registry
         hardware_provider_registry.unblock_owner(name)
-        if router_manager:
+    except Exception:
+        logger.exception("插件 '%s' 硬件门禁恢复失败", name)
+        restored = False
+    if router_manager:
+        try:
             router_manager.mark_enabled(name)
+        except Exception:
+            logger.exception("插件 '%s' 路由门禁恢复失败", name)
+            restored = False
+    try:
+        await resume_owner(name)
+    except Exception:
+        logger.exception("插件 '%s' 暂停任务恢复失败", name)
+        restored = False
+    return restored
+
+
+async def pause_plugin_owner(name: str, router_manager=None) -> bool:
+    """禁用前暂停 owner 任务；任一步失败时恢复 owner 门禁。"""
+    try:
+        from core.hardware_provider import hardware_provider_registry
+        await hardware_provider_registry.block_owner(name)
+        if router_manager:
+            router_manager.mark_disabled(name)
+        await pause_owner(name)
+        return True
+    except Exception:
+        logger.exception("插件 '%s' 禁用前暂停失败，开始恢复运行时门禁", name)
+        await restore_plugin_owner_after_failed_disable(name, router_manager)
         return False
-    resource_registry.invalidate_owner(name)
-    return True
 
 
 async def resume_plugin_owner_or_disable(name: str, db, manager, plugin_model, update) -> bool:

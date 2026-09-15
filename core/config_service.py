@@ -43,6 +43,18 @@ _PUBLIC_SITE_KEYS = [
     "farmer_default_login_method", "farmer_default_password_type",
 ]
 
+# 页面首屏品牌字段。该集合只包含可以直接暴露给浏览器的展示配置，
+# 页面渲染时从数据库读取，不在模板或前端脚本内补静态默认图片。
+_BRAND_CONFIG_KEYS = (
+    "site_logo",
+    "site_favicon",
+    "site_name",
+    "site_subtitle",
+    "site_logo_url",
+    "site_logo_target",
+    "login_bg",
+)
+
 # ---------------------------------------------------------------------------
 # 官网配置字段定义（key -> {default, desc, kind}）
 # kind: list=JSON数组, dict=JSON对象, text=纯文本
@@ -230,6 +242,35 @@ async def list_site_config() -> dict:
         "total": len(configs),
         "list": [{"key": c.key, "value": c.value} for c in configs],
     }
+
+
+async def get_brand_config() -> dict[str, str]:
+    """读取页面首屏使用的站点品牌配置。
+
+    品牌配置属于页面展示数据，必须在服务端渲染页面前读取，避免前端
+    先绘制静态默认 Logo 再异步替换。数据库未保存的字段返回空字符串，
+    不在此处补充任何静态图片地址；数据库暂时不可用时返回空值集合，
+    使品牌配置故障不会阻断页面本身渲染。
+
+    Returns:
+        包含品牌字段的字典，所有字段均存在且值为字符串。
+    """
+    empty_config = {key: "" for key in _BRAND_CONFIG_KEYS}
+    try:
+        async with async_session_factory() as db:
+            result = await db.execute(
+                select(ConfigurationModel.key, ConfigurationModel.value).where(
+                    ConfigurationModel.key.in_(_BRAND_CONFIG_KEYS)
+                )
+            )
+            rows = result.all()
+        config = empty_config.copy()
+        for key, value in rows:
+            config[key] = "" if value is None else str(value)
+        return config
+    except Exception:
+        logger.warning("读取首屏品牌配置失败，将使用空品牌值", exc_info=True)
+        return empty_config
 
 
 async def update_site_config(data: dict) -> bool:

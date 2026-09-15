@@ -19,9 +19,10 @@
                 password: [{ required: true, message: '请输入密码', type: 'error' }]
             };
 
-            // ========== 站点配置（Logo + 背景图） ==========
-            var siteLogo = ref('/static/img/logo.png');
-            var loginBg = ref('');
+            // ========== 站点配置（服务端从数据库注入） ==========
+            var brandConfig = window.__HUIYAN_BRAND_CONFIG__ || {};
+            var siteLogo = ref(brandConfig.site_logo);
+            var loginBg = ref(brandConfig.login_bg);
 
             /**
              * 背景图样式（有配置时显示图片，否则透明）
@@ -32,27 +33,6 @@
                 }
                 return {};
             });
-
-            /**
-             * 加载站点配置（Logo + 登录背景图 + Favicon）
-             * 登录页处于未登录态，必须调用公开端点 /config/site（无需鉴权），
-             * 不能用需要管理员鉴权的 /config/list（否则 401，背景图/Logo 无法生效）
-             */
-            var loadSiteConfig = function () {
-                axios.get('/api/admin/v1/config/site').then(function (res) {
-                    var data = res.data.data || res.data;
-                    var list = data.list || [];
-                    var map = {};
-                    list.forEach(function (item) { map[item.key] = item.value; });
-                    if (map.site_logo) { siteLogo.value = map.site_logo; }
-                    if (map.login_bg) { loginBg.value = map.login_bg; }
-                    // 动态设置浏览器标签页 Favicon（base.html 中为默认占位）
-                    if (map.site_favicon) {
-                        var favEl = document.querySelector("link[rel='icon']");
-                        if (favEl) { favEl.href = map.site_favicon; }
-                    }
-                }).catch(function () { /* 静默失败，使用默认值 */ });
-            };
 
             // 预拉当前管理员的权限与可访问页面映射，写入 localStorage（供 v-permission 与页面守卫使用）
             var prefetchAuth = function (token) {
@@ -107,11 +87,6 @@
                     loading.value = false;
                 });
             };
-
-            // ========== 初始化 ==========
-            onMounted(function () {
-                loadSiteConfig();
-            });
 
             return { loading, loginForm, rules, onLogin, siteLogo, bgStyle };
         }

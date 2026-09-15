@@ -35,6 +35,8 @@ async def widget_order(request: Request, data: dict, _: None = Depends(check_adm
     widgets = data.get("widgets", [])
     if not isinstance(widgets, list):
         return fail(400, "widgets 必须是数组")
+    if not widgets and await widget_engine.get_widget_config(admin_id):
+        return fail(400, "widgets 不能为空")
     await widget_engine.save_widget_config(admin_id, widgets)
     return ok(msg="排序已保存")
 

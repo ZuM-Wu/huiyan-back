@@ -6,17 +6,17 @@ PluginManager: 插件发现、安装、卸载、启用、禁用、升级
 """
 
 import asyncio
-import importlib
 import json
 import logging
 import re
-import sys
 from pathlib import Path
 from typing import Dict, List
 
 from core.config import BASE_DIR, settings
 from core.hook_events import emit_plugin_installed
 from core.plugin_base import BasePlugin
+from core.plugin_loader import PLUGIN_MODULES, PluginLoaderMixin
+from core.plugin_runtime import PluginRuntimeMixin
 from core.plugin_upgrade import PluginUpgradeMixin
 
 logger = logging.getLogger(__name__)
@@ -163,12 +163,7 @@ def is_app_version_compatible(
     return False
 
 
-# 12 类插件目录名
-PLUGIN_MODULES = [
-    "addon", "gateway", "sms", "mail", "captcha", "certification",
-    "oauth", "oss", "server", "widget", "weather", "llm",
-]
-class PluginManager(PluginUpgradeMixin):
+class PluginManager(PluginUpgradeMixin, PluginRuntimeMixin, PluginLoaderMixin):
     """
     插件管理器
     负责插件的自动发现、加载、安装、卸载、启用、禁用
@@ -222,24 +217,6 @@ class PluginManager(PluginUpgradeMixin):
 
     def _clear_upgrade_error(self, name: str) -> None:
         self._upgrade_errors.pop(name, None)
-
-    def _invalidate_plugin_modules(self, name: str) -> None:
-        """清理插件模块缓存，同时保留已注册到 SQLAlchemy 的 ORM 模型。"""
-        rel_path = self._find_plugin_path(name)
-        module_name = rel_path.split("/")[0]
-        prefix = f"plugins.{module_name}.{name}"
-        models_prefix = f"{prefix}.models"
-        for loaded_name in list(sys.modules):
-            is_plugin_module = (
-                loaded_name == prefix or loaded_name.startswith(f"{prefix}.")
-            )
-            is_models_module = (
-                loaded_name == models_prefix
-                or loaded_name.startswith(f"{models_prefix}.")
-            )
-            if is_plugin_module and not is_models_module:
-                sys.modules.pop(loaded_name, None)
-        importlib.invalidate_caches()
 
     def _migration_steps(self, name: str, old_version: str, new_version: str) -> list[Path]:
         """解析从旧版本到新版本的连续迁移脚本。"""
@@ -324,179 +301,6 @@ class PluginManager(PluginUpgradeMixin):
                     })
         return discovered
 
-    def _find_plugin_path(self, name: str) -> str:
-        """在 12 个类型子目录中查找插件目录"""
-        for module_name in PLUGIN_MODULES:
-            plugin_dir = self.plugins_dir / module_name / name
-            if plugin_dir.is_dir() and (plugin_dir / "plugin.json").exists():
-                return f"{module_name}/{name}"
-        return name
-
-    def load_metadata(self, name: str) -> dict:
-        """
-        读取插件的 plugin.json 元数据
-        """
-        rel_path = self._find_plugin_path(name)
-        path = self.plugins_dir / rel_path / "plugin.json"
-        with open(path, "r", encoding="utf-8") as f:
-            return json.load(f)
-
-    def _load_plugin_class(self, name: str):
-        """
-        动态加载插件类与元数据（安装、卸载和能力恢复公共辅助）
-
-        返回: (plugin_cls, meta) 元组；加载失败返回 (None, {})
-        """
-        try:
-            rel_path = self._find_plugin_path(name)
-            module_name = rel_path.split("/")[0]
-            module = importlib.import_module(f"plugins.{module_name}.{name}.plugin")
-            plugin_cls = getattr(module, "Plugin", None)
-            if not plugin_cls:
-                logger.error(f"插件 '{name}' 缺少 Plugin 类")
-                return None, {}
-            return plugin_cls, self.load_metadata(name)
-        except Exception as e:
-            logger.warning(f"加载插件 '{name}' 类失败: {e}")
-            return None, {}
-
-    def _unregister_runtime_capabilities(self, name: str) -> None:
-        """按 owner 注销事件、管道、任务和 MCP，供全部生命周期复用。"""
-        from core.events import event_registry, pipeline_engine
-        from services.task.definitions import task_registry
-        from services.widget.widget_engine import widget_engine
-
-        from core.hardware_provider import hardware_provider_registry
-        hardware_provider_registry.unregister_owner(name)
-        event_registry.unregister_owner(name)
-        pipeline_engine.unregister_owner(name)
-        task_registry.unregister_owner(name)
-        widget_engine.unregister_owner(name)
-        self._unregister_mcp_tools_runtime(name)
-
-    def _register_runtime_capabilities(self, name: str, instance) -> None:
-        """校验并原子注册插件声明的全部运行时能力。"""
-        from core.events import event_registry, pipeline_engine
-        from services.task.definitions import task_registry
-
-        definitions = instance.get_event_definitions() or []
-        subscriptions = instance.get_event_subscriptions() or []
-        pipelines = instance.get_pipeline_handlers() or []
-        tasks = instance.get_task_definitions() or []
-        widgets = instance.get_widgets() or []
-        if not all(isinstance(items, list) for items in (definitions, subscriptions, pipelines, tasks, widgets)):
-            raise ValueError(f"插件 '{name}' 的能力声明必须返回列表")
-        pages = instance.get_pages() or []
-        if pages:
-            self._validate_plugin_pages(name, pages)
-            from core.plugin_page_validator import (
-                validate_plugin_manifest_pages,
-                validate_plugin_page_sources,
-            )
-            plugin_root = self.plugins_dir / self._find_plugin_path(name)
-            validate_plugin_manifest_pages(plugin_root, self.load_metadata(name), pages)
-            validate_plugin_page_sources(plugin_root, pages)
-        self._unregister_runtime_capabilities(name)
-        from core.platform.plugin_lifecycle import register_plugin_resources
-        register_plugin_resources(name, self.load_metadata)
-        try:
-            from core.hardware_provider import hardware_provider_registry
-            hardware = instance.get_hardware_providers()
-            if not isinstance(hardware, list):
-                raise ValueError("硬件来源声明必须返回列表")
-            if hardware:
-                hardware_provider_registry.register(
-                    name, hardware,
-                    self.plugins_dir / self._find_plugin_path(name), self.load_metadata(name),
-                )
-            for definition in definitions:
-                if definition.owner != name:
-                    raise ValueError(f"事件定义 owner 必须为插件名: {definition.name}")
-                event_registry.register_definition(definition)
-            for definition in tasks:
-                if definition.owner != name:
-                    raise ValueError(f"任务 owner 必须为插件名: {definition.name}")
-                task_registry.register(definition)
-            for subscription in subscriptions:
-                if subscription.owner != name:
-                    raise ValueError(f"事件订阅 owner 必须为插件名: {subscription.event_name}")
-                event_registry.register_subscription(subscription)
-            for declaration in pipelines:
-                if declaration.owner != name:
-                    raise ValueError(f"管道 owner 必须为插件名: {declaration.name}")
-                pipeline_engine.register(declaration)
-            self._register_widgets_runtime(name, widgets)
-            self._register_mcp_tools_runtime(name, instance)
-        except Exception:
-            self._unregister_runtime_capabilities(name)
-            from core.platform.resource import resource_registry
-            resource_registry.invalidate_owner(name)
-            raise
-
-    @staticmethod
-    def _register_widgets_runtime(name: str, widgets: list) -> None:
-        """校验并注册插件挂件，异常由能力编排层统一回滚。"""
-        from services.widget.widget_engine import BaseWidget, widget_engine
-
-        for widget in widgets:
-            if not isinstance(widget, BaseWidget):
-                raise ValueError(f"插件 '{name}' 的挂件声明包含无效对象")
-            widget_engine.register(widget, owner=name)
-
-    def restore_capabilities(self, name: str) -> bool:
-        """
-        恢复插件显式能力（服务重启后或插件重新启用时调用）。
-        """
-        plugin_cls, meta = self._load_plugin_class(name)
-        if not plugin_cls:
-            return False
-        instance = plugin_cls(None, meta.get("config", {}))
-        try:
-            self._register_runtime_capabilities(name, instance)
-            self._loaded[name] = instance
-            logger.info("插件 '%s' 运行时能力已恢复", name)
-            return True
-        except Exception:
-            logger.exception("插件 '%s' 运行时能力恢复失败", name)
-            self._unregister_runtime_capabilities(name)
-            self._loaded.pop(name, None)
-            return False
-
-    @staticmethod
-    def _register_mcp_tools_runtime(name: str, instance: "BasePlugin"):
-        """
-        注册插件声明的 MCP 工具（与其他显式能力在同一点位调用）
-
-        先注销再注册保证幂等；MCP_ENABLED=False 时 registry 内部空操作，
-        工具注册失败不阻断插件主流程（只记日志）。
-        """
-        try:
-            from services.mcp.registry import register_tools, unregister_tools
-            unregister_tools(name)
-            register_tools(name, instance.get_mcp_tools(), permissions=instance.get_permissions())
-        except Exception as e:
-            logger.warning(f"插件 '{name}' MCP 工具注册失败(不影响插件运行): {e}", exc_info=True)
-
-    @staticmethod
-    def _unregister_mcp_tools_runtime(name: str):
-        """注销插件的 MCP 工具（禁用/卸载时调用，失败不阻断主流程）"""
-        try:
-            from services.mcp.registry import unregister_tools
-            unregister_tools(name)
-        except Exception as e:
-            logger.warning(f"插件 '{name}' MCP 工具注销失败: {e}", exc_info=True)
-
-    @staticmethod
-    async def _sync_mcp_tool_policies(name: str, db) -> None:
-        """在插件生命周期事务中登记该插件当前声明的工具策略。"""
-        from services.agentscope.tools import sync_tool_policies
-        from services.mcp.registry import list_registered_tool_declarations
-
-        declarations = [
-            item for item in list_registered_tool_declarations()
-            if item.get("owner") == name
-        ]
-        await sync_tool_policies(db, declarations)
 
     async def install(self, name: str, db) -> bool:
         """
@@ -650,20 +454,52 @@ class PluginManager(PluginUpgradeMixin):
         """
         from core.db.plugin import PluginModel
         from sqlalchemy import update
-        from core.platform.plugin_lifecycle import finalize_lifecycle, pause_plugin_owner
+        from core.platform.plugin_lifecycle import (
+            finalize_lifecycle,
+            pause_plugin_owner,
+            restore_plugin_owner_after_failed_disable,
+        )
         if not await pause_plugin_owner(name, router_manager):
             return False
-        await db.execute(
-            update(PluginModel).where(PluginModel.name == name).values(status=2)
-        )
-        await db.commit()
-        # 运行时断开：先允许插件释放长连接等资源，再注销运行时能力。
+        try:
+            await db.execute(
+                update(PluginModel).where(PluginModel.name == name).values(status=2)
+            )
+            await db.commit()
+        except Exception:
+            logger.exception("插件 '%s' 禁用状态提交失败，开始回滚运行时门禁", name)
+            try:
+                await db.rollback()
+            except Exception:
+                logger.exception("插件 '%s' 禁用失败后数据库回滚异常", name)
+            await restore_plugin_owner_after_failed_disable(name, router_manager)
+            return False
+        # 状态已提交：后续清理尽力执行，单项失败不能反向污染停用结果。
         runtime_instance = self._loaded.get(name)
         if runtime_instance:
             callback = getattr(runtime_instance, "on_runtime_disable", None)
             if callback:
-                await callback()
-        self._unregister_runtime_capabilities(name)
+                try:
+                    await callback()
+                except Exception:
+                    logger.exception("插件 '%s' 运行时停用钩子失败，继续注销能力", name)
+        failures = self._unregister_runtime_capabilities(name, strict=False)
         self._loaded.pop(name, None)
-        await finalize_lifecycle(name, "disabled")
+        try:
+            from core.platform.resource import resource_registry
+            resource_registry.invalidate_owner(name)
+        except Exception:
+            logger.exception("插件 '%s' 资源索引注销失败", name)
+            failures.append("resource")
+        try:
+            await finalize_lifecycle(name, "disabled")
+        except Exception:
+            logger.exception("插件 '%s' 停用生命周期写入失败", name)
+            failures.append("lifecycle")
+        if failures:
+            logger.warning(
+                "插件 '%s' 已停用，但部分运行时清理失败: %s",
+                name,
+                ", ".join(failures),
+            )
         return True

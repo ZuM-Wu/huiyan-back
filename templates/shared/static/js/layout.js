@@ -89,12 +89,13 @@
             // 侧边栏折叠状态（从 DOM 同步）
             const isCollapsed = sidebarCollapsed;
 
-            // 站点 Logo — 默认绝对路径（避免深层 URL 如插件页 /admin/plugin/x/y 下相对路径解析错误），从配置 API 动态加载
-            const siteLogo = ref('/static/img/logo.png');
-            const siteFavicon = ref('/static/img/favicon.png');
-            // Logo 点击跳转地址与方式（_self=当前页面 / _blank=新页面），从配置加载
-            const logoUrl = ref('');
-            const logoTarget = ref('_self');
+            // 品牌配置已由服务端从数据库注入，首屏直接使用数据库值。
+            const brandConfig = window.__HUIYAN_BRAND_CONFIG__ || {};
+            const siteLogo = ref(brandConfig.site_logo);
+            const siteFavicon = ref(brandConfig.site_favicon);
+            // Logo 点击行为同样以数据库配置为唯一来源。
+            const logoUrl = ref(brandConfig.site_logo_url);
+            const logoTarget = ref(brandConfig.site_logo_target);
             // 受控展开态：从 localStorage 恢复，跨页面保持展开状态
             const savedExpanded = (() => {
                 try { return JSON.parse(localStorage.getItem('sidebar_expanded') || '[]'); }
@@ -290,30 +291,10 @@
                 localStorage.setItem('sidebar_expanded', JSON.stringify(manualExpandedMenus.value));
             };
 
-            // 加载站点 Logo 和名称（从配置 API）
-            const loadSiteConfig = () => {
-                request.get('/config/list').then((res) => {
-                    const data = res.data.data || res.data;
-                    const map = {};
-                    (data.list || []).forEach(item => { map[item.key] = item.value; });
-                    if (map.site_logo) { siteLogo.value = map.site_logo; }
-                    if (map.site_favicon) {
-                        siteFavicon.value = map.site_favicon;
-                        // 动态设置浏览器标签页 Favicon（base.html 中为默认占位）
-                        var favEl = document.querySelector("link[rel='icon']");
-                        if (favEl) { favEl.href = map.site_favicon; }
-                    }
-                    // Logo 跳转地址与方式（地址为空则 logo 不可点击）
-                    logoUrl.value = map.site_logo_url || '';
-                    logoTarget.value = map.site_logo_target || '_self';
-                }).catch(() => { /* 静默失败，使用默认值 */ });
-            };
-
             onMounted(() => {
                 // 确保主题属性已设置（与 base.html 内联脚本双保险，防闪烁）
                 applyTheme();
                 loadMenus();
-                loadSiteConfig();
                 // 初始化时从 localStorage 同步折叠状态到 DOM
                 const sidebar = document.querySelector('.sidebar');
                 if (sidebar && sidebarCollapsed.value) {

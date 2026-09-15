@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}慧眼护农{% endblock %}</title>
-    <link rel="icon" href="/static/img/favicon.png" type="image/png">
+    <link rel="icon" href="{{ brand_config.site_favicon }}" type="image/png">
+    <script>window.__HUIYAN_BRAND_CONFIG__ = {{ brand_config | tojson }};</script>
     <!-- 防未编译内容闪烁（FOUC）：Vue 挂载前隐藏带 v-cloak 的元素 -->
     <style>[v-cloak]{display:none!important;}</style>
     <!-- 主题防闪烁：页面加载前从 localStorage 读取主题偏好，写入 <html data-theme> 属性 -->

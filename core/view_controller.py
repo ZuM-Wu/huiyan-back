@@ -12,6 +12,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
+from core.config_service import get_brand_config
 from core.static_files import CachedStaticFiles
 
 logger = logging.getLogger(__name__)
@@ -50,7 +51,7 @@ class ViewController:
 
         logger.info("[ViewController] 后台页面路由已注册（主题环境委托 theme_manager）")
 
-    def _iframe_page_response(self, request: Request) -> HTMLResponse:
+    async def _iframe_page_response(self, request: Request) -> HTMLResponse:
         """iframe 容器页响应（外部链接内嵌显示，含 url 参数安全校验）"""
         url = request.query_params.get('url', '')
         if not url:
@@ -64,7 +65,7 @@ class ViewController:
                 content=_error_html("参数非法", "url 参数仅支持 http:// 或 https:// 开头的链接", 400, "/admin/dashboard"),
                 status_code=400
             )
-        return self._render("iframe_page.html", request, {
+        return await self._render("iframe_page.html", request, {
             "page": "iframe_page",
             "iframe_url": url,
             "iframe_title": "外部页面"
@@ -76,7 +77,7 @@ class ViewController:
         # ---- 登录页（独立布局，不继承 base.html）----
         @app.get("/admin/login", response_class=HTMLResponse)
         async def admin_login(request: Request):
-            return self._render("login.html", request, {"page": "login"})
+            return await self._render("login.html", request, {"page": "login"})
 
         # ---- 插件页面: /admin/plugin/{name}/{page} ----
         @app.get("/admin/plugin/{name}/{page}", response_class=HTMLResponse)
@@ -89,7 +90,7 @@ class ViewController:
                     status_code=404,
                 )
             try:
-                return self._render(declaration["template"], request, {
+                return await self._render(declaration["template"], request, {
                     "page": page,
                     "plugin_name": name,
                     "plugin_page": declaration,
@@ -105,7 +106,7 @@ class ViewController:
         async def admin_page(request: Request, page: str):
             # 特殊页面：iframe 容器（校验与渲染抽取至 _iframe_page_response，降低本函数复杂度）
             if page == 'iframe_page':
-                return self._iframe_page_response(request)
+                return await self._iframe_page_response(request)
             # 已合并页面重定向（缓存管理已合并到系统设置的“系统缓存”Tab）
             if page == 'cache':
                 return RedirectResponse(url="/admin/system")
@@ -124,7 +125,7 @@ class ViewController:
                 return RedirectResponse(url="/admin/dashboard")
             tpl_name = f"{page}.html" if not page.endswith(".html") else page
             try:
-                return self._render(tpl_name, request, {"page": page})
+                return await self._render(tpl_name, request, {"page": page})
             except Exception:
                 return HTMLResponse(
                     content=_error_html("页面不存在", f"页面 '{page}' 未找到", 404, "/admin/dashboard"),
@@ -136,13 +137,13 @@ class ViewController:
         async def admin_index():
             return RedirectResponse(url="/admin/dashboard")
 
-    def _render(self, template_name: str, request: Request, context: dict) -> HTMLResponse:
+    async def _render(self, template_name: str, request: Request, context: dict) -> HTMLResponse:
         """使用 admin 主题 Jinja2 环境渲染模板并返回 HTML 响应"""
         from core.theme_manager import theme_manager
         try:
             env = theme_manager.get_env("admin")
             template = env.get_template(template_name)
-            ctx = {"request": request}
+            ctx = {"request": request, "brand_config": await get_brand_config()}
             ctx.update(context)
             html = template.render(ctx)
             return HTMLResponse(content=html)
