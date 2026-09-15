@@ -347,17 +347,14 @@
 
             const confirmReset = function () {
                 if (!canReset.value || !DialogPlugin) { return; }
-                DialogPlugin.confirm({
+                const dialog = DialogPlugin.confirm({
                     header: '恢复演示初始状态',
                     body: '将清空当前日志、任务与反馈，并重新播种演示数据。该操作不可撤销。',
                     confirmBtn: { content: '确认恢复', theme: 'danger' },
                     cancelBtn: '取消',
-                    onConfirm: function (instance) {
-                        if (instance && instance.destroy) { instance.destroy(); }
+                    onConfirm: function () {
+                        dialog.destroy();
                         runReset();
-                    },
-                    onCancel: function (instance) {
-                        if (instance && instance.destroy) { instance.destroy(); }
                     },
                 });
             };

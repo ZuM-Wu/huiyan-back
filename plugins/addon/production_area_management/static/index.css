@@ -15,42 +15,8 @@
     padding-bottom: var(--app-spacing-xl);
 }
 
-/* ---------- 页头 ---------- */
-.pam-page-header {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: var(--app-spacing-lg);
-    padding: var(--app-spacing-lg) var(--app-spacing-xl);
-    border: 1px solid var(--app-border);
-    border-radius: var(--app-radius-lg);
-    background: linear-gradient(135deg, var(--app-brand-light), var(--app-bg-card) 62%);
-    box-shadow: var(--app-shadow-1);
-}
-
-.pam-kicker {
-    font-size: var(--app-font-size-sm);
-    letter-spacing: 0.08em;
-    color: var(--app-brand-color);
-      font-weight: 600;
-}
-
-.pam-title {
-    margin: var(--app-spacing-xs) 0 0;
-    font-size: var(--app-font-size-xl);
-    font-weight: 600;
-    color: var(--app-text-primary);
-}
-
-.pam-subtitle {
-    margin: var(--app-spacing-xs) 0 0;
-    max-width: 560px;
-    font-size: var(--app-font-size-md);
-    line-height: var(--app-line-height);
-    color: var(--app-text-secondary);
-}
-
-.pam-header-actions {
+/* ---------- 页签操作区 ---------- */
+.pam-tabs-actions {
     display: flex;
     align-items: center;
     gap: var(--app-spacing-sm);
@@ -63,16 +29,8 @@
 
 .pam-loading {
     padding: var(--app-spacing-lg) var(--app-spacing-xl);
-    border-radius: var(--app-radius-lg);
+    border-radius: var(--app-radius-md);
     background: var(--app-bg-card);
-}
-
-.pam-tabs {
-    padding: var(--app-spacing-xs) var(--app-spacing-md) var(--app-spacing-md);
-    border: 1px solid var(--app-border);
-    border-radius: var(--app-radius-lg);
-    background: var(--app-bg-card);
-    box-shadow: var(--app-shadow-1);
 }
 
 /* ---------- 概览指标卡 ---------- */
@@ -80,12 +38,20 @@
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: var(--app-card-gap);
-    margin: var(--app-spacing-md) 0 var(--app-card-gap);
+    margin: 0 0 var(--app-card-gap);
 }
 
 .pam-metric-card {
-    border-radius: var(--app-radius-lg);
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-md);
     background: var(--app-bg-container);
+    transition: transform var(--app-duration-fast) var(--app-ease-spring),
+        box-shadow var(--app-duration-fast) var(--app-ease-standard);
+}
+
+.pam-metric-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--app-shadow-2);
 }
 
 .pam-card-label {
@@ -196,7 +162,7 @@
 .pam-timeline-card,
 .pam-task-toolbar,
 .pam-table-card {
-    border-radius: var(--app-radius-lg);
+    border-radius: var(--app-radius-md);
     background: var(--app-bg-card);
     box-shadow: var(--app-shadow-1);
 }
@@ -335,7 +301,7 @@
 
 /* ---------- 任务列表 ---------- */
 .pam-task-toolbar {
-    margin: var(--app-spacing-md) 0 var(--app-card-gap);
+    margin: 0 0 var(--app-card-gap);
 }
 
 .pam-toolbar-left {
