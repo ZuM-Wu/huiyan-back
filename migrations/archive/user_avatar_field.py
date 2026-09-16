@@ -1,6 +1,6 @@
 """
 迁移脚本 - 为 hy_farmer 表新增 avatar 字段
-运行方式：在 HuiYan_Back 目录下执行
+运行方式：在 app 目录下执行
     python migrations/user_avatar_field.py
 """
 import asyncio

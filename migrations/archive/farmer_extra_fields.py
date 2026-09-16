@@ -1,6 +1,6 @@
 """
 迁移脚本 - 为 hy_farmer 表新增 address/remark/country/language 字段 + 插入登录记录种子数据
-运行方式：在 HuiYan_Back 目录下执行
+运行方式：在 app 目录下执行
     python migrations/farmer_extra_fields.py
 """
 import asyncio

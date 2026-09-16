@@ -6,7 +6,7 @@
 
 运行方式：
     - 随应用启动由 core/lifespan.py 的 _run_field_migrations() 自动调用 migrate(db)
-    - 或在 HuiYan_Back 目录下手动执行：python migrations/area_farmer_binding.py
+    - 或在 app 目录下手动执行：python migrations/area_farmer_binding.py
 """
 import asyncio
 import logging

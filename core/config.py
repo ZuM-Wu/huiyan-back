@@ -9,7 +9,7 @@ from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# 项目根目录（HuiYan_Back 的绝对路径）
+# 项目根目录（app 的绝对路径）
 # 全库所有相对路径（plugins/、runtime/ 等）统一以此为基准拼接，
 # 避免因启动工作目录不同导致文件落点漂移（如在工作区根目录误建 runtime/cache）
 BASE_DIR = Path(__file__).resolve().parent.parent

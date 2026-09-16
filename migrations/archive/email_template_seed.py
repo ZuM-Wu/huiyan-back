@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 迁移脚本 - 预置基础邮件模板种子数据
-运行方式：在 HuiYan_Back 目录下执行
+运行方式：在 app 目录下执行
     python migrations/email_template_seed.py
 
 邮件模板不依赖平台审核，可以直接预置；模板不绑定插件接口。

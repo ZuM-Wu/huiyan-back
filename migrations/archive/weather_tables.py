@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 迁移脚本 - 创建天气模块相关数据表
-运行方式：在 HuiYan_Back 目录下执行
+运行方式：在 app 目录下执行
     python migrations/weather_tables.py
 
 因 lifespan 已执行 Base.metadata.create_all，此脚本作为显式补充/重建入口。

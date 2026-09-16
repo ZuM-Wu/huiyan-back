@@ -66,7 +66,7 @@
 ## 目录结构
 
 ```
-HuiYan_Back
+app
 ├── api/                 # 管理端与农户端 API 路由
 ├── core/                # 核心框架：配置、插件管理、数据库、生命周期、存储等
 ├── plugins/             # 可卸载业务插件（addon / certification / mail / weather / oss 等）

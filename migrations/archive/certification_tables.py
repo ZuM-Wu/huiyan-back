@@ -1,6 +1,6 @@
 """
 迁移脚本 - 创建实名认证相关数据表
-运行方式：在 HuiYan_Back 目录下执行
+运行方式：在 app 目录下执行
     python migrations/certification_tables.py
 """
 import asyncio
