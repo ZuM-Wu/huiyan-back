@@ -54,5 +54,8 @@
     }
   ],
   "database_schema": {"version": 1, "tables": []},
+  "tasks": [],
+  "events": [],
+  "health": {"check": "plugin.hardware_jjr"},
   "config": {}
 }

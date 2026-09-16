@@ -120,7 +120,14 @@ class HardwareRealtimeSnapshot(Base):
     """每台物联设备最近一次成功的实时数据快照。"""
 
     __tablename__ = "hy_hardware_realtime_snapshot"
-    __table_args__ = ({"comment": "物联硬件实时数据最新快照表"},)
+    __table_args__ = (
+        {
+            "comment": "物联硬件实时数据最新快照表",
+            # 设备删除需与快照清理同事务，且外键要求 InnoDB，显式声明引擎。
+            "mysql_engine": "InnoDB",
+            "mysql_charset": "utf8mb4",
+        },
+    )
 
     id: Mapped[int] = mapped_column(
         Integer, primary_key=True, autoincrement=True, comment="快照主键"

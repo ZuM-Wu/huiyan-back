@@ -13,7 +13,12 @@ class EventOutbox(Base):
     __table_args__ = (
         Index("idx_event_outbox_status", "status", "id"),
         Index("idx_event_outbox_name", "event_name", "id"),
-        {"comment": "可靠业务事件Outbox表"},
+        {
+            "comment": "可靠业务事件Outbox表",
+            # Outbox 必须与业务写入同事务提交，显式声明引擎避免按服务器默认引擎落库。
+            "mysql_engine": "InnoDB",
+            "mysql_charset": "utf8mb4",
+        },
     )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True, comment="事件ID")

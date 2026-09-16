@@ -181,6 +181,17 @@ class TaskManager:
             self._tasks.pop(name, None)
             logger.info(f"[TaskManager] 已移除任务: {name}")
 
+    def has_task(self, name: str) -> bool:
+        """判断定时任务是否已注册（供插件查询调度注册状态，避免直接访问 scheduler）"""
+        return self.scheduler.get_job(name) is not None
+
+    def next_run_time(self, name: str) -> str:
+        """读取定时任务的下一次执行时间（未注册或未排期时返回空字符串）"""
+        job = self.scheduler.get_job(name)
+        if not job or not job.next_run_time:
+            return ""
+        return str(job.next_run_time)
+
     async def run_task_manually(self, name: str):
         """
         手动触发指定任务执行一次（不影响定时调度）

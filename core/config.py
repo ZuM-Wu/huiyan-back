@@ -58,6 +58,10 @@ class Settings(BaseSettings):
     # MCP 服务开关（默认关闭；开发环境在 .env 中设置 MCP_ENABLED=true 开启）
     MCP_ENABLED: bool = False
 
+    # 生产环境（APP_DEBUG=false）种子超管初始口令；未提供时启动阶段生成一次性随机口令。
+    # 开发环境不使用该键，保留本地约定的初始口令，避免影响本机登录习惯。
+    SEED_ADMIN_PASSWORD: str = ""
+
     # MCP 服务挂载路径（挂载到 FastAPI 主应用下的子路径）
     MCP_MOUNT_PATH: str = "/mcp"
 

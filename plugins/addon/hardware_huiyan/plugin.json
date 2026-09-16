@@ -39,5 +39,8 @@
     }
   ],
   "database_schema": {"version": 1, "tables": [{"name": "hy_huiyan_iot_device", "columns": ["id", "device_id", "device_name", "device_type", "device_type_label", "nickname", "address", "latitude", "longitude", "capabilities", "metadata", "last_seen", "create_time", "update_time"], "indexes": [{"name": "PRIMARY", "columns": ["id"], "unique": true}, {"name": "uk_huiyan_iot_device_id", "columns": ["device_id"], "unique": true}]}]},
+  "tasks": [],
+  "events": [],
+  "health": {"check": "plugin.hardware_huiyan"},
   "config": {}
 }

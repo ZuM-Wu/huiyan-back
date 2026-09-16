@@ -194,9 +194,12 @@ async def startup(app):  # noqa: C901, PLR0912, PLR0915  12步启动流程属固
     logger.info("[ 2/12] 数据库表已就绪 (MySQL 8.0)")
 
     # 3. 种子数据（仅实际创建种子管理员时才提示初始密码，避免常规启动日志泄露凭据线索）
-    admin_created = await seed_startup_data()
-    if admin_created:
-        logger.info("[ 3/12] 种子数据已写入 (已创建管理员 admin，初始密码 123456，请首次登录后修改)")
+    initial_admin_password = await seed_startup_data()
+    if initial_admin_password:
+        logger.info(
+            "[ 3/12] 种子数据已写入 (已创建管理员 admin，初始密码 %s，请首次登录后立即修改)",
+            initial_admin_password,
+        )
     else:
         logger.info("[ 3/12] 种子数据已写入 (管理员账号已就绪)")
 

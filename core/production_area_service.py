@@ -27,7 +27,7 @@ async def get_area_geo(area_id: int) -> Optional[dict]:
     参数:
         area_id: 产区ID
     返回:
-        {province, city, district, longitude, latitude} 或 None（产区不存在）
+        {province, city, district, longitude, latitude, create_time} 或 None（产区不存在）
     """
     async with async_session_factory() as db:
         area = (await db.execute(
@@ -41,6 +41,7 @@ async def get_area_geo(area_id: int) -> Optional[dict]:
             "district": area.district,
             "longitude": area.longitude,
             "latitude": area.latitude,
+            "create_time": area.create_time,
         }
 
 

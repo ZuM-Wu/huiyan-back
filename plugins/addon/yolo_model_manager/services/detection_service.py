@@ -287,6 +287,10 @@ def run_yolo_inference(
     model_path: Path, image, confidence_threshold: float
 ) -> tuple[list[dict], int, int, bytes]:
     """同步执行 Ultralytics 检测，由任务处理器放入工作线程。"""
+    from core.pt_model_safety import require_safe_pt_loading
+
+    # PT 检查点仅允许 safe_only 安全加载，未生效时直接拒绝，禁止回退到不安全 pickle。
+    require_safe_pt_loading()
     from ultralytics import YOLO
 
     results = YOLO(str(model_path), task="detect").predict(

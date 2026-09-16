@@ -21,6 +21,7 @@ from core.view_controller import view_controller
 from core.view_farmer import farmer_view_controller
 from core.view_site import site_view_controller
 from core.middleware.maintenance import MaintenanceMiddleware
+from core.pt_model_safety import enable_safe_pt_loading
 
 # AgentScope Service：固定使用 agentscope==2.0.7。
 # AgentScope 是 AI 子系统唯一运行链路，导入失败时直接暴露启动错误。
@@ -157,6 +158,9 @@ if settings.MCP_ENABLED:
 else:
     mcp_app = None
     _app_lifespan = lifespan
+
+# PT 权重的 safe_only 安全加载开关必须在插件动态导入 ultralytics 之前生效。
+enable_safe_pt_loading()
 
 app = FastAPI(title="慧眼护农 3.4.1", version="3.4.1", lifespan=_app_lifespan)
 

@@ -1,9 +1,11 @@
 """启动阶段种子数据初始化。"""
 
 import logging
+import secrets
 
 from sqlalchemy import select
 
+from core.config import settings
 from core.db.admin import Admin, AdminRole, AdminRoleLink
 from core.db.base import async_session_factory
 from core.db.configuration import ConfigurationModel
@@ -11,17 +13,43 @@ from core.db.plugin import PluginModel
 
 logger = logging.getLogger(__name__)
 
+_DEV_SEED_PASSWORD = "123456"
+_MIN_SEED_PASSWORD_LENGTH = 8
 
-async def seed_startup_data() -> bool:
+
+def resolve_seed_admin_password() -> str:
+    """解析种子超管初始口令。
+
+    开发环境（APP_DEBUG=true）保留本机约定的初始口令，便于本地登录；
+    生产环境只接受 `SEED_ADMIN_PASSWORD`（环境变量或 .env），
+    未配置或长度不足时生成一次性随机口令，避免任何环境存在固定弱口令。
+    """
+    if settings.APP_DEBUG:
+        return _DEV_SEED_PASSWORD
+    configured = str(settings.SEED_ADMIN_PASSWORD or "").strip()
+    if len(configured) >= _MIN_SEED_PASSWORD_LENGTH:
+        return configured
+    if configured:
+        logger.warning(
+            "[种子数据] SEED_ADMIN_PASSWORD 长度不足 %d 位，已改用一次性随机口令",
+            _MIN_SEED_PASSWORD_LENGTH,
+        )
+    else:
+        logger.warning("[种子数据] 生产模式未配置 SEED_ADMIN_PASSWORD，已生成一次性随机口令")
+    return secrets.token_urlsafe(16)
+
+
+async def seed_startup_data() -> str:
     """写入种子数据 — 首次启动时初始化默认记录（SEED_VERSION 门控）
 
     Returns:
-        是否实际创建了种子管理员（用于启动日志决定是否提示初始密码）
+        新建种子管理员时返回其初始口令（供启动日志一次性提示），否则返回空字符串
     """
     from core.auth.password import hash_password
     from core.seed import SEED_VERSION
 
     admin_created = False
+    initial_password = ""
     async with async_session_factory() as db:
         # 清理历史遗留的“系统核心”虚拟插件记录（已归入框架层，不再入库）。
         # 此清理必须位于 SEED_VERSION 门控之前，否则存量库在种子版本未变化时
@@ -42,14 +70,15 @@ async def seed_startup_data() -> bool:
             if stale:
                 await db.commit()
             logger.info("[种子数据] seed_version=%s 已最新，跳过种子流程", SEED_VERSION)
-            return admin_created
+            return initial_password
 
         # 超级管理员（首次创建或密码算法升级）
         existing_admin = (await db.execute(
             select(Admin).where(Admin.username == "admin")
         )).scalar_one_or_none()
         if not existing_admin:
-            pw = hash_password("123456")
+            initial_password = resolve_seed_admin_password()
+            pw = hash_password(initial_password)
             db.add(Admin(id=1, username="admin", password=pw, nickname="超级管理员", status=1))
             admin_created = True
         else:
@@ -117,4 +146,5 @@ async def seed_startup_data() -> bool:
 
         await db.commit()
 
-    return admin_created
+    # 仅在新建管理员时返回初始口令，供启动日志一次性提示（生产随机口令必须可见一次）。
+    return initial_password if admin_created else ""

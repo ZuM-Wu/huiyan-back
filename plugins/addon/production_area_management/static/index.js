@@ -1,23 +1,19 @@
 /**
- * 产区管理演示插件 — 管理端页面逻辑
- *
- * 固定演示流程：生成产区日志 -> 模拟 MCP 调用 -> 生成待办任务 -> 提交一次性反馈。
- * 页面展示的产区、天气与积温来自本机真实存储，弹窗仅模拟 MCP 调用轨迹，不发起真实网络请求。
+ * 产区管理插件管理端页面逻辑。
+ * 页面只展示真实按日事实、整改建议和现场反馈，不再模拟 AI、MCP 或固定演示动作。
  */
 (function () {
-    const { ref, computed, reactive, onMounted, nextTick } = Vue;
-    const { MessagePlugin, DialogPlugin } = TDesign;
+    const { ref, computed, reactive, onMounted } = Vue;
+    const { MessagePlugin } = TDesign;
 
-    const TAB_KEY = 'logs';
-    const TABS = ['logs', 'tasks'];
+    const TAB_KEY = 'tab';
+    const TABS = ['logs', 'tasks', 'schedule'];
     const PERMISSION = {
         list: 'production_area_management:list',
         log: 'production_area_management:log:generate',
         task: 'production_area_management:task:generate',
         feedback: 'production_area_management:feedback',
-        reset: 'production_area_management:reset',
     };
-
     const emptyOverview = {
         readiness: { ready: false, message: '' },
         area: null,
@@ -25,8 +21,6 @@
         gdd: null,
         latest_log_exists: false,
         latest_log_id: 0,
-        generated_task_exists: false,
-        generated_task_id: 0,
         log_count: 0,
         task_stats: { total: 0, pending: 0, completed: 0 },
     };
@@ -37,360 +31,216 @@
         setup(context) {
             const api = context.api;
             const authCodes = HuiYan.getAuthCodes();
-
-            const activeTab = ref(HuiYan.getUrlTab(TAB_KEY, TABS));
+            const activeTab = ref(HuiYan.getUrlTab('logs', TABS));
             const initialLoading = ref(true);
             const errorMessage = ref('');
             const overview = ref(Object.assign({}, emptyOverview));
             const logs = ref([]);
             const tasks = ref([]);
             const taskFilter = ref('all');
-            const highlightTaskId = ref(0);
-
-            const generatingLog = ref(false);
-            const drawerVisible = ref(false);
+            const logDialogVisible = ref(false);
+            const logDetailLoading = ref(false);
+            const logDetail = ref(null);
+            const taskGenerating = ref(false);
+            const taskDialogVisible = ref(false);
             const detailLoading = ref(false);
             const taskDetail = ref(null);
             const feedbackSubmitting = ref(false);
-            const feedbackForm = reactive({ result: 'success', content: '', metrics: [] });
+            const feedbackForm = reactive({ result: 'success', content: '', images: [] });
+            const scheduleSaving = ref(false);
+            const syncingNow = ref(false);
+            const scheduleForm = reactive({ enabled: true, time: '06:00' });
+            const scheduleInfo = reactive({ registered: false, next_run_time: '' });
+            const lastSyncTaskId = ref(0);
 
-            const mcpVisible = ref(false);
-            const mcpRunning = ref(false);
-            const mcpFinished = ref(false);
-            const mcpSteps = ref([]);
-            const generatedTaskId = ref(0);
-
-            const moreOptions = [{ content: '恢复演示初始状态', value: 'reset' }];
             const taskColumns = [
-                { colKey: 'title', title: '任务', width: 220, cell: 'title', ellipsis: true },
-                { colKey: 'priority', title: '优先级', width: 76, cell: 'priority' },
-                { colKey: 'assignee', title: '负责人', width: 88 },
-                { colKey: 'plan_time', title: '计划时间', width: 140, cell: 'plan_time' },
-                { colKey: 'status', title: '状态', width: 80, cell: 'status' },
-                { colKey: 'feedback', title: '反馈摘要', width: 210, cell: 'feedback', ellipsis: true },
-                { colKey: 'operation', title: '操作', width: 76, cell: 'operation' },
+                { colKey: 'title', title: '任务', width: 280, cell: 'title', ellipsis: true },
+                { colKey: 'priority', title: '优先级', width: 80, cell: 'priority' },
+                { colKey: 'assignee', title: '负责人', width: 100 },
+                { colKey: 'plan_time', title: '计划时间', width: 150, cell: 'plan_time' },
+                { colKey: 'status', title: '状态', width: 90, cell: 'status' },
+                { colKey: 'feedback', title: '现场反馈', width: 110, cell: 'feedback' },
+                { colKey: 'operation', title: '操作', width: 80, cell: 'operation' },
             ];
-
-            const canGenerateLog = computed(function () {
-                return authCodes.indexOf(PERMISSION.log) !== -1 && !overview.value.latest_log_exists;
-            });
-            const canReset = computed(function () {
-                return authCodes.indexOf(PERMISSION.reset) !== -1;
-            });
-
-            const areaRegion = computed(function () {
+            const hasPermission = (code) => authCodes.indexOf(code) !== -1;
+            const filteredTasks = computed(() => taskFilter.value === 'all'
+                ? tasks.value : tasks.value.filter((item) => item.status === taskFilter.value));
+            const coordinateText = computed(() => {
                 const area = overview.value.area;
-                if (!area) { return '请先在本机维护产区数据'; }
-                return [area.province, area.city, area.district].filter(Boolean).join(' / ') || '未维护行政区域';
+                if (!area) return '未选择产区';
+                const longitude = Number(area.longitude);
+                const latitude = Number(area.latitude);
+                if (!Number.isFinite(longitude) || !Number.isFinite(latitude)) return '未维护经纬度';
+                return `东经 ${longitude.toFixed(3)} / 北纬 ${latitude.toFixed(3)}`;
             });
-
-            const coordinateText = computed(function () {
-                const area = overview.value.area;
-                if (!area) { return ''; }
-                const lng = Number(area.longitude || 0);
-                const lat = Number(area.latitude || 0);
-                if (!lng && !lat) { return '未维护经纬度'; }
-                return '东经 ' + lng.toFixed(3) + ' / 北纬 ' + lat.toFixed(3);
-            });
-
-            const weatherSourceText = computed(function () {
+            const weatherSourceText = computed(() => {
                 const weather = overview.value.weather;
-                if (!weather) { return '等待天气服务同步'; }
-                const parts = [];
-                if (weather.source) { parts.push('数据源 ' + weather.source); }
-                if (weather.obs_time) { parts.push('观测 ' + weather.obs_time); }
-                return parts.join(' · ') || '本机天气快照';
+                if (!weather) return '暂无天气快照';
+                const source = weather.source_title || weather.source || '天气服务';
+                const observed = weather.obs_time || weather.fetch_time || '时间未知';
+                return `数据来源：${source} · 观测 ${observed}`;
             });
-
-            const filteredTasks = computed(function () {
-                if (taskFilter.value === 'all') { return tasks.value; }
-                return tasks.value.filter(function (item) { return item.status === taskFilter.value; });
+            const logWeatherText = computed(() => {
+                const weather = logDetail.value && logDetail.value.log.weather;
+                if (!weather || !Object.keys(weather).length) return '暂无逐日天气事实';
+                return weather.text_day || '已记录天气事实';
             });
-
-            const weatherValue = function (key, fallback) {
-                const weather = overview.value.weather;
-                if (!weather || weather[key] === undefined || weather[key] === null || weather[key] === '') {
-                    return fallback;
-                }
-                return weather[key];
+            const weatherValue = (key, fallback) => {
+                const value = overview.value.weather && overview.value.weather[key];
+                return value === undefined || value === null || value === '' ? fallback : value;
             };
-
-            const gddValue = function (key, fallback) {
-                const gdd = overview.value.gdd;
-                if (!gdd || gdd[key] === undefined || gdd[key] === null || gdd[key] === '') {
-                    return fallback;
-                }
-                return gdd[key];
+            const gddValue = (key, fallback) => {
+                const value = overview.value.gdd && overview.value.gdd[key];
+                return value === undefined || value === null || value === '' ? fallback : value;
             };
+            const formatDateTime = (value) => value ? String(value).replace('T', ' ').slice(0, 16) : '--';
+            const priorityText = (value) => ({ high: '高', medium: '中', low: '低' }[value] || value || '中');
+            const priorityTheme = (value) => ({ high: 'danger', medium: 'warning', low: 'default' }[value] || 'default');
+            const statusText = (value) => ({ pending: '待处理', completed: '已完成' }[value] || value || '待处理');
+            const statusTheme = (value) => value === 'completed' ? 'success' : 'primary';
+            const resultText = (value) => ({ success: '完成', partial: '部分完成', failed: '未完成' }[value] || value);
+            const resultTheme = (value) => ({ success: 'success', partial: 'warning', failed: 'danger' }[value] || 'default');
+            const unpack = (response) => response && response.data ? (response.data.data || {}) : (response || {});
 
-            const formatDateTime = function (value) {
-                if (!value) { return ''; }
-                return String(value).replace('T', ' ').slice(0, 16);
+            const onTabChange = (value) => HuiYan.syncUrlTab(value);
+            const loadOverview = async () => {
+                const response = await api.get('/overview');
+                overview.value = Object.assign({}, emptyOverview, unpack(response));
             };
-
-            const priorityText = function (value) {
-                return { high: '高', medium: '中', low: '低' }[value] || value || '中';
+            const loadLogs = async () => {
+                const response = await api.get('/logs');
+                logs.value = unpack(response).list || [];
             };
-
-            const priorityTheme = function (value) {
-                return { high: 'danger', medium: 'warning', low: 'default' }[value] || 'default';
+            const loadTasks = async () => {
+                const response = await api.get('/tasks?status=all');
+                tasks.value = unpack(response).list || [];
             };
-
-            const statusText = function (value) {
-                return { pending: '待处理', completed: '已完成' }[value] || value || '待处理';
+            const loadSchedule = async () => {
+                const response = await api.get('/schedule');
+                const data = unpack(response);
+                scheduleForm.enabled = data.enabled !== false;
+                scheduleForm.time = data.time || '06:00';
+                scheduleInfo.registered = !!data.registered;
+                scheduleInfo.next_run_time = data.next_run_time || '';
             };
-
-            const statusTheme = function (value) {
-                return value === 'completed' ? 'success' : 'primary';
-            };
-
-            const resultText = function (value) {
-                return { success: '完成', partial: '部分完成', failed: '未完成' }[value] || value;
-            };
-
-            const resultTheme = function (value) {
-                return { success: 'success', partial: 'warning', failed: 'danger' }[value] || 'default';
-            };
-
-            const metricEntries = function (metrics) {
-                return Object.keys(metrics || {}).map(function (key) {
-                    return { key: key, value: metrics[key] };
-                });
-            };
-
-            const onTabChange = function (value) {
-                HuiYan.syncUrlTab(value);
-            };
-
-            const loadOverview = async function () {
+            const reloadAll = async () => {
+                errorMessage.value = '';
                 try {
-                    overview.value = await api.get('/overview').then(function (res) { return res.data.data; });
+                    await Promise.all([loadOverview(), loadLogs(), loadTasks(), loadSchedule()]);
                 } catch (error) {
-                    errorMessage.value = '产区与天气概览加载失败，请检查本机产区与天气服务状态。';
+                    errorMessage.value = '产区事实页面加载失败，请检查后端和天气服务状态。';
                 }
             };
 
-            const loadLogs = async function () {
-                const data = await api.get('/logs').then(function (res) { return res.data.data; });
-                logs.value = (data && data.list) || [];
-            };
-
-            const loadTasks = async function () {
-                const data = await api.get('/tasks', { params: { status: 'all' } })
-                    .then(function (res) { return res.data.data; });
-                tasks.value = (data && data.list) || [];
-            };
-
-            const reloadAll = async function () {
-                await Promise.all([loadOverview(), loadLogs(), loadTasks()]);
-            };
-
-            const generateLog = async function () {
-                if (!canGenerateLog.value) { return; }
-                generatingLog.value = true;
+            const openLog = async (log) => {
+                logDialogVisible.value = true;
+                logDetailLoading.value = true;
+                logDetail.value = null;
                 try {
-                    await api.post('/logs/generate');
-                    MessagePlugin.success('产区日志已生成');
-                    await reloadAll();
-                } catch (error) {
-                    errorMessage.value = '日志生成失败，请检查本机产区与天气服务状态。';
+                    logDetail.value = unpack(await api.get(`/logs/${log.id}`));
                 } finally {
-                    generatingLog.value = false;
+                    logDetailLoading.value = false;
                 }
             };
-
-            const addMetric = function () {
-                feedbackForm.metrics.push({ name: '', value: '' });
+            const generateTaskFromLog = async () => {
+                if (!logDetail.value || !hasPermission(PERMISSION.task)) return;
+                taskGenerating.value = true;
+                try {
+                    const data = unpack(await api.post(`/logs/${logDetail.value.log.id}/task`));
+                    logDetail.value.task = data.task || null;
+                    MessagePlugin.success(data.created ? '整改任务已生成' : '整改任务已存在');
+                    await Promise.all([loadTasks(), loadOverview()]);
+                } finally {
+                    taskGenerating.value = false;
+                }
             };
-
-            const removeMetric = function (index) {
-                feedbackForm.metrics.splice(index, 1);
-            };
-
-            const resetFeedbackForm = function () {
-                feedbackForm.result = 'success';
-                feedbackForm.content = '';
-                feedbackForm.metrics = [];
-            };
-
-            const openTask = async function (row) {
-                drawerVisible.value = true;
+            const openTask = async (row) => {
+                taskDialogVisible.value = true;
                 detailLoading.value = true;
                 taskDetail.value = null;
-                resetFeedbackForm();
+                feedbackForm.result = 'success';
+                feedbackForm.content = '';
+                feedbackForm.images = [];
                 try {
-                    taskDetail.value = await api.get('/tasks/' + row.id)
-                        .then(function (res) { return res.data.data; });
-                } catch (error) {
-                    drawerVisible.value = false;
+                    taskDetail.value = unpack(await api.get(`/tasks/${row.id}`));
                 } finally {
                     detailLoading.value = false;
                 }
             };
-
-            const submitFeedback = async function () {
-                if (!taskDetail.value) { return; }
-                const content = (feedbackForm.content || '').trim();
+            const addFeedbackImage = () => {
+                if (feedbackForm.images.length < 9) feedbackForm.images.push('');
+            };
+            const removeFeedbackImage = (index) => feedbackForm.images.splice(index, 1);
+            const submitFeedback = async () => {
+                if (!taskDetail.value || !hasPermission(PERMISSION.feedback)) return;
+                const content = String(feedbackForm.content || '').trim();
                 if (content.length < 5) {
-                    MessagePlugin.warning('请填写至少 5 个字的反馈正文');
+                    MessagePlugin.warning('请填写至少 5 个字的现场说明');
                     return;
                 }
-                const metrics = {};
-                feedbackForm.metrics.forEach(function (item) {
-                    const name = (item.name || '').trim();
-                    if (name) { metrics[name] = item.value; }
-                });
                 feedbackSubmitting.value = true;
                 try {
-                    const taskId = taskDetail.value.task.id;
-                    const result = await api.post('/tasks/' + taskId + '/feedback', {
-                        result: feedbackForm.result, content: content, metrics: metrics,
-                    }).then(function (res) { return res.data.data; });
-                    MessagePlugin.success('反馈已提交，任务已完成');
-                    taskDetail.value.task = result.task;
-                    await loadTasks();
-                    await openTask({ id: taskId });
-                } catch (error) {
-                    // 统一响应拦截器已提示后端业务错误，这里只恢复按钮状态
+                    await api.post(`/tasks/${taskDetail.value.task.id}/feedback`, {
+                        result: feedbackForm.result,
+                        content,
+                        images: feedbackForm.images.filter((item) => String(item || '').trim()),
+                    });
+                    MessagePlugin.success('现场反馈已提交');
+                    await Promise.all([loadTasks(), loadOverview()]);
+                    await openTask(taskDetail.value.task);
                 } finally {
                     feedbackSubmitting.value = false;
                 }
             };
-
-            const buildPendingSteps = function () {
-                return [
-                    { seq: 1, step: '读取最新产区日志', tool: 'plugin_log_latest', status: 'pending', duration_ms: 0, summary: '' },
-                    { seq: 2, step: '读取产区树', tool: 'core_agri_area_tree', status: 'pending', duration_ms: 0, summary: '' },
-                    { seq: 3, step: '读取天气快照', tool: 'core_agri_weather_snapshot', status: 'pending', duration_ms: 0, summary: '' },
-                    { seq: 4, step: '读取逐日天气并计算积温', tool: 'core_agri_weather_daily', status: 'pending', duration_ms: 0, summary: '' },
-                    { seq: 5, step: '模型推理生成任务', tool: 'model_reasoning', status: 'pending', duration_ms: 0, summary: '' },
-                ];
-            };
-
-            const wait = function (ms) {
-                return new Promise(function (resolve) { setTimeout(resolve, ms); });
-            };
-
-            const openMcpDialog = function () {
-                generatedTaskId.value = 0;
-                mcpFinished.value = false;
-                mcpRunning.value = false;
-                mcpSteps.value = buildPendingSteps();
-                mcpVisible.value = true;
-            };
-
-            const runMcpFlow = async function () {
-                if (mcpRunning.value || mcpFinished.value) { return; }
-                mcpRunning.value = true;
-                for (let index = 0; index < mcpSteps.value.length; index += 1) {
-                    mcpSteps.value[index].status = 'running';
-                    await nextTick();
-                    await wait(420 + index * 60);
-                    mcpSteps.value[index].status = 'success';
-                    mcpSteps.value[index].duration_ms = 120 + index * 70;
+            const saveSchedule = async () => {
+                if (!hasPermission(PERMISSION.log)) return;
+                if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(scheduleForm.time)) {
+                    MessagePlugin.warning('执行时间格式应为 HH:MM');
+                    return;
                 }
+                scheduleSaving.value = true;
                 try {
-                    const result = await api.post('/tasks/generate')
-                        .then(function (res) { return res.data.data; });
-                    generatedTaskId.value = result.task.id;
-                    mcpSteps.value.forEach(function (step, index) {
-                        step.status = 'success';
-                        if (!step.duration_ms) { step.duration_ms = 120 + index * 70; }
-                    });
-                    mcpFinished.value = true;
-                    await loadTasks();
-                    await loadOverview();
-                } catch (error) {
-                    const last = mcpSteps.value[mcpSteps.value.length - 1];
-                    last.status = 'failed';
-                    last.error = '任务生成失败，请先生成最新的产区日志后重试。';
+                    const data = unpack(await api.put('/schedule', {
+                        enabled: !!scheduleForm.enabled,
+                        time: scheduleForm.time,
+                    }));
+                    scheduleInfo.registered = !!data.registered;
+                    scheduleInfo.next_run_time = data.next_run_time || '';
+                    MessagePlugin.success('日志生成计划已保存');
                 } finally {
-                    mcpRunning.value = false;
+                    scheduleSaving.value = false;
                 }
             };
-
-            const closeMcp = function () {
-                if (mcpRunning.value) { return; }
-                mcpVisible.value = false;
-                if (mcpFinished.value) {
-                    taskFilter.value = 'all';
-                }
-            };
-
-            const viewGeneratedTask = async function () {
-                mcpVisible.value = false;
-                activeTab.value = 'tasks';
-                onTabChange('tasks');
-                taskFilter.value = 'all';
-                await loadTasks();
-                highlightTaskId.value = generatedTaskId.value;
-                await nextTick();
-                const row = document.querySelector('.pam-task-table .pam-row-highlight');
-                if (row && typeof row.scrollIntoView === 'function') {
-                    row.scrollIntoView({ block: 'center', behavior: 'smooth' });
-                }
-            };
-
-            const runReset = async function () {
+            const syncNow = async () => {
+                if (!hasPermission(PERMISSION.log)) return;
+                syncingNow.value = true;
                 try {
-                    await api.post('/demo/reset');
-                    MessagePlugin.success('演示初始状态已恢复');
-                    activeTab.value = 'logs';
-                    onTabChange('logs');
-                    taskFilter.value = 'all';
-                    highlightTaskId.value = 0;
-                    await reloadAll();
-                } catch (error) {
-                    // 统一响应拦截器已提示失败原因
+                    // 手动同步只负责入队：按日事实写入由任务队列执行，页面提示任务号便于追溯。
+                    const data = unpack(await api.post('/schedule/run'));
+                    lastSyncTaskId.value = data.task_id || 0;
+                    MessagePlugin.success('同步任务已入队，执行结果可在任务队列查看');
+                    await Promise.all([loadOverview(), loadLogs(), loadSchedule()]);
+                } finally {
+                    syncingNow.value = false;
                 }
             };
 
-            const confirmReset = function () {
-                if (!canReset.value || !DialogPlugin) { return; }
-                const dialog = DialogPlugin.confirm({
-                    header: '恢复演示初始状态',
-                    body: '将清空当前日志、任务与反馈，并重新播种演示数据。该操作不可撤销。',
-                    confirmBtn: { content: '确认恢复', theme: 'danger' },
-                    cancelBtn: '取消',
-                    onConfirm: function () {
-                        dialog.destroy();
-                        runReset();
-                    },
-                });
-            };
-
-            const rowClassName = function (params) {
-                const row = params && params.row ? params.row : params;
-                if (row && row.id && row.id === highlightTaskId.value) { return 'pam-row-highlight'; }
-                return '';
-            };
-
-            const onMoreAction = function (item) {
-                const value = item && item.value !== undefined
-                    ? item.value
-                    : (item && item.data ? item.data.value : '');
-                if (value === 'reset') { confirmReset(); }
-            };
-
-            onMounted(async function () {
+            onMounted(async () => {
                 try {
                     await reloadAll();
                 } finally {
                     initialLoading.value = false;
                 }
             });
-
             return {
-                activeTab, initialLoading, errorMessage, overview, logs, filteredTasks, tasks,
-                taskFilter, taskColumns, moreOptions, canGenerateLog, canReset,
-                areaRegion, coordinateText, weatherSourceText,
-                weatherValue, gddValue, formatDateTime, priorityText, priorityTheme,
-                statusText, statusTheme, resultText, resultTheme, metricEntries,
-                generatingLog, generateLog, onTabChange, onMoreAction,
-                drawerVisible, detailLoading, taskDetail, openTask,
-                feedbackSubmitting, feedbackForm, addMetric, removeMetric, submitFeedback,
-                mcpVisible, mcpRunning, mcpFinished, mcpSteps, openMcpDialog, runMcpFlow, rowClassName,
-                closeMcp, viewGeneratedTask, highlightTaskId,
+                activeTab, initialLoading, errorMessage, overview, logs, filteredTasks, taskFilter, taskColumns,
+                scheduleForm, scheduleInfo, scheduleSaving, syncingNow, lastSyncTaskId,
+                coordinateText, weatherSourceText, logWeatherText, weatherValue, gddValue, formatDateTime,
+                priorityText, priorityTheme, statusText, statusTheme, resultText, resultTheme,
+                onTabChange, openLog, logDialogVisible, logDetailLoading, logDetail, taskGenerating,
+                generateTaskFromLog, openTask, taskDialogVisible, detailLoading, taskDetail,
+                feedbackForm, feedbackSubmitting, addFeedbackImage, removeFeedbackImage, submitFeedback,
+                saveSchedule, syncNow,
             };
         },
     });

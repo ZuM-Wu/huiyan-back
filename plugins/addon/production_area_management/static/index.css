@@ -348,3 +348,111 @@
     color: var(--app-text-placeholder);
 }
 
+
+/* ---------- 页面标题区 ---------- */
+.pam-main-toolbar {
+    align-items: flex-start;
+    min-height: 32px;
+}
+
+.pam-main-context {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: var(--app-spacing-xs);
+    min-width: 0;
+}
+
+.pam-main-title {
+    font-size: var(--app-font-size-lg);
+    font-weight: 600;
+    color: var(--app-text-primary);
+}
+
+.pam-main-caption {
+    overflow: hidden;
+    max-width: 520px;
+    font-size: var(--app-font-size-sm);
+    color: var(--app-text-secondary);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ---------- 事实台账和同步计划 ---------- */
+.pam-coordinate-line,
+.pam-area-start {
+    margin-top: var(--app-spacing-sm);
+    font-size: var(--app-font-size-sm);
+    color: var(--app-text-secondary);
+}
+
+.pam-clickable-card {
+    cursor: pointer;
+}
+
+.pam-recommendation-preview {
+    margin-top: auto;
+    padding-top: var(--app-spacing-md);
+    font-size: var(--app-font-size-sm);
+    line-height: var(--app-line-height);
+    color: var(--app-text-secondary);
+}
+
+.pam-recommendation-preview span {
+    display: block;
+    margin-bottom: var(--app-spacing-xs);
+    font-weight: 600;
+    color: var(--app-text-primary);
+}
+
+.pam-schedule-card {
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-md);
+    background: var(--app-bg-card);
+}
+
+.pam-schedule-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--app-spacing-md);
+}
+
+.pam-schedule-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--app-spacing-lg);
+    padding: var(--app-spacing-md);
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-md);
+    background: var(--app-bg-container);
+}
+
+.pam-schedule-row strong {
+    color: var(--app-text-primary);
+}
+
+.pam-schedule-row p {
+    margin: var(--app-spacing-xs) 0 0;
+    font-size: var(--app-font-size-sm);
+    color: var(--app-text-secondary);
+}
+
+.pam-time-input {
+    width: 160px;
+}
+
+.pam-schedule-actions {
+    justify-content: flex-start;
+    margin-top: var(--app-spacing-lg);
+}
+
+.pam-schedule-status {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--app-spacing-lg);
+    margin-top: var(--app-spacing-lg);
+    padding-top: var(--app-spacing-md);
+    border-top: 1px solid var(--app-border);
+    font-size: var(--app-font-size-sm);
+    color: var(--app-text-secondary);
+}

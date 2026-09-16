@@ -14,4 +14,4 @@ CREATE TABLE IF NOT EXISTS hy_huiyan_iot_device (
     create_time DATETIME NOT NULL COMMENT '注册时间',
     update_time DATETIME NOT NULL COMMENT '更新时间',
     PRIMARY KEY (id), UNIQUE KEY uk_huiyan_iot_device_id (device_id)
-) COMMENT='慧眼自有物联网平台设备表';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='慧眼自有物联网平台设备表';

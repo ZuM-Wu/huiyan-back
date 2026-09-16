@@ -1,17 +1,22 @@
 # -*- coding: utf-8 -*-
-"""产区管理演示插件请求模型。"""
-
-from typing import Any
+"""产区管理插件请求模型。"""
 
 from pydantic import BaseModel, Field, field_validator
 
 
+class ScheduleUpdate(BaseModel):
+    """更新按日事实同步计划。"""
+
+    enabled: bool = Field(default=True, description="是否启用每日同步")
+    time: str = Field(default="06:00", pattern=r"^([01]\d|2[0-3]):[0-5]\d$", description="每日执行时间")
+
+
 class FeedbackCreate(BaseModel):
-    """提交任务反馈。"""
+    """提交现场文字和图片反馈。"""
 
     result: str = Field(..., pattern="^(success|partial|failed)$", description="反馈结果")
-    content: str = Field(..., min_length=5, max_length=2000, description="反馈正文")
-    metrics: dict[str, Any] = Field(default_factory=dict, description="指标快照")
+    content: str = Field(..., min_length=5, max_length=2000, description="现场文字说明")
+    images: list[str] = Field(default_factory=list, max_length=9, description="现场图片稳定地址")
 
     @field_validator("content")
     @classmethod
@@ -22,14 +27,17 @@ class FeedbackCreate(BaseModel):
             raise ValueError("反馈正文不能为空")
         return value
 
-    @field_validator("metrics")
+    @field_validator("images")
     @classmethod
-    def validate_metrics(cls, value: dict[str, Any]) -> dict[str, Any]:
-        """限制指标数量并去除空键，防止异常载荷膨胀。"""
-        if len(value) > 20:
-            raise ValueError("指标最多提交 20 项")
-        return {
-            str(key).strip()[:64]: item
-            for key, item in value.items()
-            if str(key).strip()
-        }
+    def validate_images(cls, value: list[str]) -> list[str]:
+        """仅允许站内稳定地址或同源相对地址，拒绝 data URL。"""
+        cleaned: list[str] = []
+        for item in value:
+            url = str(item or "").strip()
+            if not url or url.startswith("data:"):
+                continue
+            if not url.startswith(("/", "http://", "https://")):
+                raise ValueError("图片地址必须是站内或 HTTP(S) 地址")
+            if url not in cleaned:
+                cleaned.append(url)
+        return cleaned

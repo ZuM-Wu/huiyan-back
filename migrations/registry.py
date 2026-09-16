@@ -226,6 +226,10 @@ from migrations.hardware_realtime_snapshot import (  # noqa: E402
     probe as _probe_hardware_realtime_snapshot,
     apply as _apply_hardware_realtime_snapshot,
 )
+from migrations.innodb_engine_calibration import (  # noqa: E402
+    probe as _probe_innodb_engine_calibration,
+    apply as _apply_innodb_engine_calibration,
+)
 
 _REGISTRY = [
     ("farmer_extra_fields", _probe_farmer_extra_fields, _apply_farmer_extra_fields),
@@ -259,6 +263,7 @@ _REGISTRY = [
     ("hardware_marker_coordinates", _probe_hardware_marker_coordinates, _apply_hardware_marker_coordinates),
     ("hardware_metric_visibility", _probe_hardware_metric_visibility, _apply_hardware_metric_visibility),
     ("hardware_realtime_snapshot", _probe_hardware_realtime_snapshot, _apply_hardware_realtime_snapshot),
+    ("innodb_engine_calibration", _probe_innodb_engine_calibration, _apply_innodb_engine_calibration),
 ]
 
 
