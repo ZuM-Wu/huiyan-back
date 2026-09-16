@@ -263,14 +263,15 @@ async def disable_plugin(name: str, request: Request):
 
 @router.post("/upgrade/{name}", dependencies=[Depends(require_admin_permission("plugin:upgrade"))])
 async def upgrade_plugin(name: str, request: Request):
-    """升级插件。
+    """预检并确认插件更新计划（Web 端不替换文件、不执行迁移）。
 
     接口路径: POST /api/admin/v1/plugin/upgrade/{name}
-    请求参数: 路径参数 name（插件唯一标识），请求体为空。
-    成功响应: 标准成功信封，message 为“插件 '{name}' 升级成功”。
-    错误码: not_installed(404)、already_latest(409)、downgrade_rejected(409)、
-    upgrade_in_progress(409)、migration_invalid/migration_failed(422)、
-    runtime_refresh_failed(503)。错误响应 detail 包含 code 和 message。
+    请求参数: 路径参数 name（插件唯一标识）；请求体可选 package_ref（更新包引用）。
+    成功响应: 标准成功信封，message 为“插件更新计划已确认，等待停机重启应用”，
+    计划对象带 restart_required=true；实际替换文件与执行迁移由后端停止后的
+    scripts/apply_plugin_updates.py 完成。
+    错误码: update_prepare_failed(422)、update_confirm_failed(409)、
+    update_unavailable(503)。错误响应 detail 包含 code 和 message。
     """
     try:
         body = await request.json()
