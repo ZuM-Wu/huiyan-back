@@ -1,5 +1,5 @@
 """
-慧眼护农 3.4.1 核心配置模块
+慧眼护农 3.4.11 核心配置模块
 
 使用 pydantic-settings 从 .env 文件和环境变量中加载配置，
 提供 Settings 全局单例供其他模块使用。
@@ -42,7 +42,7 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "INFO"
 
     # 应用版本（用于静态资源版本号治理，模板中用 config.app_version 小写访问）
-    app_version: str = "3.4.1"
+    app_version: str = "3.4.11"
 
     # 插件目录（相对名称，消费方须用 BASE_DIR / PLUGINS_DIR 拼绝对路径）
     PLUGINS_DIR: str = "plugins"

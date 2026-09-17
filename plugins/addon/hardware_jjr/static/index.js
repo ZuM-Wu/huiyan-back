@@ -12,7 +12,7 @@
             if (!active()) return;
             await new Promise((resolve, reject) => {
                 const script = document.createElement('script');
-                script.src = '/static/' + path + '?v=3.4.1-hardware-delete-1&library=1';
+                script.src = '/static/' + path + '?v=3.4.11-hardware-delete-1&library=1';
                 script.onload = () => { script.remove(); resolve(); };
                 script.onerror = () => { script.remove(); reject(new Error('页面资源加载失败')); };
                 document.body.appendChild(script);
