@@ -154,7 +154,12 @@
                 clearPreviewState();
                 fileLoading.value = true;
                 request.get('/plugins/' + encodeURIComponent(selected.value.name) + '/files', {
-                    params: { prefix: currentPath.value, marker: marker.value, limit: FILE_PAGE_SIZE }, skipAutoError: true
+                    params: {
+                        prefix: currentPath.value,
+                        marker: marker.value,
+                        limit: FILE_PAGE_SIZE,
+                        include_folders: Boolean(reset)
+                    }, skipAutoError: true
                 }).then(function (res) {
                     var data = unwrap(res);
                     var rows = data.items || [];

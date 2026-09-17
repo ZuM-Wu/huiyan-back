@@ -229,6 +229,49 @@
     transition: opacity var(--app-duration-base) var(--app-ease-standard);
 }
 .image-uploader__preview:hover .image-uploader__mask { opacity: 1; }
+.image-uploader--drag { width: 100%; }
+.image-uploader__dropzone {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--app-spacing-xs);
+    min-height: 116px;
+    padding: var(--app-spacing-lg);
+    border: 1px dashed var(--app-border);
+    border-radius: var(--app-radius-md);
+    background: var(--app-bg-container);
+    color: var(--app-text-secondary);
+    text-align: center;
+    cursor: pointer;
+    transition: border-color var(--app-duration-base) var(--app-ease-standard),
+                background-color var(--app-duration-base) var(--app-ease-standard),
+                color var(--app-duration-base) var(--app-ease-standard);
+}
+.image-uploader__dropzone:hover,
+.image-uploader__dropzone:focus-visible,
+.image-uploader__dropzone.is-dragging {
+    border-color: var(--app-brand-color);
+    background: var(--app-brand-light);
+    color: var(--app-brand-color);
+    outline: none;
+}
+.image-uploader__dropzone.is-loading,
+.image-uploader__dropzone.is-disabled,
+.image-uploader__dropzone.is-full {
+    cursor: default;
+}
+.image-uploader__dropzone.is-disabled,
+.image-uploader__dropzone.is-full {
+    color: var(--app-text-placeholder);
+    background: var(--app-bg-container);
+}
+.image-uploader__drop-icon { font-size: var(--app-font-size-xl); }
+.image-uploader__drop-title { font-size: var(--app-font-size-md); }
+.image-uploader__drop-hint {
+    font-size: var(--app-font-size-sm);
+    color: var(--app-text-placeholder);
+}
 /* 下方提示文字（尺寸/大小要求） */
 .image-uploader__hint {
     margin-top: var(--app-spacing-sm);

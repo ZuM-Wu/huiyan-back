@@ -251,6 +251,15 @@ class FactService:
             ) if task else None,
         }
 
+    async def update_log_images(self, db, log_id: int, images: list[str]) -> dict[str, Any]:
+        """保存管理员补充的日报图片，不改写天气同步生成的事实字段。"""
+        log = await db.get(ProductionAreaManagementLog, log_id)
+        if not log or not log.fact_date or log.is_seed:
+            raise FactError(404, "事实日志不存在")
+        log.images_json = json_dump(images)
+        await db.flush()
+        return serialize_log(log)
+
     async def get_task(self, db, task_id: int) -> ProductionAreaManagementTask | None:
         """按主键读取整改任务。"""
         return await db.get(ProductionAreaManagementTask, task_id)

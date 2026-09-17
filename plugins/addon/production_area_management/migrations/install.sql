@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS hy_plugin_production_area_management_log (
     weather_json TEXT COMMENT '逐日天气事实JSON',
     gdd_json TEXT COMMENT '截至事实日期的积温JSON',
     recommendation TEXT COMMENT '整改建议',
+    images_json TEXT COMMENT '管理员自定义日报图片稳定地址JSON数组',
     is_latest TINYINT NOT NULL DEFAULT 0 COMMENT '是否最新事实日期 0否 1是',
     is_seed TINYINT NOT NULL DEFAULT 0 COMMENT '是否旧版演示种子数据 0否 1是',
     create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '记录生成时间',

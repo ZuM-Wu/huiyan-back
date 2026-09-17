@@ -21,7 +21,7 @@ class Plugin(BasePlugin):
         super().__init__(db_session, config)
         self.name = PLUGIN_NAME
         self.title = "产区管理"
-        self.version = "2.0.0"
+        self.version = "2.1.0"
         self.description = "按日同步真实产区事实、整改建议、任务与现场反馈"
         self.module = "addon"
         self._config_manager = ConfigManager()
@@ -87,7 +87,7 @@ class Plugin(BasePlugin):
             "template": "index.html",
             "audience": "admin",
             "styles": ["index.css", "index-detail.css"],
-            "scripts": ["index.js"],
+            "scripts": ["index-demo.js", "index.js"],
             "permission": "production_area_management:list",
             "api_base": "/api/admin/v1/plugins/production_area_management",
         }]

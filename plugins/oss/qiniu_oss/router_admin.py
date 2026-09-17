@@ -42,11 +42,12 @@ async def list_files(
     prefix: str = Query("", max_length=512),
     marker: str = Query("", max_length=1024),
     limit: int = Query(100, ge=1, le=1000),
+    include_folders: bool = Query(False),
 ):
     """按前缀分页列举七牛对象。"""
     try:
         service = QiniuService(await get_single_plugin_config("qiniu_oss"))
-        return ok(await service.list_files(prefix, marker, limit))
+        return ok(await service.list_files(prefix, marker, limit, include_folders))
     except (ValueError, RuntimeError) as exc:
         return fail(400, str(exc))
 

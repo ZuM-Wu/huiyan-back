@@ -9,7 +9,8 @@ from core.config_manager import ConfigManager
 from core.db.base import async_session_factory
 from core.log.active_log import active_log
 from core.response import ok
-from plugins.addon.production_area_management.schemas import FeedbackCreate, ScheduleUpdate
+from plugins.addon.production_area_management.schemas import FeedbackCreate, LogImagesUpdate, ScheduleUpdate
+from plugins.addon.production_area_management.services.demo_service import DemoService
 from plugins.addon.production_area_management.services.fact_common import serialize_log
 from plugins.addon.production_area_management.services.fact_service import FactError, FactService
 from plugins.addon.production_area_management.services.scheduler import (
@@ -58,6 +59,24 @@ async def get_log_detail(log_id: int):
     if not result:
         raise HTTPException(status_code=404, detail="事实日志不存在")
     return ok(result)
+
+
+@router.put("/logs/{log_id}/images", dependencies=[Depends(require_permission("production_area_management:log:generate"))])
+async def update_log_images(log_id: int, data: LogImagesUpdate, request: Request):
+    """保存管理员为指定日报补充的图片。"""
+    async with async_session_factory() as db:
+        try:
+            log = await FactService().update_log_images(db, log_id, data.images)
+            await db.commit()
+        except FactError as exc:
+            _raise_fact_error(exc)
+    await active_log(
+        f"更新产区日报图片：{log['title']}（{len(log['images'])} 张）",
+        "production_area_management_log_images_update",
+        rel_id=log_id,
+        request=request,
+    )
+    return ok({"log": log}, msg="日报图片已保存")
 
 
 @router.post("/schedule/run", dependencies=[Depends(require_permission("production_area_management:log:generate"))])
@@ -139,6 +158,21 @@ async def generate_task_for_log(log_id: int, request: Request):
         request=request,
     )
     return ok(result, msg="整改任务已生成" if result["created"] else "整改任务已存在")
+
+
+@router.post("/demo/reset", dependencies=[Depends(require_permission("production_area_management:log:generate"))])
+async def reset_demo_status(request: Request):
+    """重置 2026-09-17 演示日志卡片并清空其派生任务（演示重放用）。"""
+    async with async_session_factory() as db:
+        result = await DemoService().reset_demo_log(db)
+        await db.commit()
+    await active_log(
+        f"重置产区演示状态：{result['fact_date']} 日志已恢复，清除任务 {result['removed_tasks']} 条",
+        "production_area_management_demo_reset",
+        rel_id=result["log_id"],
+        request=request,
+    )
+    return ok(result, msg="演示状态已重置")
 
 
 @router.get("/tasks/{task_id}", dependencies=[Depends(require_permission("production_area_management:list"))])

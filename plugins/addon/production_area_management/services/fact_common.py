@@ -202,6 +202,7 @@ def serialize_log(row: ProductionAreaManagementLog) -> dict[str, Any]:
         "weather": json_load(row.weather_json, {}),
         "gdd": json_load(row.gdd_json, {}),
         "recommendation": getattr(row, "recommendation", "") or "",
+        "images": json_load(getattr(row, "images_json", "[]"), []),
         "is_latest": bool(row.is_latest),
         "is_seed": bool(row.is_seed),
         "create_time": str(row.create_time or ""),

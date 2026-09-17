@@ -30,6 +30,7 @@ class ProductionAreaManagementLog(Base):
     weather_json: Mapped[str] = mapped_column(Text, default="{}", comment="逐日天气事实JSON")
     gdd_json: Mapped[str] = mapped_column(Text, default="{}", comment="截至事实日期的积温JSON")
     recommendation: Mapped[str] = mapped_column(Text, default="", comment="整改建议")
+    images_json: Mapped[str] = mapped_column(Text, default="[]", comment="管理员自定义日报图片稳定地址JSON数组")
     is_latest: Mapped[int] = mapped_column(Integer, nullable=False, default=0, index=True, comment="是否最新事实日期 0否 1是")
     is_seed: Mapped[int] = mapped_column(Integer, nullable=False, default=0, comment="是否旧版演示种子数据 0否 1是")
     # 旧版字段保留，升级时不删除历史列，接口不再序列化。

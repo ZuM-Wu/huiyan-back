@@ -1,7 +1,7 @@
 {
   "name": "production_area_management",
   "title": "产区管理",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "按日同步真实产区事实、整改建议、任务与现场反馈",
   "author": "HuiYan Team",
   "module": "addon",
@@ -26,19 +26,19 @@
       "route": "/admin/plugin/production_area_management/index",
       "template": "index.html",
       "styles": ["index.css", "index-detail.css"],
-      "scripts": ["index.js"]
+      "scripts": ["index-demo.js", "index.js"]
     }
   ],
-  "resources": ["static/index.css", "static/index-detail.css", "static/index.js"],
+  "resources": ["static/index.css", "static/index-detail.css", "static/index.js", "static/index-demo.js"],
   "tasks": ["production_area_management.fact_sync"],
   "events": [],
   "health": {"check": "plugin.production_area_management"},
   "database_schema": {
-    "version": 2,
+    "version": 3,
     "tables": [
       {
         "name": "hy_plugin_production_area_management_log",
-        "columns": ["id", "area_id", "area_name", "fact_date", "title", "content", "stage", "weather_json", "gdd_json", "recommendation", "is_latest", "is_seed", "create_time"],
+        "columns": ["id", "area_id", "area_name", "fact_date", "title", "content", "stage", "weather_json", "gdd_json", "recommendation", "images_json", "is_latest", "is_seed", "create_time"],
         "indexes": [
           {"name": "PRIMARY", "columns": ["id"], "unique": true},
           {"name": "idx_pam_log_area", "columns": ["area_id"], "unique": false},

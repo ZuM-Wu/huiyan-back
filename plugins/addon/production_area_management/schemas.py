@@ -4,6 +4,20 @@
 from pydantic import BaseModel, Field, field_validator
 
 
+def _clean_image_urls(value: list[str]) -> list[str]:
+    """清理图片稳定地址，过滤空值和 data URL，并保持原有顺序去重。"""
+    cleaned: list[str] = []
+    for item in value:
+        url = str(item or "").strip()
+        if not url or url.startswith("data:"):
+            continue
+        if not url.startswith(("/", "http://", "https://")):
+            raise ValueError("图片地址必须是站内或 HTTP(S) 地址")
+        if url not in cleaned:
+            cleaned.append(url)
+    return cleaned
+
+
 class ScheduleUpdate(BaseModel):
     """更新按日事实同步计划。"""
 
@@ -31,13 +45,16 @@ class FeedbackCreate(BaseModel):
     @classmethod
     def validate_images(cls, value: list[str]) -> list[str]:
         """仅允许站内稳定地址或同源相对地址，拒绝 data URL。"""
-        cleaned: list[str] = []
-        for item in value:
-            url = str(item or "").strip()
-            if not url or url.startswith("data:"):
-                continue
-            if not url.startswith(("/", "http://", "https://")):
-                raise ValueError("图片地址必须是站内或 HTTP(S) 地址")
-            if url not in cleaned:
-                cleaned.append(url)
-        return cleaned
+        return _clean_image_urls(value)
+
+
+class LogImagesUpdate(BaseModel):
+    """保存管理员为按日事实补充的图片。"""
+
+    images: list[str] = Field(default_factory=list, max_length=9, description="日报图片稳定地址")
+
+    @field_validator("images")
+    @classmethod
+    def validate_images(cls, value: list[str]) -> list[str]:
+        """日报图片沿用现场反馈相同的稳定地址约束。"""
+        return _clean_image_urls(value)

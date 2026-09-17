@@ -19,6 +19,7 @@ REGION_MAP = {
 }
 _REGIONS = frozenset(REGION_MAP)
 _CONTROL_CHARS = re.compile(r"[\x00-\x1f\x7f]")
+_FOLDER_SCAN_LIMIT = 1000
 
 
 def normalize_save_path(value: str | None) -> str:
@@ -137,29 +138,55 @@ class QiniuService:
         """调用七牛列举接口验证凭据、区域和存储空间。"""
         return await asyncio.to_thread(self._test_sync)
 
-    def _list_sync(self, prefix: str, marker: str, limit: int) -> dict:
+    def _list_sync(self, prefix: str, marker: str, limit: int, include_folders: bool = False) -> dict:
         list_prefix = f"{prefix.rstrip('/')}/" if prefix else None
-        result, _eof, response_info = self._bucket_manager().list(
+        bucket_manager = self._bucket_manager()
+        result, _eof, response_info = bucket_manager.list(
             self.bucket, prefix=list_prefix, marker=marker or None, limit=limit, delimiter="/",
         )
         self._check_response_info(response_info)
         result = result or {}
+        common_prefixes = result.get("commonPrefixes") or result.get("common_prefixes") or []
+        if include_folders and not marker:
+            # 七牛的 delimiter 列举会把目录和文件一起分页。文件页前面的对象可能
+            # 把目录推到后续页，因此首次打开目录时继续扫描后续页，只合并目录前缀，
+            # 不改变当前文件页和分页游标，避免目录必须点到下一页才能出现。
+            scan_marker = result.get("marker", "")
+            while scan_marker:
+                next_result, _next_eof, next_response_info = bucket_manager.list(
+                    self.bucket,
+                    prefix=list_prefix,
+                    marker=scan_marker,
+                    limit=_FOLDER_SCAN_LIMIT,
+                    delimiter="/",
+                )
+                self._check_response_info(next_response_info)
+                next_result = next_result or {}
+                common_prefixes.extend(
+                    next_result.get("commonPrefixes") or next_result.get("common_prefixes") or []
+                )
+                next_marker = next_result.get("marker", "")
+                if next_marker == scan_marker:
+                    raise RuntimeError("七牛目录分页游标未推进")
+                scan_marker = next_marker
         return {
             "items": result.get("items") or [],
             "marker": result.get("marker", ""),
             "has_more": bool(result.get("marker")),
             # 七牛 SDK 使用 camelCase；保留 snake_case 回退便于 Mock 和未来 SDK 版本兼容。
-            "common_prefixes": result.get("commonPrefixes") or result.get("common_prefixes") or [],
+            "common_prefixes": list(dict.fromkeys(common_prefixes)),
         }
 
-    async def list_files(self, prefix: str = "", marker: str = "", limit: int = 100) -> dict:
+    async def list_files(
+        self, prefix: str = "", marker: str = "", limit: int = 100, include_folders: bool = False,
+    ) -> dict:
         """分页列举对象。"""
         requested = normalize_save_path(prefix) if prefix else self.save_path
         if requested and self.save_path and not (
             requested == self.save_path or requested.startswith(self.save_path + "/")
         ):
             raise ValueError("前缀必须位于保存路径下")
-        return await asyncio.to_thread(self._list_sync, requested, marker, limit)
+        return await asyncio.to_thread(self._list_sync, requested, marker, limit, include_folders)
 
     def _upload_sync(self, file_path: str, key: str, mime_type: str) -> dict:
         from qiniu import put_file

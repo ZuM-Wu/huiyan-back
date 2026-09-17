@@ -8,6 +8,8 @@
 
     const TAB_KEY = 'tab';
     const TABS = ['logs', 'tasks', 'schedule'];
+    // 日报图片上限与模板中"最多 9 张"的文案保持一致
+    const LOG_IMAGE_MAX = 9;
     const PERMISSION = {
         list: 'production_area_management:list',
         log: 'production_area_management:log:generate',
@@ -30,6 +32,7 @@
         page: 'index',
         setup(context) {
             const api = context.api;
+            const request = context.request;
             const authCodes = HuiYan.getAuthCodes();
             const activeTab = ref(HuiYan.getUrlTab('logs', TABS));
             const initialLoading = ref(true);
@@ -41,30 +44,65 @@
             const logDialogVisible = ref(false);
             const logDetailLoading = ref(false);
             const logDetail = ref(null);
+            const logImagesDraft = ref([]);
+            const logImagesSaving = ref(false);
+            const logImagesUploading = ref(false);
+            const logImagesDragOver = ref(false);
+            const logImagePolicy = ref({ extensions: [], max_size_mb: 0 });
             const taskGenerating = ref(false);
             const taskDialogVisible = ref(false);
             const detailLoading = ref(false);
             const taskDetail = ref(null);
             const feedbackSubmitting = ref(false);
+            const feedbackFormRef = ref(null);
             const feedbackForm = reactive({ result: 'success', content: '', images: [] });
+            // 现场说明按规范用 TDesign Form 内联校验，不再用 MessagePlugin 提示格式问题
+            const feedbackRules = {
+                content: [
+                    {
+                        validator: (value) => String(value || '').trim().length >= 5,
+                        message: '请填写至少 5 个字的现场说明',
+                        type: 'error',
+                    },
+                ],
+            };
             const scheduleSaving = ref(false);
             const syncingNow = ref(false);
             const scheduleForm = reactive({ enabled: true, time: '06:00' });
             const scheduleInfo = reactive({ registered: false, next_run_time: '' });
             const lastSyncTaskId = ref(0);
 
+            // 列宽交由表格内容驱动（视觉规范：内容驱动自动列宽），仅标题列显式省略
             const taskColumns = [
-                { colKey: 'title', title: '任务', width: 280, cell: 'title', ellipsis: true },
-                { colKey: 'priority', title: '优先级', width: 80, cell: 'priority' },
-                { colKey: 'assignee', title: '负责人', width: 100 },
-                { colKey: 'plan_time', title: '计划时间', width: 150, cell: 'plan_time' },
-                { colKey: 'status', title: '状态', width: 90, cell: 'status' },
-                { colKey: 'feedback', title: '现场反馈', width: 110, cell: 'feedback' },
-                { colKey: 'operation', title: '操作', width: 80, cell: 'operation' },
+                { colKey: 'title', title: '任务', cell: 'title', ellipsis: true },
+                { colKey: 'priority', title: '优先级', cell: 'priority' },
+                { colKey: 'assignee', title: '负责人' },
+                { colKey: 'plan_time', title: '计划时间', cell: 'plan_time' },
+                { colKey: 'status', title: '状态', cell: 'status' },
+                { colKey: 'feedback', title: '现场反馈', cell: 'feedback' },
+                { colKey: 'operation', title: '操作', cell: 'operation' },
             ];
+            // 执行时间用 TDesign Form 内联校验，替代 MessagePlugin 格式提示
+            const scheduleRules = {
+                time: [
+                    { required: true, message: '请输入执行时间', type: 'error' },
+                    {
+                        validator: (value) => /^([01]\d|2[0-3]):[0-5]\d$/.test(String(value || '')),
+                        message: '执行时间格式应为 HH:MM',
+                        type: 'error',
+                    },
+                ],
+            };
             const hasPermission = (code) => authCodes.indexOf(code) !== -1;
             const filteredTasks = computed(() => taskFilter.value === 'all'
                 ? tasks.value : tasks.value.filter((item) => item.status === taskFilter.value));
+            const canUpdateLogImages = computed(() => hasPermission(PERMISSION.log));
+            // 任务未完成且详情已加载时展示反馈表单与弹窗 footer 操作
+            const canSubmitFeedback = computed(() => !!taskDetail.value && taskDetail.value.task.status !== 'completed');
+            // 整个日报图片区块作为拖放区域的前提：有权限、不在保存/上传中且未达上限
+            const canDropLogImages = computed(() => canUpdateLogImages.value
+                && !logImagesSaving.value && !logImagesUploading.value
+                && logImagesDraft.value.length < LOG_IMAGE_MAX);
             const coordinateText = computed(() => {
                 const area = overview.value.area;
                 if (!area) return '未选择产区';
@@ -136,11 +174,137 @@
                 logDialogVisible.value = true;
                 logDetailLoading.value = true;
                 logDetail.value = null;
+                logImagesDraft.value = [];
                 try {
-                    logDetail.value = unpack(await api.get(`/logs/${log.id}`));
+                    const detail = unpack(await api.get(`/logs/${log.id}`));
+                    logDetail.value = detail;
+                    logImagesDraft.value = [...(detail.log.images || [])];
                 } finally {
                     logDetailLoading.value = false;
                 }
+            };
+            const saveLogImages = async (images, successMessage) => {
+                if (!logDetail.value || !canUpdateLogImages.value || logImagesSaving.value) return false;
+                const targetLogId = logDetail.value.log.id;
+                const savedImages = [...(logDetail.value.log.images || [])];
+                logImagesSaving.value = true;
+                try {
+                    const data = unpack(await api.put(`/logs/${targetLogId}/images`, {
+                        images,
+                    }));
+                    // 保存响应可能晚于用户切换日报，只回填请求对应的当前详情。
+                    if (logDetail.value && logDetail.value.log.id === targetLogId) {
+                        logDetail.value.log = data.log;
+                        logImagesDraft.value = [...(data.log.images || [])];
+                    }
+                    const index = logs.value.findIndex((item) => item.id === data.log.id);
+                    if (index !== -1) logs.value[index] = Object.assign({}, logs.value[index], data.log);
+                    MessagePlugin.success(successMessage);
+                    return true;
+                } catch (error) {
+                    if (logDetail.value && logDetail.value.log.id === targetLogId) {
+                        logImagesDraft.value = savedImages;
+                    }
+                    return false;
+                } finally {
+                    logImagesSaving.value = false;
+                }
+            };
+            const removeLogImage = (index) => {
+                const images = logImagesDraft.value.filter((_, itemIndex) => itemIndex !== index);
+                logImagesDraft.value = images;
+                saveLogImages(images, '日报图片已删除');
+            };
+            // 惰性加载并缓存服务端上传策略（扩展名、大小上限），与全局 image-upload 组件同源
+            const ensureLogImagePolicy = async () => {
+                if (logImagePolicy.value.extensions.length) return logImagePolicy.value;
+                try {
+                    const limits = await window.UploadPolicyClient.getImageLimits();
+                    logImagePolicy.value = {
+                        extensions: limits.image_extensions,
+                        max_size_mb: limits.image_max_size_mb,
+                    };
+                } catch (error) {
+                    MessagePlugin.error('获取上传规则失败，请刷新重试');
+                }
+                return logImagePolicy.value;
+            };
+            // 拖入文件统一校验后逐张上传，成功即并入草稿并保存日报图片
+            const uploadLogImageFiles = async (fileList) => {
+                if (!canDropLogImages.value) return;
+                const policy = await ensureLogImagePolicy();
+                if (!policy.extensions.length) return;
+                let files = Array.prototype.slice.call(fileList || []);
+                const room = LOG_IMAGE_MAX - logImagesDraft.value.length;
+                if (files.length > room) {
+                    MessagePlugin.warning(`本次最多还能上传 ${room} 张图片`);
+                    files = files.slice(0, room);
+                }
+                files = files.filter((file) => {
+                    const extension = String(file.name || '').split('.').pop().toLowerCase();
+                    if (policy.extensions.indexOf(extension) === -1) {
+                        MessagePlugin.error(`仅支持 ${policy.extensions.join('/')} 图片`);
+                        return false;
+                    }
+                    if (file.size > policy.max_size_mb * 1024 * 1024) {
+                        MessagePlugin.error(`图片大小不能超过 ${policy.max_size_mb}MB`);
+                        return false;
+                    }
+                    return true;
+                });
+                if (!files.length) return;
+                logImagesUploading.value = true;
+                const uploaded = [];
+                let failures = 0;
+                try {
+                    for (const file of files) {
+                        const formData = new FormData();
+                        formData.append('file', file);
+                        try {
+                            const response = await request.post('/upload/image', formData);
+                            const payload = response && response.data ? (response.data.data || response.data) : response;
+                            const url = payload && payload.url;
+                            if (url && uploaded.indexOf(url) === -1 && logImagesDraft.value.indexOf(url) === -1) {
+                                uploaded.push(url);
+                            }
+                        } catch (error) {
+                            failures += 1;
+                        }
+                    }
+                } finally {
+                    logImagesUploading.value = false;
+                }
+                if (failures) MessagePlugin.error(`${failures} 张图片上传失败，请重试`);
+                if (uploaded.length) {
+                    const images = logImagesDraft.value.concat(uploaded).slice(0, LOG_IMAGE_MAX);
+                    logImagesDraft.value = images;
+                    await saveLogImages(images, '日报图片已上传');
+                }
+            };
+            // 拖拽高亮用计数器维护：进入/离开子元素会成对触发 enter/leave
+            let logImageDragDepth = 0;
+            const onLogImagesDragEnter = () => {
+                if (!canDropLogImages.value) return;
+                logImageDragDepth += 1;
+                logImagesDragOver.value = true;
+            };
+            // dragover 需持续阻止默认行为，浏览器才允许把文件释放到区块上
+            const onLogImagesDragOver = () => {};
+            const onLogImagesDragLeave = () => {
+                logImageDragDepth = Math.max(0, logImageDragDepth - 1);
+                if (!logImageDragDepth) logImagesDragOver.value = false;
+            };
+            const onLogImagesDrop = (event) => {
+                logImageDragDepth = 0;
+                logImagesDragOver.value = false;
+                // 无权限或正在保存/上传时静默忽略；仅"已达上限"给出明确提示
+                if (!canUpdateLogImages.value || logImagesSaving.value || logImagesUploading.value) return;
+                if (logImagesDraft.value.length >= LOG_IMAGE_MAX) {
+                    MessagePlugin.warning(`最多上传 ${LOG_IMAGE_MAX} 张图片`);
+                    return;
+                }
+                const files = event.dataTransfer && event.dataTransfer.files;
+                if (files && files.length) uploadLogImageFiles(files);
             };
             const generateTaskFromLog = async () => {
                 if (!logDetail.value || !hasPermission(PERMISSION.task)) return;
@@ -167,22 +331,16 @@
                     detailLoading.value = false;
                 }
             };
-            const addFeedbackImage = () => {
-                if (feedbackForm.images.length < 9) feedbackForm.images.push('');
-            };
-            const removeFeedbackImage = (index) => feedbackForm.images.splice(index, 1);
             const submitFeedback = async () => {
                 if (!taskDetail.value || !hasPermission(PERMISSION.feedback)) return;
-                const content = String(feedbackForm.content || '').trim();
-                if (content.length < 5) {
-                    MessagePlugin.warning('请填写至少 5 个字的现场说明');
-                    return;
-                }
+                // 内联校验未通过时错误已显示在字段下方，直接中断
+                const validateResult = await feedbackFormRef.value.validate();
+                if (validateResult !== true) return;
                 feedbackSubmitting.value = true;
                 try {
                     await api.post(`/tasks/${taskDetail.value.task.id}/feedback`, {
                         result: feedbackForm.result,
-                        content,
+                        content: String(feedbackForm.content || '').trim(),
                         images: feedbackForm.images.filter((item) => String(item || '').trim()),
                     });
                     MessagePlugin.success('现场反馈已提交');
@@ -192,12 +350,11 @@
                     feedbackSubmitting.value = false;
                 }
             };
-            const saveSchedule = async () => {
+            const saveSchedule = async (params) => {
+                // 表单 submit 回调：内联校验未通过时错误已显示在字段下方，直接中断
+                if (params && params.e) params.e.preventDefault();
+                if (params && params.validateResult !== true) return;
                 if (!hasPermission(PERMISSION.log)) return;
-                if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(scheduleForm.time)) {
-                    MessagePlugin.warning('执行时间格式应为 HH:MM');
-                    return;
-                }
                 scheduleSaving.value = true;
                 try {
                     const data = unpack(await api.put('/schedule', {
@@ -232,15 +389,26 @@
                     initialLoading.value = false;
                 }
             });
+            // 演示控制器（index-demo.js）：重置演示卡片 + 生成任务前的模拟思考弹窗
+            const demo = window.PAMDemo.createDemoAddons({
+                api,
+                message: MessagePlugin,
+                reload: () => Promise.all([loadLogs(), loadOverview()]),
+                generate: generateTaskFromLog,
+                logDetail: logDetail,
+            });
             return {
                 activeTab, initialLoading, errorMessage, overview, logs, filteredTasks, taskFilter, taskColumns,
-                scheduleForm, scheduleInfo, scheduleSaving, syncingNow, lastSyncTaskId,
+                scheduleForm, scheduleInfo, scheduleRules, scheduleSaving, syncingNow, lastSyncTaskId,
                 coordinateText, weatherSourceText, logWeatherText, weatherValue, gddValue, formatDateTime,
                 priorityText, priorityTheme, statusText, statusTheme, resultText, resultTheme,
                 onTabChange, openLog, logDialogVisible, logDetailLoading, logDetail, taskGenerating,
-                generateTaskFromLog, openTask, taskDialogVisible, detailLoading, taskDetail,
-                feedbackForm, feedbackSubmitting, addFeedbackImage, removeFeedbackImage, submitFeedback,
+                logImagesDraft, logImagesSaving, logImagesDragOver, canUpdateLogImages,
+                onLogImagesDragEnter, onLogImagesDragOver, onLogImagesDragLeave, onLogImagesDrop,
+                removeLogImage, generateTaskFromLog, openTask, taskDialogVisible, detailLoading, taskDetail,
+                feedbackForm, feedbackRules, feedbackFormRef, feedbackSubmitting, canSubmitFeedback, submitFeedback,
                 saveSchedule, syncNow,
+                ...demo.bindings,
             };
         },
     });

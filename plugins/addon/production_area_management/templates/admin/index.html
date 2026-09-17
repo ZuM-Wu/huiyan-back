@@ -54,13 +54,13 @@
                     </div>
 
                     <div class="pam-log-section">
-                        <div class="pam-card-header pam-log-section-header">
-                            <div>
-                                <div class="pam-card-title">按日事实日志</div>
-                                <div class="pam-card-caption">从产区创建日起按日保留；缺失天气的日期保留记录但不补造事实。</div>
-                            </div>
-                            <t-tag theme="primary" variant="light">共 [[ logs.length ]] 条</t-tag>
+                    <div class="pam-card-header pam-log-section-header">
+                        <div>
+                            <div class="pam-card-title">按日事实日志</div>
+                            <div class="pam-card-caption">从产区创建日起按日保留；缺失天气的日期保留记录但不补造事实。</div>
                         </div>
+                        <t-tag theme="primary" variant="light">共 [[ logs.length ]] 条</t-tag>
+                    </div>
                         <div v-if="!logs.length" class="pam-empty-wrap"><t-empty description="暂无产区事实日志，请到日志生成页立即同步"></t-empty></div>
                         <div v-else class="pam-log-grid">
                             <t-card v-for="log in logs" :key="log.id" class="pam-log-card pam-clickable-card"
@@ -91,80 +91,185 @@
                 </t-tab-panel>
 
                 <t-tab-panel value="tasks" label="任务列表">
-                    <t-card class="pam-task-list-card" :bordered="false">
-                        <template #header>
-                            <div class="card-header-toolbar">
-                                <div class="card-header-toolbar-left pam-toolbar-left">
-                                    <t-radio-group v-model="taskFilter" variant="default-filled">
-                                        <t-radio-button value="all">全部</t-radio-button>
-                                        <t-radio-button value="pending">待处理</t-radio-button>
-                                        <t-radio-button value="completed">已完成</t-radio-button>
-                                    </t-radio-group>
-                                    <span class="pam-toolbar-hint">任务来自具体事实日志的整改建议，反馈可持续追加。</span>
-                                </div>
-                            </div>
+                    <div class="card-header-toolbar">
+                        <div class="card-header-toolbar-left pam-toolbar-left">
+                            <t-radio-group v-model="taskFilter" variant="default-filled">
+                                <t-radio-button value="all">全部</t-radio-button>
+                                <t-radio-button value="pending">待处理</t-radio-button>
+                                <t-radio-button value="completed">已完成</t-radio-button>
+                            </t-radio-group>
+                            <span class="pam-toolbar-hint">任务来自具体事实日志的整改建议，反馈可持续追加。</span>
+                        </div>
+                    </div>
+                    <t-table :data="filteredTasks" :columns="taskColumns" row-key="id" hover class="pam-task-table">
+                        <template #title="{ row }">
+                            <div class="pam-task-title-cell"><span class="pam-task-title">[[ row.title ]]</span><span class="pam-task-subtitle">[[ row.source_log_date || '来源日期未知' ]]</span></div>
                         </template>
-                        <t-table :data="filteredTasks" :columns="taskColumns" row-key="id" hover table-layout="fixed" class="pam-task-table">
-                            <template #title="{ row }">
-                                <div class="pam-task-title-cell"><span class="pam-task-title">[[ row.title ]]</span><span class="pam-task-subtitle">[[ row.source_log_date || '来源日期未知' ]]</span></div>
-                            </template>
-                            <template #priority="{ row }"><t-tag :theme="priorityTheme(row.priority)" variant="light">[[ priorityText(row.priority) ]]</t-tag></template>
-                            <template #status="{ row }"><t-tag :theme="statusTheme(row.status)" variant="light">[[ statusText(row.status) ]]</t-tag></template>
-                            <template #plan_time="{ row }"><span class="pam-time">[[ formatDateTime(row.plan_time) ]]</span></template>
-                            <template #feedback="{ row }"><span v-if="row.feedback_count">[[ row.feedback_count ]] 次反馈</span><span v-else class="pam-muted">待反馈</span></template>
-                            <template #operation="{ row }"><t-link theme="primary" hover="color" @click="openTask(row)">查看详情</t-link></template>
-                            <template #empty><t-empty description="暂无整改任务"></t-empty></template>
-                        </t-table>
-                    </t-card>
+                        <template #priority="{ row }"><t-tag :theme="priorityTheme(row.priority)" variant="light">[[ priorityText(row.priority) ]]</t-tag></template>
+                        <template #status="{ row }"><t-tag :theme="statusTheme(row.status)" variant="light">[[ statusText(row.status) ]]</t-tag></template>
+                        <template #plan_time="{ row }"><span class="pam-time">[[ formatDateTime(row.plan_time) ]]</span></template>
+                        <template #feedback="{ row }"><span v-if="row.feedback_count">[[ row.feedback_count ]] 次反馈</span><span v-else class="pam-muted">待反馈</span></template>
+                        <template #operation="{ row }"><t-button variant="text" theme="primary" @click="openTask(row)">查看详情</t-button></template>
+                        <template #empty><t-empty description="暂无整改任务"></t-empty></template>
+                    </t-table>
                 </t-tab-panel>
 
                 <t-tab-panel value="schedule" label="日志生成">
-                    <t-card class="pam-schedule-card" :bordered="false">
-                        <template #header>
-                            <div class="pam-card-header">
-                                <div><div class="pam-card-title">日志生成计划</div><div class="pam-card-caption">每日按产区创建日到当天补齐事实日志，周期投递与手动同步统一入队执行，不调用 AI。</div></div>
-                                <t-tag :theme="scheduleForm.enabled ? 'success' : 'default'" variant="light">[[ scheduleForm.enabled ? '自动同步已启用' : '自动同步已停用' ]]</t-tag>
+                    <div class="pam-schedule-panel">
+                        <div class="pam-card-header">
+                            <div><div class="pam-card-title">日志生成计划</div><div class="pam-card-caption">每日按产区创建日到当天补齐事实日志，周期投递与手动同步统一入队执行，不调用 AI。</div></div>
+                            <t-tag :theme="scheduleForm.enabled ? 'success' : 'default'" variant="light">[[ scheduleForm.enabled ? '自动同步已启用' : '自动同步已停用' ]]</t-tag>
+                        </div>
+                        <t-form class="pam-schedule-form" :data="scheduleForm" :rules="scheduleRules" label-width="112px" @submit="saveSchedule">
+                            <t-form-item label="每日自动同步" name="enabled">
+                                <t-radio-group v-model="scheduleForm.enabled">
+                                    <t-radio-button :value="true">启用</t-radio-button>
+                                    <t-radio-button :value="false">停用</t-radio-button>
+                                </t-radio-group>
+                                <template #help><span class="form-help-text">到达计划时间后，直接写入真实天气和积温事实。</span></template>
+                            </t-form-item>
+                            <t-form-item label="执行时间" name="time">
+                                <t-input v-model="scheduleForm.time" class="pam-time-input" placeholder="06:00"></t-input>
+                                <template #help><span class="form-help-text">使用北京时间，建议安排在天气日数据定格后。</span></template>
+                            </t-form-item>
+                            <div class="pam-schedule-actions">
+                                <t-button v-permission="'production_area_management:log:generate'" theme="primary" type="submit"
+                                    :loading="scheduleSaving">保存计划</t-button>
+                                <t-button v-permission="'production_area_management:log:generate'" theme="default"
+                                    :loading="syncingNow" @click="syncNow">立即同步</t-button>
+                                <t-popconfirm theme="danger" content="将恢复 2026-09-17 演示日志并删除其整改任务，确定重置？" @confirm="resetDemoStatus">
+                                    <t-button v-permission="'production_area_management:log:generate'" theme="default"
+                                        :loading="demoResetting">重置状态</t-button>
+                                </t-popconfirm>
                             </div>
-                        </template>
-                        <div class="pam-schedule-form">
-                            <div class="pam-schedule-row"><div><strong>每日自动同步</strong><p>到达计划时间后，直接写入真实天气和积温事实。</p></div><t-switch v-model="scheduleForm.enabled"></t-switch></div>
-                            <div class="pam-schedule-row"><div><strong>执行时间</strong><p>使用北京时间，建议安排在天气日数据定格后。</p></div><t-input v-model="scheduleForm.time" class="pam-time-input" placeholder="06:00"></t-input></div>
-                        </div>
-                        <div class="pam-form-actions pam-schedule-actions">
-                            <t-button v-permission="'production_area_management:log:generate'" theme="primary" :loading="scheduleSaving" @click="saveSchedule">保存计划</t-button>
-                            <t-button v-permission="'production_area_management:log:generate'" theme="default" :loading="syncingNow" @click="syncNow">立即同步</t-button>
-                        </div>
+                        </t-form>
                         <div class="pam-schedule-status">
                             <span>当前计划：[[ scheduleForm.time ]]</span>
                             <span v-if="scheduleInfo.next_run_time">下一次执行：[[ formatDateTime(scheduleInfo.next_run_time) ]]</span>
                             <span v-else>下一次执行：未注册</span>
                             <span v-if="lastSyncTaskId">最近一次手动同步：任务 #[[ lastSyncTaskId ]] 已入队</span>
                         </div>
-                    </t-card>
+                    </div>
                 </t-tab-panel>
             </t-tabs>
         </t-card>
     </template>
 
-    <t-dialog v-model:visible="logDialogVisible" header="产区事实详情" width="760px" :footer="false" :close-on-overlay-click="false">
-        <div v-if="logDetailLoading" class="pam-detail-loading"><t-loading text="加载事实详情"></t-loading></div>
-        <div v-else-if="logDetail" class="pam-log-detail">
-            <div class="pam-detail-title"><div><div class="pam-card-label">事实日期 [[ logDetail.log.fact_date ]]</div><h3>[[ logDetail.log.title ]]</h3></div><t-tag v-if="logDetail.log.is_latest" theme="success" variant="light">最新</t-tag></div>
-            <div class="pam-detail-grid"><div><span>天气</span><b>[[ logWeatherText ]]</b></div><div><span>日均温</span><b>[[ logDetail.log.weather.temp_avg || '--' ]]℃</b></div><div><span>降水</span><b>[[ logDetail.log.weather.precip || '--' ]]mm</b></div><div><span>有效积温</span><b>[[ logDetail.log.gdd.effective_gdd || '--' ]]℃</b></div></div>
-            <div class="pam-detail-section"><div class="pam-card-title">事实正文</div><p class="pam-detail-copy">[[ logDetail.log.content || '当天暂无逐日天气事实，正文留空。' ]]</p></div>
-            <div class="pam-detail-section pam-recommendation-box"><div class="pam-card-title">整改建议</div><p class="pam-detail-copy">[[ logDetail.log.recommendation || '暂无整改建议' ]]</p></div>
-            <div class="pam-form-actions"><t-button v-if="!logDetail.task" v-permission="'production_area_management:task:generate'" theme="primary" :loading="taskGenerating" @click="generateTaskFromLog">根据建议生成整改任务</t-button><t-tag v-else theme="success" variant="light">已生成整改任务</t-tag><t-button theme="default" @click="logDialogVisible = false">关闭</t-button></div>
+    <t-dialog v-model:visible="demoThinkingVisible" header="智能生成整改任务" width="480px" placement="center"
+        :footer="false" :close-btn="false" :close-on-overlay-click="false">
+        <div class="pam-demo-thinking">
+            <div v-for="step in demoThinkingSteps" :key="step.title" class="pam-demo-step"
+                :class="'is-' + step.state">
+                <span class="pam-demo-step-icon">
+                    <t-icon v-if="step.state === 'done'" name="check-circle-filled"></t-icon>
+                    <t-icon v-else-if="step.state === 'active'" name="loading" class="pam-demo-step-loading"></t-icon>
+                    <t-icon v-else name="circle"></t-icon>
+                </span>
+                <span class="pam-demo-step-text">
+                    <b>[[ step.title ]]</b>
+                    <transition name="pam-demo-fade">
+                        <i v-if="step.showDesc">[[ step.desc ]]</i>
+                    </transition>
+                </span>
+            </div>
         </div>
     </t-dialog>
 
-    <t-dialog v-model:visible="taskDialogVisible" header="任务详情" width="820px" :footer="false" :close-on-overlay-click="false">
+    <t-dialog v-model:visible="logDialogVisible" header="产区日报详情" width="720px" placement="center" :close-on-overlay-click="false">
+        <template #footer>
+            <t-button theme="default" @click="logDialogVisible = false">关闭</t-button>
+            <t-button v-if="logDetail && !logDetail.task" v-permission="'production_area_management:task:generate'"
+                theme="primary" :loading="taskGenerating" @click="runDemoThinking">根据建议生成整改任务</t-button>
+        </template>
+        <div v-if="logDetailLoading" class="pam-detail-loading"><t-loading text="加载事实详情"></t-loading></div>
+        <div v-else-if="logDetail" class="pam-log-detail">
+            <div class="pam-detail-title">
+                <div><div class="pam-card-label">事实日期 [[ logDetail.log.fact_date ]]</div><h3>[[ logDetail.log.title ]]</h3></div>
+                <t-tag v-if="logDetail.log.is_latest" theme="success" variant="light">最新</t-tag>
+            </div>
+            <div class="pam-detail-grid pam-log-facts">
+                <div><span>天气</span><b>[[ logWeatherText ]]</b></div>
+                <div><span>日均温</span><b>[[ logDetail.log.weather.temp_avg || '--' ]]℃</b></div>
+                <div><span>降水</span><b>[[ logDetail.log.weather.precip || '--' ]]mm</b></div>
+                <div><span>有效积温</span><b>[[ logDetail.log.gdd.effective_gdd || '--' ]]℃</b></div>
+            </div>
+            <section class="pam-detail-section">
+                <div class="pam-card-title">事实正文</div>
+                <p class="pam-detail-copy">[[ logDetail.log.content || '当天暂无逐日天气事实，正文留空。' ]]</p>
+            </section>
+            <section class="pam-detail-section pam-recommendation-box">
+                <div class="pam-section-heading">
+                    <div class="pam-card-title">整改建议</div>
+                    <t-tag v-if="logDetail.task" theme="success" variant="light">已生成整改任务</t-tag>
+                </div>
+                <p class="pam-detail-copy">[[ logDetail.log.recommendation || '暂无整改建议' ]]</p>
+            </section>
+            <section class="pam-detail-section pam-log-images-section" :class="{ 'is-dragover': logImagesDragOver }"
+                @dragenter.prevent="onLogImagesDragEnter" @dragover.prevent="onLogImagesDragOver"
+                @dragleave.prevent="onLogImagesDragLeave" @drop.prevent="onLogImagesDrop">
+                <div class="pam-section-heading">
+                    <div class="pam-card-title">日报图片</div>
+                    <t-tag variant="light">[[ logImagesDraft.length ]]/9</t-tag>
+                </div>
+                <div class="pam-log-image-drop-surface">
+                    <div v-if="logImagesDraft.length" class="pam-log-images">
+                        <t-image-viewer v-for="(image, index) in logImagesDraft" :key="image"
+                            :images="logImagesDraft" :default-index="index">
+                            <template #trigger="{ open }">
+                                <div class="pam-log-image-item">
+                                    <img :src="image" :alt="`日报图片 ${index + 1}`" title="查看大图" @click="open">
+                                    <div v-if="canUpdateLogImages" class="pam-log-image-del" title="删除图片"
+                                        @click.stop="removeLogImage(index)">
+                                        <t-icon name="delete"></t-icon>
+                                    </div>
+                                </div>
+                            </template>
+                        </t-image-viewer>
+                    </div>
+                    <div v-else-if="canUpdateLogImages" class="pam-log-images-empty">暂无日报图片，可将图片拖入本区域上传</div>
+                    <div v-else class="pam-log-images-empty">暂无日报图片</div>
+                </div>
+            </section>
+        </div>
+    </t-dialog>
+
+    <t-dialog v-model:visible="taskDialogVisible" header="任务详情" width="820px" placement="center"
+        :close-on-overlay-click="false" :footer="canSubmitFeedback"
+        :confirm-btn="{ content: '提交反馈', theme: 'primary', loading: feedbackSubmitting }"
+        :cancel-btn="{ content: '取消' }" @confirm="submitFeedback">
         <div v-if="detailLoading" class="pam-detail-loading"><t-loading text="加载任务详情"></t-loading></div>
         <div v-else-if="taskDetail" class="pam-detail">
-            <div class="pam-detail-title"><div><div class="pam-card-label">任务详情</div><h3>[[ taskDetail.task.title ]]</h3></div><t-tag :theme="statusTheme(taskDetail.task.status)" variant="light">[[ statusText(taskDetail.task.status) ]]</t-tag></div>
+            <div class="pam-detail-title"><h3>[[ taskDetail.task.title ]]</h3><t-tag :theme="statusTheme(taskDetail.task.status)" variant="light">[[ statusText(taskDetail.task.status) ]]</t-tag></div>
             <div class="pam-detail-grid"><div><span>来源事实</span><b>[[ taskDetail.task.source_log_date || '--' ]]</b></div><div><span>优先级</span><b>[[ priorityText(taskDetail.task.priority) ]]</b></div><div><span>负责人</span><b>[[ taskDetail.task.assignee || '待分配' ]]</b></div><div><span>计划时间</span><b>[[ formatDateTime(taskDetail.task.plan_time) ]]</b></div></div>
             <div class="pam-detail-section"><div class="pam-card-title">整改说明</div><p class="pam-detail-copy">[[ taskDetail.task.description ]]</p></div>
-            <div class="pam-detail-section"><div class="pam-card-title">现场反馈</div><div v-if="taskDetail.feedbacks.length" class="pam-feedback-list"><div v-for="feedback in taskDetail.feedbacks" :key="feedback.id" class="pam-feedback-item"><div class="pam-feedback-head"><t-tag :theme="resultTheme(feedback.result)" variant="light">[[ resultText(feedback.result) ]]</t-tag><span>[[ feedback.admin_name || '管理员' ]] · [[ formatDateTime(feedback.create_time) ]]</span></div><p>[[ feedback.content ]]</p><div v-if="feedback.images && feedback.images.length" class="pam-feedback-images"><img v-for="image in feedback.images" :key="image" :src="image" alt="现场反馈图片"></div></div></div><t-empty v-else description="暂未提交现场反馈"></t-empty></div>
-            <t-card v-if="taskDetail.task.status !== 'completed'" class="pam-detail-section pam-feedback-form" :bordered="false"><div class="pam-card-title">提交现场反馈</div><t-form label-width="72px"><t-form-item label="执行结果"><t-radio-group v-model="feedbackForm.result"><t-radio-button value="success">完成</t-radio-button><t-radio-button value="partial">部分完成</t-radio-button><t-radio-button value="failed">未完成</t-radio-button></t-radio-group></t-form-item><t-form-item label="现场说明"><t-textarea v-model="feedbackForm.content" :maxlength="2000" show-word-limit placeholder="说明现场情况、已采取措施和后续安排" :autosize="{ minRows: 4 }"></t-textarea></t-form-item><t-form-item label="现场图片"><div class="pam-image-feedback"><div v-for="(image, index) in feedbackForm.images" :key="index" class="pam-image-upload-row"><image-upload v-model="feedbackForm.images[index]" hint="现场照片"></image-upload><t-button variant="text" theme="danger" @click="removeFeedbackImage(index)">移除</t-button></div><t-button v-if="feedbackForm.images.length < 9" theme="default" @click="addFeedbackImage">添加图片</t-button><p class="pam-form-hint">可上传 0-9 张图片，图片仅作为现场反馈附件。</p></div></t-form-item></t-form><div class="pam-form-actions"><t-button theme="primary" :loading="feedbackSubmitting" @click="submitFeedback">提交反馈</t-button><t-button theme="default" @click="taskDialogVisible = false">取消</t-button></div></t-card>
+            <div class="pam-detail-section"><div class="pam-card-title">现场反馈</div><div v-if="taskDetail.feedbacks.length" class="pam-feedback-list"><div v-for="feedback in taskDetail.feedbacks" :key="feedback.id" class="pam-feedback-item"><div class="pam-feedback-head"><t-tag :theme="resultTheme(feedback.result)" variant="light">[[ resultText(feedback.result) ]]</t-tag><span>[[ feedback.admin_name || '管理员' ]] · [[ formatDateTime(feedback.create_time) ]]</span></div><p>[[ feedback.content ]]</p><div v-if="feedback.images && feedback.images.length" class="pam-feedback-images"><t-image-viewer v-for="(image, imageIndex) in feedback.images" :key="image" :images="feedback.images" :default-index="imageIndex"><template #trigger="{ open }"><img :src="image" alt="现场反馈图片" title="查看大图" @click="open"></template></t-image-viewer></div></div></div><t-empty v-else description="暂未提交现场反馈"></t-empty></div>
+            <div v-if="canSubmitFeedback" class="pam-detail-section pam-feedback-form">
+                <div class="pam-card-title">提交现场反馈</div>
+                <t-form ref="feedbackFormRef" :data="feedbackForm" :rules="feedbackRules" label-width="72px">
+                    <t-form-item label="执行结果" name="result"><t-radio-group v-model="feedbackForm.result"><t-radio-button value="success">完成</t-radio-button><t-radio-button value="partial">部分完成</t-radio-button><t-radio-button value="failed">未完成</t-radio-button></t-radio-group></t-form-item>
+                    <t-form-item label="现场说明" name="content"><t-textarea v-model="feedbackForm.content" :maxlength="2000" show-word-limit placeholder="说明现场情况、已采取措施和后续安排" :autosize="{ minRows: 4 }"></t-textarea></t-form-item>
+                    <t-form-item label="现场图片" name="images">
+                        <div class="pam-feedback-upload">
+                            <div v-if="feedbackForm.images.length" class="pam-log-images">
+                                <t-image-viewer v-for="(image, imageIndex) in feedbackForm.images" :key="image"
+                                    :images="feedbackForm.images" :default-index="imageIndex">
+                                    <template #trigger="{ open }">
+                                        <div class="pam-log-image-item">
+                                            <img :src="image" :alt="`现场图片 ${imageIndex + 1}`" title="查看大图" @click="open">
+                                        <div class="pam-log-image-del" title="删除图片"
+                                            @click.stop="feedbackForm.images.splice(imageIndex, 1)">
+                                            <t-icon name="delete"></t-icon>
+                                        </div>
+                                        </div>
+                                    </template>
+                                </t-image-viewer>
+                            </div>
+                            <image-upload v-if="feedbackForm.images.length < 9" v-model="feedbackForm.images" drag multiple
+                                :max-count="9" :show-success="false" hint="现场照片，最多 9 张"></image-upload>
+                        </div>
+                    </t-form-item>
+                </t-form>
+            </div>
         </div>
     </t-dialog>
 </div>
