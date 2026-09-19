@@ -1,4 +1,4 @@
-"""慧眼护农 3.4.11 主入口
+"""慧眼护农 3.4.12 主入口
 单进程: FastAPI 托管 API + 前端静态文件
 
 部署约束: 仅支持单 worker 部署（uvicorn 默认单进程）。
@@ -162,7 +162,7 @@ else:
 # PT 权重的 safe_only 安全加载开关必须在插件动态导入 ultralytics 之前生效。
 enable_safe_pt_loading()
 
-app = FastAPI(title="慧眼护农 3.4.11", version="3.4.11", lifespan=_app_lifespan)
+app = FastAPI(title="慧眼护农 3.4.12", version="3.4.12", lifespan=_app_lifespan)
 
 if agentscope_app is not None:
     # AgentScope 原生资源路由统一形成 /api/ai 入口。
@@ -306,9 +306,9 @@ async def health(request: Request):
     if degraded:
         return {
             "code": 200, "status": "degraded", "components": degraded,
-            "platform": platform_components, "version": "3.4.11",
+            "platform": platform_components, "version": "3.4.12",
         }
     return {
         "code": 200, "status": "ok", "components": [],
-        "platform": platform_components, "version": "3.4.11",
+        "platform": platform_components, "version": "3.4.12",
     }

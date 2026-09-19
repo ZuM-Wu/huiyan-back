@@ -163,7 +163,7 @@ async def startup(app):  # noqa: C901, PLR0912, PLR0915  12步启动流程属固
     12. 输出启动摘要日志
     """
     logger.info("=" * 60)
-    logger.info("  慧眼护农 3.4.11 启动中...")
+    logger.info("  慧眼护农 3.4.12 启动中...")
     logger.info("=" * 60)
 
     # 降级组件追踪列表：各启动步骤 except 时追加组件名，启动结束后挂载到 app.state
@@ -469,7 +469,7 @@ async def _init_scheduler_and_widgets(app, degraded: list[str]):
 
 async def shutdown():
     """应用关闭"""
-    logger.info("慧眼护农 3.4.11 正在关闭...")
+    logger.info("慧眼护农 3.4.12 正在关闭...")
     # 发布系统关闭瞬时事件，插件据此清理长连接等资源。
     try:
         from core.events import event_bus

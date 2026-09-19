@@ -40,8 +40,8 @@ class McpPathMiddleware:
 # FastMCP 单例：所有工具注册/注销均作用于该实例
 mcp = FastMCP(
     "慧眼护农MCP",
-    version="3.4.11",
-    instructions="系统 MCP 能力版本 3.4.11：农业、硬件及启用插件。全局精简：最多64工具，8000估算Tokens，描述120字符，单次工具结果1024字节。truncated表示省略；确认工具须用户确认后传confirmed=true。",
+    version="3.4.12",
+    instructions="系统 MCP 能力版本 3.4.12：农业、硬件及启用插件。全局精简：最多64工具，8000估算Tokens，描述120字符，单次工具结果1024字节。truncated表示省略；确认工具须用户确认后传confirmed=true。",
     auth=ApiKeyVerifier(),
 )
 mcp.add_middleware(PermissionFilterMiddleware())
