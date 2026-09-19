@@ -38,7 +38,11 @@
             const handleLogId = ref(0);
             const cleanupDialogVisible = ref(false);
             const cleanupLoading = ref(false);
-            const cleanupRetentionDays = ref(30);
+            // 手动清理默认删除最近 10 天日志，与后端默认值保持一致
+            const cleanupDefaultDays = 10;
+            const cleanupDays = ref(cleanupDefaultDays);
+            // 清理窗口内的日志条数，仅用于确认弹窗提示影响范围
+            const cleanupPreviewCount = ref(null);
 
             // ===== 通用工具 =====
             const taskTypeLabel = (type) => {
@@ -181,13 +185,38 @@
                 }
             };
 
+            // 最近 N 个自然日的窗口起点日期（含今天，与后端口径一致）
+            const cleanupStartDate = () => {
+                const start = new Date();
+                start.setDate(start.getDate() - (Number(cleanupDays.value) - 1));
+                const month = String(start.getMonth() + 1).padStart(2, '0');
+                const day = String(start.getDate()).padStart(2, '0');
+                return start.getFullYear() + '-' + month + '-' + day;
+            };
+
+            // 查询窗口内日志条数；失败时只是不展示条数，不阻断清理流程
+            const fetchCleanupPreview = async () => {
+                try {
+                    const res = await request.get('/task-monitor/logs', {
+                        params: { start_date: cleanupStartDate(), page: 1, limit: 1 },
+                    });
+                    cleanupPreviewCount.value = res.data.data.total;
+                } catch (e) {
+                    cleanupPreviewCount.value = null;
+                }
+            };
+
             const openCleanupDialog = () => {
-                cleanupRetentionDays.value = 30;
+                cleanupDays.value = cleanupDefaultDays;
+                cleanupPreviewCount.value = null;
                 cleanupDialogVisible.value = true;
+                fetchCleanupPreview();
             };
 
             const cleanupLogs = () => {
                 if (cleanupLoading.value) return;
+                const countText = cleanupPreviewCount.value === null
+                    ? '' : '，共 ' + cleanupPreviewCount.value + ' 条';
                 let confirmDialog;
                 const closeConfirmDialog = () => {
                     if (confirmDialog) {
@@ -197,22 +226,23 @@
                 };
                 confirmDialog = DialogPlugin.confirm({
                     header: '确认清理日志',
-                    body: '仅删除 ' + cleanupRetentionDays.value + ' 天以前的日志，保留最近 '
-                        + cleanupRetentionDays.value + ' 天；此操作无法恢复，是否继续？',
+                    body: '将删除 ' + cleanupStartDate() + ' 起最近 ' + cleanupDays.value
+                        + ' 个自然日内的任务日志' + countText + '，更早的日志保留；'
+                        + '此操作无法恢复，是否继续？',
                     onConfirm: async () => {
                         closeConfirmDialog();
                         cleanupLoading.value = true;
                         try {
                             const res = await request.delete('/task-monitor/logs/cleanup', {
-                                params: { retention_days: cleanupRetentionDays.value },
+                                params: { days: cleanupDays.value },
                             });
                             const data = res.data.data;
                             if (data.deleted_count === 0) {
-                                MessagePlugin.warning(
-                                    '没有早于 ' + data.cutoff_time + ' 的任务日志，保留期内日志未删除'
-                                );
+                                MessagePlugin.warning('最近 ' + data.days
+                                    + ' 天内没有可删除的任务日志');
                             } else {
-                                MessagePlugin.success('已清理 ' + data.deleted_count + ' 条任务日志');
+                                MessagePlugin.success('已清理最近 ' + data.days + ' 天内的 '
+                                    + data.deleted_count + ' 条任务日志');
                             }
                             cleanupDialogVisible.value = false;
                             fetchLogs();
@@ -237,10 +267,10 @@
                 logLoading, logData, logFilter, logPagination, logColumns,
                 logDetailVisible, logDetailData,
                 handleDialogVisible, handleDialogTitle, handleNote, handleAction, handleLogId,
-                cleanupDialogVisible, cleanupLoading, cleanupRetentionDays,
+                cleanupDialogVisible, cleanupLoading, cleanupDays, cleanupPreviewCount,
                 taskTypeLabel, queueTypeLabel, formatDuration, onTabChange,
                 fetchLogs, onLogPageChange, viewLogDetail, retryTask,
-                openCleanupDialog, cleanupLogs,
+                openCleanupDialog, cleanupLogs, fetchCleanupPreview,
                 handleTask, ignoreTask, confirmHandle,
             };
         },

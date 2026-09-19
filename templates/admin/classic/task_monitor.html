@@ -285,11 +285,13 @@
     <t-dialog v-model:visible="cleanupDialogVisible" header="清理任务日志" width="480px"
         :footer="false" destroy-on-close>
         <t-form label-width="120px">
-            <t-form-item label="保留天数">
-                <t-input-number v-model="cleanupRetentionDays" :min="1" :max="3650" theme="normal" />
+            <t-form-item label="删除天数">
+                <t-input-number v-model="cleanupDays" :min="1" :max="3650" theme="normal"
+                    @change="fetchCleanupPreview" />
             </t-form-item>
         </t-form>
-        <div class="form-help-text">仅删除保留期以前的日志；例如填写 30，最近 30 天日志会保留。</div>
+        <div class="form-help-text">删除最近 N 个自然日（含今天，默认 10 天）内的任务日志；更早的日志保留不动。</div>
+        <div class="form-help-text">当前范围内共 [[ cleanupPreviewCount === null ? '-' : cleanupPreviewCount ]] 条任务日志。</div>
         <div class="dialog-footer">
             <t-button theme="danger" :loading="cleanupLoading" @click="cleanupLogs">确认清理</t-button>
             <t-button theme="default" :disabled="cleanupLoading" @click="cleanupDialogVisible = false">取消</t-button>

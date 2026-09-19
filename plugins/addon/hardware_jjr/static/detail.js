@@ -65,8 +65,9 @@ export default {
                 });
             };
             const pollPhotoResult = async (deviceId, previousSignature, generation) => {
-                for (let attempt = 0; attempt < 10; attempt += 1) {
-                    await new Promise((resolve) => { photoResolve = resolve; photoTimer = window.setTimeout(resolve, 2000); });
+                // 拍照后设备回传存在延迟，每 10 秒刷新一次实时数据，最多轮询 6 次（60 秒超时）后提示用户稍后刷新。
+                for (let attempt = 0; attempt < 6; attempt += 1) {
+                    await new Promise((resolve) => { photoResolve = resolve; photoTimer = window.setTimeout(resolve, 10000); });
                     if (generation !== photoPollGeneration || !drawerVisible.value
                         || !currentDevice.value || currentDevice.value.id !== deviceId) return null;
                     if (!await fetchIdentifiers(true, true) || generation !== photoPollGeneration) return null;
