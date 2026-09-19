@@ -1,0 +1,73 @@
+/*
+ * 慧眼护农 管理端内容区滚动契约（独立于 admin-base.css 拆分文件，按 400 行约束单列）
+ * 负责「内层滚动区 -> 卡片体整体滚动（page-card-scroll）-> 整页滚动（is-page-scroll）」的回退口径，
+ * 由 vue_default / classic 两个后台 base.html 在 admin-base.css 之后引入；
+ * is-page-scroll 由 js/page-scroll.js 按实际裁剪添加，页面禁止手写。
+ */
+/* ===== 内容滚动兜底：混合内容页（page-card-scroll）与矮窗口兜底（is-page-scroll） =====
+   背景：列表页的「表格抢剩余高度」链在窗口变矮时会把标签页/表格压到 0-2px；
+   TDesign .t-tabs 自带 overflow:hidden，被压缩后内容既不可见也无法滚动。
+   两个契约类负责关闭内层压缩，滚动职责按下列顺序回退：
+     内层滚动区 -> 卡片体整体滚动（page-card-scroll）-> 整页滚动（is-page-scroll）。
+     #page-app.page-card-scroll  页面声明「预设卡片/表单 + 表格」混排，卡片填满视口、卡片体滚动；
+     #page-app.is-page-scroll    由 js/page-scroll.js 按实际裁剪自动添加，页面按自然高度整页滚动。
+   新增规则只作用于两个契约类与 .page-content，农户端同名 #page-app 不受影响。 */
+:is(#page-app.page-card-scroll, #page-app.is-page-scroll) .t-tabs,
+:is(#page-app.page-card-scroll, #page-app.is-page-scroll) .t-tabs__content,
+:is(#page-app.page-card-scroll, #page-app.is-page-scroll) .t-tab-panel {
+    flex: 0 0 auto;
+    height: auto;
+    max-height: none;
+    min-height: 0;
+    overflow: visible;
+}
+/* 卡片体的直接子项保持自然高度，由卡片体或页面承担滚动 */
+:is(#page-app.page-card-scroll, #page-app.is-page-scroll) > .t-card > .t-card__body > * {
+    flex: 0 0 auto;
+    min-height: 0;
+}
+/* 表格回到自然高度：纵向不裁切，确实超宽时仍只在内容区横向滚动 */
+:is(#page-app.page-card-scroll, #page-app.is-page-scroll) .t-table,
+:is(#page-app.page-card-scroll, #page-app.is-page-scroll) .t-table__content {
+    flex: 0 0 auto;
+    min-height: 0;
+    height: auto;
+    max-height: none;
+}
+:is(#page-app.page-card-scroll, #page-app.is-page-scroll) .t-table__content {
+    overflow: auto;
+}
+/* 两种模式下取消 75vh 限高，避免卡片比可视区更矮却仍压缩内层 */
+:is(#page-app.page-card-scroll, #page-app.is-page-scroll) .t-card--scrollable {
+    height: auto;
+    max-height: none;
+}
+
+/* 混合内容页：卡片继续填满视口，卡片体成为唯一滚动层 */
+#page-app.page-card-scroll > .t-card {
+    flex: 1 1 auto;
+    max-height: none;
+    min-height: 0;
+}
+#page-app.page-card-scroll > .t-card > .t-card__body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+/* 矮窗口兜底：根容器与卡片全部自然高度，由 .page-content 承担整页滚动 */
+.page-content:has(#page-app.is-page-scroll) {
+    overflow-y: auto;
+}
+#page-app.is-page-scroll,
+#page-app.is-page-scroll > .t-card,
+#page-app.is-page-scroll > .t-card > .t-card__body {
+    flex: 0 0 auto;
+    height: auto;
+    max-height: none;
+    min-height: 0;
+}
+#page-app.is-page-scroll > .t-card > .t-card__body {
+    overflow: visible;
+}
+

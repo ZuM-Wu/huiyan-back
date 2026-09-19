@@ -136,11 +136,14 @@ a.sidebar-logo__link { cursor: pointer; }
 .topbar-migration--error .topbar-migration__label > span:first-child { color: var(--app-error); }
 .topbar-migration--success .topbar-migration__label > span:first-child { color: var(--app-success); }
 
-/* 页面内容：填满视口高度（减去顶栏 56px），禁止页面级滚动，由卡片内部滚动 */
+/* 页面内容：填满视口高度（减去顶栏 56px）。
+   默认由卡片内部滚动；纵向保留兜底滚动，避免内容比可视区更高（如知识库双栏页）
+   或矮窗口下内层滚动区无法承载时，内容被直接裁掉。横向仍禁止页面级滚动。 */
 .page-content {
     height: calc(100vh - var(--app-header-height));
     padding: var(--app-page-padding);
-    overflow: hidden;
+    overflow-y: auto;
+    overflow-x: hidden;
     display: flex;
     flex-direction: column;
     transition: opacity 0.15s ease;
@@ -326,26 +329,26 @@ a.sidebar-logo__link { cursor: pointer; }
    停止滚动；Tabs 头部钉住不参与滚动；滚动职责下移到 t-tabs__content，
    任何面板内容/表格挂载都不再影响 Tabs 头部布局。
    全部用直接子代选择器，避免误伤系统设置页嵌套的左侧子 Tab */
-.system-settings-page > .t-card--scrollable {
+.system-settings-page:not(.page-card-scroll):not(.is-page-scroll) > .t-card--scrollable {
     height: var(--app-card-max-height);
 }
-.system-settings-page > .t-card--scrollable > .t-card__body {
+.system-settings-page:not(.page-card-scroll):not(.is-page-scroll) > .t-card--scrollable > .t-card__body {
     padding: 0;
     overflow: hidden;
     display: flex;
     flex-direction: column;
 }
-.system-settings-page > .t-card--scrollable > .t-card__body > .t-tabs {
+.system-settings-page:not(.page-card-scroll):not(.is-page-scroll) > .t-card--scrollable > .t-card__body > .t-tabs {
     flex: 1;
     min-height: 0;
     display: flex;
     flex-direction: column;
 }
-.system-settings-page > .t-card--scrollable > .t-card__body > .t-tabs > .t-tabs__header {
+.system-settings-page:not(.page-card-scroll):not(.is-page-scroll) > .t-card--scrollable > .t-card__body > .t-tabs > .t-tabs__header {
     flex-shrink: 0;
     padding: var(--app-spacing-lg) var(--app-spacing-lg) 0;
 }
-.system-settings-page > .t-card--scrollable > .t-card__body > .t-tabs > .t-tabs__content {
+.system-settings-page:not(.page-card-scroll):not(.is-page-scroll) > .t-card--scrollable > .t-card__body > .t-tabs > .t-tabs__content {
     flex: 1;
     min-height: 0;
     overflow-y: auto;
@@ -357,27 +360,27 @@ a.sidebar-logo__link { cursor: pointer; }
    注：TDesign 无分页时也会渲染空 .t-table__pagination-wrap，故整条链用
    :not(.system-settings-page) 排除设置页，避免劫持上方设置页骨架的滚动层 */
 /* 卡片体不整体滚动，由表格内部滚动 */
-#page-app:not(.system-settings-page) > .t-card > .t-card__body:has(.t-table__pagination-wrap) {
+#page-app:not(.system-settings-page):not(.page-card-scroll):not(.is-page-scroll) > .t-card > .t-card__body:has(.t-table__pagination-wrap) {
     overflow: hidden;
     display: flex;
     flex-direction: column;
 }
 /* Tabs 链路逐层填满高度（仅限内部包含表格的内容切换 Tabs；筛选型空 Tabs 不拉伸） */
-#page-app:not(.system-settings-page) > .t-card > .t-card__body:has(.t-table__pagination-wrap) .t-tabs:has(.t-table) {
+#page-app:not(.system-settings-page):not(.page-card-scroll):not(.is-page-scroll) > .t-card > .t-card__body:has(.t-table__pagination-wrap) .t-tabs:has(.t-table) {
     flex: 1;
     min-height: 0;
     display: flex;
     flex-direction: column;
 }
 /* 竖向 Tabs 保持 TDesign 的 row 布局（头在左、内容在右）；TDesign 的 t-is-left 类挂在 header 上而非 t-tabs 上 */
-#page-app:not(.system-settings-page) > .t-card > .t-card__body:has(.t-table__pagination-wrap) .t-tabs:has(> .t-tabs__header.t-is-left) {
+#page-app:not(.system-settings-page):not(.page-card-scroll):not(.is-page-scroll) > .t-card > .t-card__body:has(.t-table__pagination-wrap) .t-tabs:has(> .t-tabs__header.t-is-left) {
     flex-direction: row;
 }
 /* 竖向 Tabs 导航列：不参与 flex 伸缩，固定宽度成列 */
-#page-app:not(.system-settings-page) > .t-card > .t-card__body:has(.t-table__pagination-wrap) .t-tabs > .t-tabs__header.t-is-left {
+#page-app:not(.system-settings-page):not(.page-card-scroll):not(.is-page-scroll) > .t-card > .t-card__body:has(.t-table__pagination-wrap) .t-tabs > .t-tabs__header.t-is-left {
     flex-shrink: 0;
 }
-#page-app:not(.system-settings-page) > .t-card > .t-card__body:has(.t-table__pagination-wrap) .t-tabs:has(.t-table) > .t-tabs__content {
+#page-app:not(.system-settings-page):not(.page-card-scroll):not(.is-page-scroll) > .t-card > .t-card__body:has(.t-table__pagination-wrap) .t-tabs:has(.t-table) > .t-tabs__content {
     flex: 1;
     min-height: 0;
     overflow: hidden;
@@ -385,46 +388,46 @@ a.sidebar-logo__link { cursor: pointer; }
     flex-direction: column;
 }
 /* 竖向 Tabs 内容区需 min-width:0 防溢出 */
-#page-app:not(.system-settings-page) > .t-card > .t-card__body:has(.t-table__pagination-wrap) .t-tabs:has(> .t-tabs__header.t-is-left) .t-tabs__content {
+#page-app:not(.system-settings-page):not(.page-card-scroll):not(.is-page-scroll) > .t-card > .t-card__body:has(.t-table__pagination-wrap) .t-tabs:has(> .t-tabs__header.t-is-left) .t-tabs__content {
     min-width: 0;
 }
-#page-app:not(.system-settings-page) > .t-card > .t-card__body:has(.t-table__pagination-wrap) .t-tab-panel {
+#page-app:not(.system-settings-page):not(.page-card-scroll):not(.is-page-scroll) > .t-card > .t-card__body:has(.t-table__pagination-wrap) .t-tab-panel {
     flex: 1;
     min-height: 0;
     display: flex;
     flex-direction: column;
 }
 /* 工具栏固定不收缩 */
-#page-app:not(.system-settings-page) > .t-card > .t-card__body:has(.t-table__pagination-wrap) .card-header-toolbar {
+#page-app:not(.system-settings-page):not(.page-card-scroll):not(.is-page-scroll) > .t-card > .t-card__body:has(.t-table__pagination-wrap) .card-header-toolbar {
     flex-shrink: 0;
 }
 /* 日志面板内容容器填满高度（log/notice-log 页面 .log-panel-content 包装器） */
-#page-app:not(.system-settings-page) > .t-card > .t-card__body:has(.t-table__pagination-wrap) .log-panel-content {
+#page-app:not(.system-settings-page):not(.page-card-scroll):not(.is-page-scroll) > .t-card > .t-card__body:has(.t-table__pagination-wrap) .log-panel-content {
     flex: 1;
     min-height: 0;
     display: flex;
     flex-direction: column;
 }
 /* 分页表格填满剩余高度 */
-#page-app:not(.system-settings-page) > .t-card > .t-card__body:has(.t-table__pagination-wrap) .t-table {
+#page-app:not(.system-settings-page):not(.page-card-scroll):not(.is-page-scroll) > .t-card > .t-card__body:has(.t-table__pagination-wrap) .t-table {
     flex: 1;
     min-height: 0;
     display: flex;
     flex-direction: column;
 }
 /* 表格内容区可滚动 */
-#page-app:not(.system-settings-page) > .t-card > .t-card__body:has(.t-table__pagination-wrap) .t-table__content {
+#page-app:not(.system-settings-page):not(.page-card-scroll):not(.is-page-scroll) > .t-card > .t-card__body:has(.t-table__pagination-wrap) .t-table__content {
     flex: 1;
     overflow-y: auto;
 }
 /* 表头固定（th 级别 sticky 兼容性优于 thead） */
-#page-app:not(.system-settings-page) > .t-card > .t-card__body:has(.t-table__pagination-wrap) .t-table__header th {
+#page-app:not(.system-settings-page):not(.page-card-scroll):not(.is-page-scroll) > .t-card > .t-card__body:has(.t-table__pagination-wrap) .t-table__header th {
     position: sticky;
     top: 0;
     z-index: 32;
 }
 /* 翻页固定卡片底部 */
-#page-app:not(.system-settings-page) > .t-card > .t-card__body:has(.t-table__pagination-wrap) .t-table__pagination-wrap {
+#page-app:not(.system-settings-page):not(.page-card-scroll):not(.is-page-scroll) > .t-card > .t-card__body:has(.t-table__pagination-wrap) .t-table__pagination-wrap {
     flex-shrink: 0;
 }
 

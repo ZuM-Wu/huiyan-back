@@ -3,8 +3,6 @@
 {% block head %}
 <style>
 .ai-setting-page { --ai-control-height: var(--app-spacing-xl); }
-#page-app.ai-setting-page > .t-card { flex: 0 1 auto; max-height: var(--app-card-max-height); }
-#page-app.ai-setting-page > .t-card > .t-card__body { flex: 0 1 auto; }
 .ai-page-header { display: flex; flex-direction: column; gap: var(--app-spacing-md); width: 100%; }
 .ai-page-header__row { display: flex; align-items: center; justify-content: space-between; gap: var(--app-spacing-md); width: 100%; }
 .ai-page-header__title { display: flex; flex-direction: column; gap: var(--app-spacing-xs); }
@@ -42,7 +40,7 @@
 </style>
 {% endblock %}
 {% block content %}
-<div id="page-app" v-cloak class="admin-list-page ai-setting-page">
+<div id="page-app" v-cloak class="admin-list-page ai-setting-page page-card-scroll">
     <t-card>
         <template #header>
             <div class="ai-page-header">

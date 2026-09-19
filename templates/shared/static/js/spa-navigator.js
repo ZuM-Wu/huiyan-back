@@ -39,7 +39,8 @@
         '/static/js/components/amap-thumb.js',
         '/static/js/components/com-tinymce.js',
         '/static/js/spa-navigator.js',
-        '/static/js/layout.js'
+        '/static/js/layout.js',
+        '/static/js/page-scroll.js'
     ];
 
     // 页面切换时这些基础样式始终保留，其余样式按目标页面声明重新注入。
@@ -47,6 +48,7 @@
         '/static/vendor/tdesign/tdesign.min.css',
         '/static/css/theme.css',
         '/static/css/admin-base.css',
+        '/static/css/admin-scroll.css',
         '/static/css/admin-nav.css',
         '/static/css/admin-forms.css',
         '/static/css/admin-detail.css',

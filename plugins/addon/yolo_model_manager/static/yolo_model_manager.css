@@ -2,10 +2,6 @@
     min-width: 0;
 }
 
-.yolo-model-page .ymm-main-card {
-    height: var(--app-card-max-height);
-}
-
 .yolo-model-page .ymm-tab-body {
     padding-top: var(--app-spacing-md);
 }

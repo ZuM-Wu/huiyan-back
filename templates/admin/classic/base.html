@@ -16,6 +16,8 @@
     <link rel="stylesheet" href="/static/css/theme.css?v={{ config.app_version }}">
     <!-- 后台样式（由 admin.css 等价拆分为 4 个文件，按原顺序依次引入） -->
     <link rel="stylesheet" href="/static/css/admin-base.css?v={{ config.app_version }}">
+    <!-- 内容区滚动契约（page-card-scroll / is-page-scroll 兜底，须在 admin-base.css 之后） -->
+    <link rel="stylesheet" href="/static/css/admin-scroll.css?v={{ config.app_version }}">
     <link rel="stylesheet" href="/static/css/object-storage-manager.css?v={{ config.app_version }}">
     <link rel="stylesheet" href="/static/css/admin-nav.css?v={{ config.app_version }}">
     <link rel="stylesheet" href="/static/css/admin-forms.css?v={{ config.app_version }}">
@@ -70,6 +72,8 @@
 <script src="/static/js/components/variable-hint.js?v={{ config.app_version }}"></script>
 <!-- 布局脚本（侧边栏 + 顶栏） -->
 <script src="/static/js/layout.js?v={{ config.app_version }}"></script>
+<!-- 矮窗口滚动兜底（按实际裁剪自适应切换整页滚动，详见前端共享能力登记） -->
+<script src="/static/js/page-scroll.js?v={{ config.app_version }}"></script>
 <!-- SPA 局部加载器（侧边栏不动，只替换内容区） -->
 <script src="/static/js/spa-navigator.js?v={{ config.app_version }}"></script>
 <!-- 页面专属脚本 -->
