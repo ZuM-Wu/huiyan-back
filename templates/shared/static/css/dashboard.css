@@ -36,8 +36,7 @@
 /* ========== 挂件网格容器 ========== */
 .dashboard-grid {
     display: grid;
-    /* 轨道最小宽度设为 0，挂件内容再宽也不会把整行网格撑出容器 */
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(4, 1fr);
     gap: var(--app-spacing-md);
     min-height: 200px;
     grid-auto-rows: minmax(220px, auto);
@@ -55,7 +54,6 @@
         transform var(--app-duration-base) var(--app-ease-spring);
     cursor: default;
     height: 100%;
-    min-width: 0;
     min-height: 0;
     box-sizing: border-box;
 }
@@ -316,43 +314,26 @@
     font-size: 13px;
 }
 
-/* ========== todo 类型样式（待办事项：粗体标题 + 窄磁贴网格，卡片变窄时磁贴换行并容器内滚动） ========== */
-.widget-todo-card {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    min-width: 0;
-    min-height: 0;
-}
-
+/* ========== todo 类型样式（待办事项：粗体标题 + 三列窄磁贴网格，下方空位留白待扩展） ========== */
 .widget-todo-card .todo-header {
-    flex: 0 0 auto;
     font-size: var(--app-font-size-lg);
     font-weight: 600;
     color: var(--app-text-primary);
     margin-bottom: var(--app-spacing-md);
 }
 
-/* 磁贴网格：按可用宽度自动换行（单列最小 200px，容得下最长的待办标签），
-   换行后超出卡片可视高度时在容器内纵向滚动，不再向卡片外溢出 */
 .widget-todo-card .todo-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    grid-template-columns: repeat(3, 1fr);
     gap: var(--app-spacing-md);
-    align-content: start;
-    flex: 1 1 auto;
-    min-width: 0;
-    min-height: 0;
-    overflow-y: auto;
 }
 
-/* 磁贴：浅底圆角，图标 + 标签左侧，计数靠右粗体；垂直内边距压缩到 12px，
-   保证卡片内换行出两行磁贴时不会触发多余滚动条 */
+/* 磁贴：浅底圆角，图标 + 标签左侧，计数靠右粗体；卡片变窄后压缩水平内边距，高度不变 */
 .widget-todo-card .todo-tile {
     display: flex;
     align-items: center;
     gap: var(--app-spacing-sm);
-    padding: 12px var(--app-spacing-sm);
+    padding: var(--app-spacing-md) var(--app-spacing-sm);
     background: var(--app-bg-page);
     border-radius: var(--app-radius-md);
     cursor: pointer;
