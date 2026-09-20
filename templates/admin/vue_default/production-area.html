@@ -62,10 +62,11 @@
                         <t-input v-model="searchKeyword" placeholder="产区名称、编号、农户" clearable class="search-input" @enter="fetchAreas"></t-input>
                         <t-button theme="primary" @click="fetchAreas">查询</t-button>
                         <t-button theme="primary" v-permission="'area:create'" @click="openCreate">新增产区</t-button>
+                        <table-column-visibility table-key="admin.production-areas" :columns="areaColumns"></table-column-visibility>
                     </div>
                 </div>
                 <t-skeleton v-if="areaLoading" :row-col="[6]" animation="gradient"></t-skeleton>
-                <t-table v-else :data="areaList" :columns="areaColumns"
+                <t-table v-else :data="areaList" :columns="$HuiYanTableColumns.getVisible('admin.production-areas', areaColumns)"
                     :pagination="areaPagination" row-key="id" hover @page-change="onAreaPageChange">
                     <template #status="{ row }">
                         <t-tag v-if="row.status === 1" theme="success" variant="light">正常</t-tag>

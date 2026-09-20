@@ -235,11 +235,16 @@ class DetectionService:
         return {"task_id": task_id, "status": _map_task_status(task)}
 
     @staticmethod
-    async def get_status(task_id: int, admin_id: int) -> dict | None:
+    async def get_status(
+        task_id: int, admin_id: int, source_type: str | None = None
+    ) -> dict | None:
+        """查询本人任务，并按调用接口限定快捷检测或模型测试来源。"""
         async with async_session_factory() as db:
             record = await RecognitionService.get_record_by_task(db, task_id)
         if record:
-            if record["admin_id"] != admin_id:
+            if record["admin_id"] != admin_id or (
+                source_type and record.get("source_type") != source_type
+            ):
                 return None
             return {
                 "task_id": task_id,
@@ -252,6 +257,9 @@ class DetectionService:
             return None
         task_data = task.get("task_data") if isinstance(task.get("task_data"), dict) else {}
         if int(task_data.get("admin_id") or 0) != admin_id:
+            return None
+        task_source_type = str(task_data.get("source_type") or "quick_detection")
+        if source_type and task_source_type != source_type:
             return None
         status = _map_task_status(task)
         messages = {
@@ -366,35 +374,40 @@ async def handle_detection_task(context, data: dict) -> None:
         existing = await RecognitionService.get_record_by_task(db, context.task_id)
         if existing:
             return
-        device = await get_hardware_device_info(int(data["device_id"]))
-        if not device or int(device.get("plot_id") or 0) != int(data["plot_id"]):
-            raise DetectionNotReadyError("设备绑定地块已变化，请重新发起检测")
-        if not supports_quick_detection(device):
-            raise DetectionNotReadyError("当前设备类型不支持快捷检测")
-        row = (await db.execute(
-            select(YoloModelPlotBinding, YoloModel)
-            .join(YoloModel, YoloModel.id == YoloModelPlotBinding.model_id)
-            .where(
-                YoloModelPlotBinding.plot_id == int(data["plot_id"]),
-                YoloModelPlotBinding.model_id == int(data["model_id"]),
-            )
-        )).one_or_none()
-        if not row:
-            raise DetectionNotReadyError("地块绑定模型已变化，请重新发起检测")
-        model_path = YoloModelService.get_download_path(row[1])
+        if data.get("source_type") == "model_test":
+            model = (await db.execute(
+                select(YoloModel).where(YoloModel.id == int(data["model_id"]))
+            )).scalar_one_or_none()
+            if not model:
+                raise DetectionNotReadyError("模型不存在")
+            model_path = YoloModelService.get_download_path(model)
+            plot_id = None  # 模型测试不关联地块
+        else:
+            device = await get_hardware_device_info(int(data["device_id"]))
+            if not device or int(device.get("plot_id") or 0) != int(data["plot_id"]):
+                raise DetectionNotReadyError("设备绑定地块已变化，请重新发起检测")
+            if not supports_quick_detection(device):
+                raise DetectionNotReadyError("当前设备类型不支持快捷检测")
+            row = (await db.execute(
+                select(YoloModelPlotBinding, YoloModel)
+                .join(YoloModel, YoloModel.id == YoloModelPlotBinding.model_id)
+                .where(
+                    YoloModelPlotBinding.plot_id == int(data["plot_id"]),
+                    YoloModelPlotBinding.model_id == int(data["model_id"]),
+                )
+            )).one_or_none()
+            if not row:
+                raise DetectionNotReadyError("地块绑定模型已变化，请重新发起检测")
+            model_path = YoloModelService.get_download_path(row[1])
+            plot_id = int(data["plot_id"])  # 快捷检测沿用设备地块
         if not model_path:
-            raise DetectionNotReadyError("绑定模型文件已丢失")
+            raise DetectionNotReadyError("模型文件已丢失")
 
     try:
         content = await _read_image_bytes(str(data["image_url"]))
         image = await asyncio.to_thread(_decode_image, content)
     except Exception as exc:
-        logger.exception(
-            "[yolo_model_manager] 检测图片准备失败: task_id=%s model=%s error_type=%s",
-            context.task_id,
-            model_path,
-            type(exc).__name__,
-        )
+        logger.exception("[yolo_model_manager] 检测图片准备失败: task_id=%s model=%s error_type=%s", context.task_id, model_path, type(exc).__name__)
         raise
     try:
         detections, width, height, annotated_content = await asyncio.to_thread(
@@ -404,12 +417,7 @@ async def handle_detection_task(context, data: dict) -> None:
             float(data.get("confidence_threshold", 0.25)),
         )
     except Exception as exc:
-        logger.exception(
-            "[yolo_model_manager] 模型推理失败: task_id=%s model=%s error_type=%s",
-            context.task_id,
-            model_path,
-            type(exc).__name__,
-        )
+        logger.exception("[yolo_model_manager] 模型推理失败: task_id=%s model=%s error_type=%s", context.task_id, model_path, type(exc).__name__)
         raise
     annotated_image_url = await asyncio.to_thread(
         _write_annotated_image, context.task_id, annotated_content
@@ -429,7 +437,7 @@ async def handle_detection_task(context, data: dict) -> None:
         async with async_session_factory() as db:
             await RecognitionService.create_record(
                 db,
-                plot_id=int(data["plot_id"]),
+                plot_id=plot_id,
                 model_id=int(data["model_id"]),
                 image_url=str(data["image_url"]),
                 annotated_image_url=annotated_image_url,
@@ -437,10 +445,13 @@ async def handle_detection_task(context, data: dict) -> None:
                 recognized_at=None,
                 admin_id=int(data["admin_id"]),
                 task_id=context.task_id,
-                source_device_id=int(data["device_id"]),
+                source_device_id=(
+                    int(data["device_id"]) if data.get("device_id") else None
+                ),
                 image_identifier=str(data.get("image_identifier") or ""),
                 image_width=width,
                 image_height=height,
+                source_type=str(data.get("source_type") or "quick_detection"),
             )
     except Exception:
         await asyncio.to_thread(_delete_annotated_image, context.task_id)

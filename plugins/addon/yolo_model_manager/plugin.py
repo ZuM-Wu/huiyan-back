@@ -32,7 +32,7 @@ class Plugin(BasePlugin):
         super().__init__(db_session, config)
         self.name = PLUGIN_NAME
         self.title = "智能识别"
-        self.version = "1.1.1"
+        self.version = "1.1.2"
         self.description = "执行生长记录仪快捷检测，并管理识别记录、YOLO模型和地块绑定"
         self.module = "addon"
 
@@ -93,7 +93,7 @@ class Plugin(BasePlugin):
             for item in self.get_mcp_tools()
         ]
         await sync_tool_policies(self.db, declarations)
-        logger.info("[yolo_model_manager] 已从 %s 升级至 1.1.0", old_version)
+        logger.info("[yolo_model_manager] 已从 %s 升级至 1.1.2", old_version)
         return True
 
     def get_task_definitions(self):
@@ -181,7 +181,7 @@ class Plugin(BasePlugin):
                 "permission": "yolo_model_manager:list",
                 "api_base": "/api/admin/v1/plugins/yolo_model_manager",
                 "styles": ["yolo_model_manager.css"],
-                "scripts": ["yolo_model_manager_helpers.js", "yolo_model_manager.js"],
+                "scripts": ["yolo_model_manager_helpers.js", "yolo_model_test.js", "yolo_model_manager.js"],
             }
         ]
 

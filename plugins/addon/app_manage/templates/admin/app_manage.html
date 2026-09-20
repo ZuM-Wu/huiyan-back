@@ -51,6 +51,7 @@
                             <span class="am-tip">App端按版本号数值比较，发布状态中版本号最大者为最新版本</span>
                         </div>
                         <div class="card-header-toolbar-right">
+                            <table-column-visibility table-key="plugin.app-manage.versions" :columns="versionColumns"></table-column-visibility>
                             <t-button v-permission="'app_manage:version'" theme="primary" :disabled="!uploadPolicyReady"
                                 @click="openVersionUpload">
                                 <template #icon><t-icon name="upload"></t-icon></template>
@@ -59,7 +60,7 @@
                         </div>
                     </div>
                     <t-skeleton v-if="versionLoading" :row-col="[6]" animation="gradient"></t-skeleton>
-                    <t-table v-else :data="versionData" :columns="versionColumns" :loading="versionLoading"
+                    <t-table v-else :data="versionData" :columns="$HuiYanTableColumns.getVisible('plugin.app-manage.versions', versionColumns)" :loading="versionLoading"
                         :pagination="versionPagination" row-key="id" hover @page-change="onVersionPageChange">
                         <template #version="{ row }">
                             <div class="am-version-name">

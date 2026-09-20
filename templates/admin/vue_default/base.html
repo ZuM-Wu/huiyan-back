@@ -24,6 +24,7 @@
     <link rel="stylesheet" href="/static/css/admin-detail.css?v={{ config.app_version }}">
     <link rel="stylesheet" href="/static/css/variable-hint.css?v={{ config.app_version }}">
     <link rel="stylesheet" href="/static/css/hardware-marker.css?v={{ config.app_version }}">
+    <link rel="stylesheet" href="/static/css/table-column-visibility.css?v={{ config.app_version }}">
     <!-- Vue 默认主题自带布局与对话样式，不依赖旧主题的 AI Chat CSS -->
     <link rel="stylesheet" href="{{ theme_static }}/vue-default.css?v={{ config.app_version }}">
     {% block head %}{% endblock %}
@@ -74,6 +75,7 @@
 <script data-theme-global src="{{ theme_static }}/js/inbox-rich-content.js?v={{ config.app_version }}"></script>
 <script data-theme-global src="{{ theme_static }}/js/upload-settings-panel.js?v={{ config.app_version }}"></script>
 <script data-theme-global src="{{ theme_static }}/js/variable-hint.js?v={{ config.app_version }}"></script>
+<script src="/static/js/components/table-column-visibility.js?v={{ config.app_version }}"></script>
 <script data-theme-global src="{{ theme_static }}/js/weather-chart.js?v={{ config.app_version }}"></script>
 <!-- AI 对话组件由新主题自带；AI 对话页按需加载本地 TDesign Chat -->
 <!-- 布局脚本（侧边栏 + 顶栏） -->

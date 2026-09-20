@@ -15,3 +15,11 @@ class PasswordChange(BaseModel):
 
     old_password: str = Field(..., min_length=1, description="当前密码")
     new_password: str = Field(..., min_length=6, max_length=128, description="新密码")
+
+
+class TableColumnPreferenceUpdate(BaseModel):
+    """管理员列表字段偏好保存请求。"""
+
+    hidden: list[str] = Field(default_factory=list, max_length=200, description="隐藏字段 key")
+    available: list[str] = Field(default_factory=list, max_length=200, description="当前列表字段 key")
+    required: list[str] = Field(default_factory=list, max_length=200, description="必显字段 key")

@@ -61,7 +61,7 @@ class RecognitionService:
     async def create_record(
         db,
         *,
-        plot_id: int,
+        plot_id: int | None,
         model_id: int,
         image_url: str,
         annotated_image_url: str = "",
@@ -73,33 +73,41 @@ class RecognitionService:
         image_identifier: str = "",
         image_width: int | None = None,
         image_height: int | None = None,
+        source_type: str = "quick_detection",
     ) -> dict:
-        """校验当前绑定后写入包含地块与模型名称的完整业务快照。"""
+        """校验引用后写入包含模型、来源和可选地块的完整业务快照。"""
         model = (await db.execute(
             select(YoloModel).where(YoloModel.id == model_id)
         )).scalar_one_or_none()
         if not model:
             raise RecognitionReferenceError("模型不存在")
 
-        binding = (await db.execute(select(YoloModelPlotBinding.id).where(
-            YoloModelPlotBinding.plot_id == plot_id,
-            YoloModelPlotBinding.model_id == model_id,
-        ))).scalar_one_or_none()
-        if not binding:
-            raise RecognitionBindingError("该模型不是地块当前绑定模型")
-
-        plot = _plot_snapshots(await list_area_tree()).get(plot_id)
-        if not plot:
-            raise RecognitionReferenceError("地块不存在")
+        plot = None
+        if plot_id is not None:
+            binding = (await db.execute(select(YoloModelPlotBinding.id).where(
+                YoloModelPlotBinding.plot_id == plot_id,
+                YoloModelPlotBinding.model_id == model_id,
+            ))).scalar_one_or_none()
+            if not binding:
+                raise RecognitionBindingError("该模型不是地块当前绑定模型")
+            plot = _plot_snapshots(await list_area_tree()).get(plot_id)
+            if not plot:
+                raise RecognitionReferenceError("地块不存在")
+        if source_type not in {"model_test", "quick_detection", "external"}:
+            raise ValueError("识别来源类型无效")
 
         confidences = [float(item["confidence"]) for item in detections]
         row = RecognitionRecord(
-            **plot,
+            **(plot or {
+                "area_id": None, "area_name": None,
+                "plot_id": None, "plot_name": None,
+            }),
             model_id=int(model.id),
             model_name=model.name,
             model_version=model.version or "",
             task_id=task_id,
             source_device_id=source_device_id,
+            source_type=source_type,
             image_identifier=image_identifier,
             image_url=image_url,
             annotated_image_url=annotated_image_url,
@@ -119,6 +127,7 @@ class RecognitionService:
     @staticmethod
     async def list_records(
         db, *, plot_id: int | None, model_id: int | None, page: int, limit: int,
+        source_type: str | None = None,
     ) -> dict:
         """按地块、模型筛选并以识别时间倒序分页。"""
         query = select(RecognitionRecord)
@@ -126,6 +135,8 @@ class RecognitionService:
             query = query.where(RecognitionRecord.plot_id == plot_id)
         if model_id:
             query = query.where(RecognitionRecord.model_id == model_id)
+        if source_type:
+            query = query.where(RecognitionRecord.source_type == source_type)
         total = (await db.execute(
             select(func.count()).select_from(query.subquery())
         )).scalar() or 0
@@ -183,6 +194,8 @@ class RecognitionService:
             RecognitionRecord.model_version,
         ).order_by(RecognitionRecord.recognized_at.desc()))).all()
         for row in historical:
+            if row.plot_id is None:
+                continue
             plots.setdefault(int(row.plot_id), {
                 "value": int(row.plot_id),
                 "label": f"{row.area_name} / {row.plot_name}",
@@ -205,14 +218,15 @@ class RecognitionService:
         ))
         return {
             "id": int(row.id),
-            "area_id": int(row.area_id),
+            "area_id": int(row.area_id) if row.area_id is not None else None,
             "area_name": row.area_name,
-            "plot_id": int(row.plot_id),
+            "plot_id": int(row.plot_id) if row.plot_id is not None else None,
             "plot_name": row.plot_name,
             "model_id": int(row.model_id),
             "model_name": row.model_name,
             "model_version": row.model_version,
             "source_device_id": row.source_device_id,
+            "source_type": row.source_type or "external",
             "image_identifier": row.image_identifier or "",
             "image_url": row.image_url,
             "annotated_image_url": row.annotated_image_url or "",

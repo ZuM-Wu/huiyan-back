@@ -18,11 +18,12 @@
                         <t-option value="company" label="公司/农场"></t-option>
                     </t-select>
                     <t-input v-model="searchKeyword" :placeholder="searchPlaceholder" clearable class="search-input" @change="fetchData" @enter="fetchData"></t-input>
+                    <table-column-visibility table-key="admin.farmers" :columns="columns"></table-column-visibility>
                 </div>
             </div>
         </template>
         <t-skeleton v-if="loading" :row-col="[6]" animation="gradient"></t-skeleton>
-        <t-table v-else :data="tableData" :columns="columns" :pagination="pagination"
+        <t-table v-else :data="tableData" :columns="$HuiYanTableColumns.getVisible('admin.farmers', columns)" :pagination="pagination"
             row-key="id" hover @page-change="onPageChange">
             <template #username="{ row }">
                 <t-popup placement="right" trigger="hover" :show-arrow="true" :destroy-on-close="true">

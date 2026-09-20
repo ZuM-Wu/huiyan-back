@@ -1,6 +1,14 @@
 /* 智能识别页面的无状态格式化函数，单独文件避免主页面脚本过长。 */
 (function () {
     window.HuiYanYoloFormat = {
+        sourceOptions: [
+            { label: '模型测试', value: 'model_test' },
+            { label: '快捷检测', value: 'quick_detection' },
+            { label: '外部写入', value: 'external' }
+        ],
+        sourceLabel(value) {
+            return ({ model_test: '模型测试', quick_detection: '快捷检测', external: '外部写入' }[value] || '外部写入');
+        },
         formatConfidence(value) {
             if (value === null || value === undefined) return '-';
             return (Number(value) * 100).toFixed(1) + '%';

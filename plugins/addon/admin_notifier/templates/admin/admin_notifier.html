@@ -23,13 +23,14 @@
                     <span style="font-size: var(--app-font-size-lg); font-weight: 600; color: var(--app-text-primary);">告警配置</span>
                 </div>
                 <div class="card-header-toolbar-right">
+                    <table-column-visibility table-key="plugin.admin-notifier.config" :columns="configColumns"></table-column-visibility>
                     <t-button v-permission="'admin_notifier:test:send'" theme="default"
                         @click="openTestDialog">发送测试通知</t-button>
                 </div>
             </div>
         </template>
 
-        <t-table :data="configData" :columns="configColumns" :loading="configLoading"
+        <t-table :data="configData" :columns="$HuiYanTableColumns.getVisible('plugin.admin-notifier.config', configColumns)" :loading="configLoading"
             row-key="task_name" hover size="medium">
             <template #notify_enabled="{ row }">
                 <t-switch v-model="row.notify_enabled" :custom-value="[1, 0]" @change="markConfigChanged(row)"></t-switch>

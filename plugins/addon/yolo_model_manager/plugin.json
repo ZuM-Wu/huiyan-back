@@ -1,7 +1,7 @@
 {
   "name": "yolo_model_manager",
   "title": "智能识别",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "执行生长记录仪快捷检测，查询识别记录并管理 YOLO 模型与地块绑定",
   "author": "HuiYan Team",
   "module": "addon",
@@ -38,6 +38,7 @@
       ],
       "scripts": [
         "yolo_model_manager_helpers.js",
+        "yolo_model_test.js",
         "yolo_model_manager.js"
       ]
     }
@@ -45,6 +46,7 @@
   "resources": [
     "static/yolo_model_manager.css",
     "static/yolo_model_manager.js",
+    "static/yolo_model_test.js",
     "static/yolo_model_manager_helpers.js"
   ],
   "tasks": [
@@ -54,6 +56,6 @@
   "health": {
     "check": "plugin.yolo_model_manager"
   },
-  "database_schema": {"version": 1, "tables": [{"name": "hy_plugin_yolo_model_manager_model", "columns": ["id", "name", "version", "description", "default_confidence", "filename", "origin_name", "file_format", "file_size", "sha256", "labels", "admin_id", "create_time", "update_time"], "indexes": [{"name": "PRIMARY", "columns": ["id"], "unique": true}, {"name": "idx_yolo_model_format", "columns": ["file_format"], "unique": false}, {"name": "idx_yolo_model_create_time", "columns": ["create_time"], "unique": false}]}, {"name": "hy_plugin_yolo_model_manager_binding", "columns": ["id", "model_id", "plot_id", "admin_id", "create_time", "update_time"], "indexes": [{"name": "PRIMARY", "columns": ["id"], "unique": true}, {"name": "uk_yolo_model_manager_plot", "columns": ["plot_id"], "unique": true}, {"name": "idx_yolo_model_manager_model", "columns": ["model_id"], "unique": false}]}, {"name": "hy_plugin_yolo_model_manager_recognition", "columns": ["id", "area_id", "area_name", "plot_id", "plot_name", "model_id", "model_name", "model_version", "task_id", "source_device_id", "image_identifier", "image_url", "annotated_image_url", "image_width", "image_height", "detections", "detection_count", "max_confidence", "recognized_at", "admin_id", "create_time"], "indexes": [{"name": "PRIMARY", "columns": ["id"], "unique": true}, {"name": "uk_yolo_recognition_task", "columns": ["task_id"], "unique": true}, {"name": "idx_yolo_recognition_plot_time", "columns": ["plot_id", "recognized_at"], "unique": false}, {"name": "idx_yolo_recognition_model_time", "columns": ["model_id", "recognized_at"], "unique": false}, {"name": "idx_yolo_recognition_device_time", "columns": ["source_device_id", "recognized_at"], "unique": false}, {"name": "idx_yolo_recognition_time", "columns": ["recognized_at"], "unique": false}]}]},
+  "database_schema": {"version": 2, "tables": [{"name": "hy_plugin_yolo_model_manager_model", "columns": ["id", "name", "version", "description", "default_confidence", "filename", "origin_name", "file_format", "file_size", "sha256", "labels", "admin_id", "create_time", "update_time"], "indexes": [{"name": "PRIMARY", "columns": ["id"], "unique": true}, {"name": "idx_yolo_model_format", "columns": ["file_format"], "unique": false}, {"name": "idx_yolo_model_create_time", "columns": ["create_time"], "unique": false}]}, {"name": "hy_plugin_yolo_model_manager_binding", "columns": ["id", "model_id", "plot_id", "admin_id", "create_time", "update_time"], "indexes": [{"name": "PRIMARY", "columns": ["id"], "unique": true}, {"name": "uk_yolo_model_manager_plot", "columns": ["plot_id"], "unique": true}, {"name": "idx_yolo_model_manager_model", "columns": ["model_id"], "unique": false}]}, {"name": "hy_plugin_yolo_model_manager_recognition", "columns": ["id", "area_id", "area_name", "plot_id", "plot_name", "model_id", "model_name", "model_version", "task_id", "source_device_id", "source_type", "image_identifier", "image_url", "annotated_image_url", "image_width", "image_height", "detections", "detection_count", "max_confidence", "recognized_at", "admin_id", "create_time"], "indexes": [{"name": "PRIMARY", "columns": ["id"], "unique": true}, {"name": "uk_yolo_recognition_task", "columns": ["task_id"], "unique": true}, {"name": "idx_yolo_recognition_plot_time", "columns": ["plot_id", "recognized_at"], "unique": false}, {"name": "idx_yolo_recognition_model_time", "columns": ["model_id", "recognized_at"], "unique": false}, {"name": "idx_yolo_recognition_device_time", "columns": ["source_device_id", "recognized_at"], "unique": false}, {"name": "idx_yolo_recognition_time", "columns": ["recognized_at"], "unique": false}]}]},
   "config": {}
 }

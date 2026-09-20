@@ -236,6 +236,9 @@ async def replace_model_plots(
 async def list_recognitions(
     plot_id: int | None = Query(None, ge=1, description="识别地块ID"),
     model_id: int | None = Query(None, ge=1, description="识别模型ID"),
+    source_type: str | None = Query(
+        None, pattern="^(model_test|quick_detection|external)$", description="识别来源类型"
+    ),
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=100),
 ):
@@ -245,6 +248,7 @@ async def list_recognitions(
             db,
             plot_id=plot_id,
             model_id=model_id,
+            source_type=source_type,
             page=page,
             limit=limit,
         )
@@ -281,6 +285,8 @@ _DETECTION_DEPENDENCIES = [
     Depends(require_permission("yolo_model_manager:detect")),
     Depends(require_detection_capability),
 ]
+
+_TEST_DEPENDENCIES = [Depends(require_permission("yolo_model_manager:detect"))]
 
 
 @router.get(
@@ -332,15 +338,72 @@ async def create_detection_task(data: DetectionTaskCreate, request: Request):
     return ok(task, msg="检测任务已提交")
 
 
+@router.post(
+    "/recognitions/test-tasks",
+    dependencies=_TEST_DEPENDENCIES,
+)
+async def create_model_test_task(
+    request: Request,
+    model_id: int = Form(..., ge=1, description="待测试模型ID"),
+    file: UploadFile = File(..., description="模型测试图片"),
+):
+    """按统一图片策略保存测试图片并提交模型测试任务。"""
+    from services.image_upload import save_uploaded_image
+
+    try:
+        uploaded = await save_uploaded_image(
+            file,
+            source="yolo_model_test",
+            admin_id=request.state.user_id,
+            directory="yolo_model_manager/tests",
+        )
+    except HTTPException:
+        raise
+    async with async_session_factory() as db:
+        try:
+            from plugins.addon.yolo_model_manager.services.model_test_service import submit_model_test
+
+            task = await submit_model_test(
+                db, model_id, uploaded["url"], request.state.user_id
+            )
+        except DetectionReferenceError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except DetectionNotReadyError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+    await active_log(
+        "发起YOLO模型识别测试",
+        "yolo_recognition_test",
+        rel_id=task["task_id"],
+        request=request,
+    )
+    return ok(task, msg="模型测试任务已提交")
+
+
 @router.get(
     "/recognitions/detection-tasks/{task_id}",
     dependencies=_DETECTION_DEPENDENCIES,
 )
 async def get_detection_task(task_id: int, request: Request):
     """查询本人快捷检测任务；成功结果由不可变识别记录承载。"""
-    data = await DetectionService.get_status(task_id, request.state.user_id)
+    data = await DetectionService.get_status(
+        task_id, request.state.user_id, source_type="quick_detection"
+    )
     if not data:
         raise HTTPException(status_code=404, detail="检测任务不存在")
+    return ok(data)
+
+
+@router.get(
+    "/recognitions/test-tasks/{task_id}",
+    dependencies=[Depends(require_permission("yolo_model_manager:detect"))],
+)
+async def get_model_test_task(task_id: int, request: Request):
+    """查询本人模型测试任务；与快捷检测共享队列状态和结果结构。"""
+    data = await DetectionService.get_status(
+        task_id, request.state.user_id, source_type="model_test"
+    )
+    if not data:
+        raise HTTPException(status_code=404, detail="模型测试任务不存在")
     return ok(data)
 
 
@@ -373,6 +436,7 @@ async def create_recognition(data: RecognitionCreate, request: Request):
                 detections=[item.model_dump() for item in data.detections],
                 recognized_at=data.recognized_at,
                 admin_id=request.state.user_id,
+                source_type="external",
             )
         except RecognitionReferenceError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc

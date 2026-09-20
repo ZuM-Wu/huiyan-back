@@ -1,0 +1,36 @@
+.hy-table-column-visibility-button {
+    flex: 0 0 auto;
+}
+
+.hy-table-column-visibility-panel {
+    width: 190px;
+    padding: var(--app-spacing-sm);
+    color: var(--app-text-primary);
+    background: var(--app-bg-container);
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-sm);
+    box-shadow: var(--app-shadow-2);
+}
+
+.hy-table-column-visibility-title {
+    margin-bottom: var(--app-spacing-xs);
+    color: var(--app-text-primary);
+    font-weight: 600;
+}
+
+.hy-table-column-visibility-options {
+    display: flex;
+    flex-direction: column;
+    gap: var(--app-spacing-xs);
+    max-height: 320px;
+    overflow-y: auto;
+}
+
+.hy-table-column-visibility-options .t-checkbox {
+    margin: 0;
+}
+
+.hy-table-column-visibility-loading {
+    color: var(--app-text-secondary);
+    font-size: var(--app-font-size-sm);
+}

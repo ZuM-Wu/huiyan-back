@@ -28,19 +28,20 @@
 
             const records = ref([]);
             const recordLoading = ref(false);
-            const recordFilters = reactive({ plot_id: null, model_id: null });
+            const recordFilters = reactive({ plot_id: null, model_id: null, source_type: null });
             const recordOptions = reactive({ plots: [], models: [] });
             const recordPagination = reactive({ current: 1, pageSize: 10, total: 0 });
             const recordColumns = [
-                { colKey: 'image', title: '标注图', width: 88, cell: 'image' },
+                { colKey: 'image', title: '标注图', width: 88, cell: 'image', required: true },
                 { colKey: 'plot', title: '地块', minWidth: 120, cell: 'plot' },
-                { colKey: 'record_model', title: '模型', minWidth: 120, cell: 'record_model' },
+                { colKey: 'record_model', title: '模型', minWidth: 120, cell: 'record_model', required: true },
                 { colKey: 'result', title: '识别结果', minWidth: 140, cell: 'result' },
                 { colKey: 'detection_count', title: '目标数', width: 82 },
                 { colKey: 'confidence', title: '最高置信度', width: 110, cell: 'confidence' },
+                { colKey: 'source', title: '来源', width: 110, cell: 'source' },
                 { colKey: 'recognized_at', title: '识别时间', width: 170 },
-                { colKey: 'record_actions', title: '操作', width: 72, cell: 'record_actions' }
-            ];
+                { colKey: 'record_actions', title: '操作', width: 72, cell: 'record_actions', required: true }
+            ]; const recordVisibleColumns = ref(recordColumns.slice());
 
             const fetchRecordOptions = async () => {
                 const response = await api.get('/recognitions/options', requestConfig());
@@ -57,6 +58,7 @@
                         params: {
                             plot_id: recordFilters.plot_id || undefined,
                             model_id: recordFilters.model_id || undefined,
+                            source_type: recordFilters.source_type || undefined,
                             page: recordPagination.current,
                             limit: recordPagination.pageSize
                         }
@@ -78,6 +80,7 @@
             const resetRecords = () => {
                 recordFilters.plot_id = null;
                 recordFilters.model_id = null;
+                recordFilters.source_type = null;
                 recordPagination.current = 1;
                 fetchRecords();
             };
@@ -88,8 +91,7 @@
                 fetchRecords();
             };
 
-            const formatConfidence = window.HuiYanYoloFormat.formatConfidence;
-            const formatBbox = window.HuiYanYoloFormat.formatBbox;
+            const { formatConfidence, formatBbox, sourceOptions, sourceLabel } = window.HuiYanYoloFormat;
 
             const recordDetailVisible = ref(false);
             const recordDetailLoading = ref(false);
@@ -134,17 +136,18 @@
                 { label: '未绑定', value: 'unbound' }
             ];
             const columns = [
-                { colKey: 'model', title: '模型', minWidth: 230, cell: 'model' },
+                { colKey: 'model', title: '模型', minWidth: 230, cell: 'model', required: true },
                 { colKey: 'file', title: '文件', width: 90, cell: 'file' },
-                { colKey: 'labels', title: '模型标签', minWidth: 150, cell: 'labels' },
+                { colKey: 'labels', title: '模型标签', minWidth: 150, cell: 'labels', defaultVisible: false },
                 { colKey: 'bindings', title: '绑定地块', minWidth: 170, cell: 'bindings' },
                 {
                     colKey: 'default_confidence', title: '默认置信度', width: 110,
                     cell: 'default_confidence'
                 },
                 { colKey: 'create_time', title: '上传时间', width: 150 },
-                { colKey: 'actions', title: '操作', width: 200, cell: 'actions', fixed: 'right' }
+                { colKey: 'actions', title: '操作', width: 200, cell: 'actions', fixed: 'right', required: true }
             ];
+            const visibleColumns = ref(columns.filter((column) => column.defaultVisible !== false));
 
             const fetchModels = async () => {
                 loading.value = true;
@@ -213,6 +216,11 @@
                     MessagePlugin.error('获取模型上传规则失败，请刷新重试');
                 }
             };
+
+            const modelTest = HuiYanYoloTest.create({
+                api, request, requestConfig, isPageActive, unwrap, fetchRecordOptions,
+                fetchRecords, recordOptions, recordDetail, recordDetailVisible
+            });
 
             const modelDialogVisible = ref(false);
             const modelDialogTitle = ref('上传模型');
@@ -414,12 +422,9 @@
 
             return {
                 activeTab,
-                records, recordLoading, recordFilters, recordOptions,
-                recordPagination, recordColumns, fetchRecords, searchRecords,
-                resetRecords, onRecordPageChange, formatConfidence, formatBbox,
-                recordDetailVisible, recordDetailLoading, recordDetail,
-                recordDetailDetections, detectionColumns, openRecordDetail,
-                models, loading, filters, pagination, columns,
+                records, recordLoading, recordFilters, recordOptions, sourceOptions, sourceLabel, recordPagination, recordColumns, recordVisibleColumns, fetchRecords, searchRecords,
+                resetRecords, onRecordPageChange, formatConfidence, formatBbox, recordDetailVisible, recordDetailLoading, recordDetail, recordDetailDetections, detectionColumns, openRecordDetail, ...modelTest,
+                models, loading, filters, pagination, columns, visibleColumns,
                 formatOptions, bindingStatusOptions, fetchModels, searchModels, resetModels, onPageChange,
                 formatSize, shortHash, uploadAccept, uploadHint, uploadPolicyReady,
                 modelDialogVisible, modelDialogTitle, modelFormRef, editingId, submitting,

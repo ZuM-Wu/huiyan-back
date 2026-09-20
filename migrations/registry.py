@@ -230,6 +230,10 @@ from migrations.innodb_engine_calibration import (  # noqa: E402
     probe as _probe_innodb_engine_calibration,
     apply as _apply_innodb_engine_calibration,
 )
+from migrations.admin_preference import (  # noqa: E402
+    probe as _probe_admin_preference,
+    apply as _apply_admin_preference,
+)
 
 _REGISTRY = [
     ("farmer_extra_fields", _probe_farmer_extra_fields, _apply_farmer_extra_fields),
@@ -264,6 +268,7 @@ _REGISTRY = [
     ("hardware_metric_visibility", _probe_hardware_metric_visibility, _apply_hardware_metric_visibility),
     ("hardware_realtime_snapshot", _probe_hardware_realtime_snapshot, _apply_hardware_realtime_snapshot),
     ("innodb_engine_calibration", _probe_innodb_engine_calibration, _apply_innodb_engine_calibration),
+    ("admin_preference", _probe_admin_preference, _apply_admin_preference),
 ]
 
 

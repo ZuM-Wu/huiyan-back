@@ -31,12 +31,13 @@
                         </t-select>
                         <t-button theme="primary" @click="applyView">查询</t-button>
                         <t-button theme="default" variant="outline" @click="resetFilter">重置</t-button>
+                        <table-column-visibility table-key="admin.plugins" :columns="columns"></table-column-visibility>
                     </div>
                 </div>
             </div>
         </template>
         <t-skeleton v-if="loading" :row-col="[6]" animation="gradient"></t-skeleton>
-        <t-table v-else :data="tableData" :columns="columns"
+        <t-table v-else :data="tableData" :columns="$HuiYanTableColumns.getVisible('admin.plugins', columns)"
             :pagination="pagination" row-key="name" hover
             @page-change="onPageChange"
             class="plugin-table">

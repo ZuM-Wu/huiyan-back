@@ -82,10 +82,10 @@
                 <div class="settings-tab-content">
                     <div class="card-header-toolbar">
                         <div class="card-header-toolbar-left"><span class="xiaozhi-muted">每条记录独立保存地址和鉴权 JSON</span></div>
-                        <div class="card-header-toolbar-right" v-permission="'xiaozhi_mcp:manage'"><t-button theme="primary" @click="openServerCreate"><template #icon><t-icon name="add"></t-icon></template>新增 MCP</t-button></div>
+                        <div class="card-header-toolbar-right" v-permission="'xiaozhi_mcp:manage'"><table-column-visibility table-key="plugin.xiaozhi-mcp.servers" :columns="serverColumns"></table-column-visibility><t-button theme="primary" @click="openServerCreate"><template #icon><t-icon name="add"></t-icon></template>新增 MCP</t-button></div>
                     </div>
                     <t-skeleton v-if="serversLoading" :row-col="[6]" animation="gradient"></t-skeleton>
-                    <t-table v-else :data="externalServers" :columns="serverColumns" row-key="id" empty="暂无自定义 MCP" hover table-layout="fixed">
+                    <t-table v-else :data="externalServers" :columns="$HuiYanTableColumns.getVisible('plugin.xiaozhi-mcp.servers', serverColumns)" row-key="id" empty="暂无自定义 MCP" hover table-layout="fixed">
                         <template #status="{ row }"><t-tag :theme="row.status === 1 ? 'success' : 'danger'" variant="light">[[ row.status === 1 ? '启用' : '停用' ]]</t-tag></template>
                         <template #tools="{ row }"><span>[[ (row.tools_cache || []).length ]] 个</span></template>
                         <template #test="{ row }"><t-tag v-if="row.last_test_status === 1" theme="success" variant="light">通过</t-tag><t-tag v-else-if="row.last_test_status === 2" theme="danger" variant="light">失败</t-tag><span v-else class="xiaozhi-muted">未测试</span></template>

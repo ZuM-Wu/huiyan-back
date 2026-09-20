@@ -88,6 +88,10 @@
     width: 100%;
 }
 
+.yolo-model-page .ymm-test-status {
+    margin-top: var(--app-spacing-md);
+}
+
 .yolo-model-page .ymm-confidence-control {
     display: flex;
     width: 100%;

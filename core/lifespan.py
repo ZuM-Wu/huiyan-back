@@ -21,6 +21,7 @@ import core.db.system_log     # hy_system_log
 import core.db.menu           # hy_menu
 import core.db.nav            # hy_nav（页面注册表）
 import core.db.widget          # hy_admin_widget（挂件配置表）
+import core.db.admin_preference  # hy_admin_preference（管理员个人偏好表）
 import core.db.production_area  # hy_production_area/hy_plot/hy_planting_batch
 import core.db.hardware_device  # hy_hardware_device（物联设备本地镜像）
 import core.db.weather           # hy_weather_data/hy_weather_daily/hy_weather_area_binding/hy_weather_alert

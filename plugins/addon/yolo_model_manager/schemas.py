@@ -112,3 +112,10 @@ class DetectionTaskCreate(BaseModel):
     """快捷检测仅接收设备ID，图片和模型均由服务端可信解析。"""
 
     device_id: int = Field(..., ge=1, description="植物生长记录仪本地设备ID")
+
+
+class ModelTestTaskCreate(BaseModel):
+    """模型测试仅接收已上传图片地址和模型ID，地块不参与测试。"""
+
+    model_id: int = Field(..., ge=1, description="待测试模型ID")
+    image_url: str = Field(..., min_length=1, max_length=1000, description="已上传测试图片地址")

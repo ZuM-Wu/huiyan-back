@@ -14,10 +14,11 @@
                     </div>
                     <div class="card-header-toolbar-right">
                         <t-input v-model="searchKeyword" placeholder="搜索用户名..." clearable class="search-input" @change="fetchData"/>
+                        <table-column-visibility table-key="admin.users" :columns="columns"></table-column-visibility>
                     </div>
                 </div>
                 <t-skeleton v-if="loading" :row-col="[6]" animation="gradient"></t-skeleton>
-                <t-table v-else :data="tableData" :columns="columns" :pagination="pagination"
+                <t-table v-else :data="tableData" :columns="$HuiYanTableColumns.getVisible('admin.users', columns)" :pagination="pagination"
                     row-key="id" hover @page-change="onPageChange">
                     <template #status="{ row }">
                         <t-tag :theme="row.status === 1 ? 'success' : 'danger'" variant="light">
@@ -44,10 +45,11 @@
                         <t-button v-permission="'role:create'" theme="primary" @click="openRoleCreate">新增角色</t-button>
                     </div>
                     <div class="card-header-toolbar-right">
+                        <table-column-visibility table-key="admin.roles" :columns="roleColumns"></table-column-visibility>
                     </div>
                 </div>
                 <t-skeleton v-if="roleLoading" :row-col="[4]" animation="gradient"></t-skeleton>
-                <t-table v-else :data="roleData" :columns="roleColumns" row-key="id" hover>
+                <t-table v-else :data="roleData" :columns="$HuiYanTableColumns.getVisible('admin.roles', roleColumns)" row-key="id" hover>
                     <template #is_system="{ row }">
                         <t-tag :theme="row.is_system === 1 ? 'primary' : 'default'" variant="light">
                             [[ row.is_system === 1 ? '系统' : '自定义' ]]

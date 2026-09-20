@@ -181,6 +181,10 @@
                 app.component(name, window.HuiYanComponents[name]);
             });
         }
+        // 表格字段可见性组件通过全局属性访问偏好过滤器，必须在模板编译挂载前注入。
+        if (window.HuiYanTableColumns) {
+            app.config.globalProperties.$HuiYanTableColumns = window.HuiYanTableColumns;
+        }
 
         // 全局权限指令 v-permission：无对应权限码则移除该元素
         var authCodes = getAuthCodes();

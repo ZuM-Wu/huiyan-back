@@ -8,28 +8,33 @@
             <t-tab-panel value="records" label="识别记录">
                 <div class="ymm-tab-body">
                     <div class="card-header-toolbar">
-                        <div class="card-header-toolbar-left"></div>
+                        <div class="card-header-toolbar-left">
+                            <t-button v-permission="'yolo_model_manager:detect'" theme="primary"
+                                @click="openModelTest">
+                                <template #icon><t-icon name="visual-recognition"></t-icon></template>
+                                识别测试
+                            </t-button>
+                        </div>
                         <div class="card-header-toolbar-right ymm-filters">
                             <t-select v-model="recordFilters.plot_id" :options="recordOptions.plots"
                                 clearable filterable placeholder="全部地块" class="ymm-record-filter"></t-select>
                             <t-select v-model="recordFilters.model_id" :options="recordOptions.models"
                                 clearable filterable placeholder="全部模型" class="ymm-record-filter"></t-select>
+                            <t-select v-model="recordFilters.source_type" :options="sourceOptions"
+                                clearable placeholder="全部来源" class="ymm-record-filter"></t-select>
                             <t-button theme="primary" @click="searchRecords">
                                 <template #icon><t-icon name="search"></t-icon></template>
                                 查询
                             </t-button>
                             <t-button theme="default" @click="resetRecords">重置</t-button>
-                            <t-tooltip content="刷新识别记录">
-                                <t-button shape="square" theme="default" @click="fetchRecords">
-                                    <template #icon><t-icon name="refresh"></t-icon></template>
-                                </t-button>
-                            </t-tooltip>
+                            <table-column-visibility table-key="yolo.recognitions" :columns="recordColumns"
+                                @columns-change="recordVisibleColumns = $event"></table-column-visibility>
                         </div>
                     </div>
 
                     <t-skeleton v-if="recordLoading" :row-col="[8, 8, 8, 8, 8]"
                         animation="gradient"></t-skeleton>
-                    <t-table v-else :data="records" :columns="recordColumns"
+                    <t-table v-else :data="records" :columns="recordVisibleColumns"
                         :pagination="recordPagination" row-key="id" hover table-layout="fixed"
                         @page-change="onRecordPageChange">
                         <template #image="{ row }">
@@ -43,8 +48,9 @@
                         </template>
                         <template #plot="{ row }">
                             <div class="ymm-record-context">
-                                <span class="ymm-primary-text">[[ row.plot_name ]]</span>
-                                <span class="ymm-secondary-text">[[ row.area_name ]]</span>
+                                <span v-if="row.plot_name" class="ymm-primary-text">[[ row.plot_name ]]</span>
+                                <span v-else class="ymm-secondary-text">未关联地块</span>
+                                <span v-if="row.area_name" class="ymm-secondary-text">[[ row.area_name ]]</span>
                             </div>
                         </template>
                         <template #record_model="{ row }">
@@ -65,6 +71,11 @@
                         </template>
                         <template #confidence="{ row }">
                             <span>[[ formatConfidence(row.max_confidence) ]]</span>
+                        </template>
+                        <template #source="{ row }">
+                            <t-tag :theme="row.source_type === 'model_test' ? 'warning' : 'default'" variant="light">
+                                [[ sourceLabel(row.source_type) ]]
+                            </t-tag>
                         </template>
                         <template #record_actions="{ row }">
                             <t-button variant="text" theme="primary"
@@ -99,16 +110,13 @@
                                 查询
                             </t-button>
                             <t-button theme="default" @click="resetModels">重置</t-button>
-                            <t-tooltip content="刷新模型列表">
-                                <t-button shape="square" theme="default" @click="fetchModels">
-                                    <template #icon><t-icon name="refresh"></t-icon></template>
-                                </t-button>
-                            </t-tooltip>
+                            <table-column-visibility table-key="yolo.models" :columns="columns"
+                                @columns-change="visibleColumns = $event"></table-column-visibility>
                         </div>
                     </div>
 
                     <t-skeleton v-if="loading" :row-col="[8, 8, 8, 8, 8]" animation="gradient"></t-skeleton>
-                    <t-table v-else :data="models" :columns="columns"
+                    <t-table v-else :data="models" :columns="visibleColumns"
                         :pagination="pagination" row-key="id" hover table-layout="fixed"
                         @page-change="onPageChange">
                         <template #model="{ row }">
@@ -190,8 +198,12 @@
                     <span>暂无标注图</span>
                 </div>
                 <t-descriptions :column="2" bordered class="ymm-record-detail-meta">
+                    <t-descriptions-item label="来源">
+                        [[ sourceLabel(recordDetail.source_type) ]]
+                    </t-descriptions-item>
                     <t-descriptions-item label="地块">
-                        [[ recordDetail.area_name ]] / [[ recordDetail.plot_name ]]
+                        <span v-if="recordDetail.plot_name">[[ recordDetail.area_name ]] / [[ recordDetail.plot_name ]]</span>
+                        <span v-else>未关联地块</span>
                     </t-descriptions-item>
                     <t-descriptions-item label="模型">
                         [[ recordDetail.model_name ]] [[ recordDetail.model_version ]]
@@ -220,6 +232,23 @@
                 </section>
             </div>
         </t-loading>
+    </t-dialog>
+
+    <t-dialog v-model:visible="modelTestVisible" header="识别测试"
+        :confirm-loading="modelTestSubmitting" :on-confirm="submitModelTest"
+        width="520px" placement="center">
+        <t-form ref="modelTestFormRef" :data="modelTestForm" :rules="modelTestRules" label-width="90px">
+            <t-form-item label="识别模型" name="model_id">
+                <t-select v-model="modelTestForm.model_id" :options="modelTestOptions"
+                    filterable placeholder="请选择已上传模型"></t-select>
+            </t-form-item>
+            <t-form-item label="测试图片" name="file">
+                <t-upload v-model="modelTestFiles" :auto-upload="false" :max="1" theme="file"
+                    :accept="imageUploadAccept" :placeholder="imageUploadHint" class="ymm-upload"></t-upload>
+            </t-form-item>
+        </t-form>
+        <t-alert v-if="modelTestTask" theme="info" class="ymm-test-status"
+            :message="modelTestTask.message || '识别测试任务正在处理'"></t-alert>
     </t-dialog>
 
     <t-dialog v-model:visible="modelDialogVisible" :header="modelDialogTitle"

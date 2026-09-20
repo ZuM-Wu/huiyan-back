@@ -82,10 +82,11 @@
                                 class="search-input" @change="onFilterChange"></t-input>
                             <t-input v-model="cropKeyword" placeholder="按适用作物筛选..." clearable
                                 class="search-input" @change="onFilterChange"></t-input>
+                            <table-column-visibility table-key="plugin.knowledge.entries" :columns="columns"></table-column-visibility>
                         </div>
                     </div>
                 </template>
-                <t-table :data="tableData" :columns="columns" :loading="loading" :pagination="pagination"
+                <t-table :data="tableData" :columns="$HuiYanTableColumns.getVisible('plugin.knowledge.entries', columns)" :loading="loading" :pagination="pagination"
                     row-key="id" hover @page-change="onPageChange">
                     <template #category_id="{ row }">[[ categoryName(row.category_id) ]]</template>
                     <template #actions="{ row }">

@@ -54,6 +54,7 @@
                             class="search-input" @change="fetchFiles"/>
                     </div>
                     <div class="card-header-toolbar-right">
+                        <table-column-visibility table-key="plugin.file-download.files" :columns="columns"></table-column-visibility>
                         <t-button v-permission="'file_download:create'" theme="primary" :disabled="!uploadPolicyReady"
                             @click="openUpload">
                             <template #icon><t-icon name="upload"></t-icon></template>
@@ -63,7 +64,7 @@
                 </div>
             </template>
 
-            <t-table :data="tableData" :columns="columns" :loading="loading" :pagination="pagination"
+            <t-table :data="tableData" :columns="$HuiYanTableColumns.getVisible('plugin.file-download.files', columns)" :loading="loading" :pagination="pagination"
                 row-key="id" hover @page-change="onPageChange">
                 <template #name="{ row }">
                     <div class="fd-file-name">

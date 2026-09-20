@@ -8,10 +8,11 @@
                 <div class="card-header-toolbar">
                     <div class="card-header-toolbar-right" style="width:100%; display:flex; gap:8px;">
                         <t-input v-model="searchKeyword" placeholder="搜索描述..." clearable style="width: 240px;" @change="fetchData"/>
+                        <table-column-visibility table-key="admin.system-log" :columns="columns"></table-column-visibility>
                     </div>
                 </div>
                 <t-skeleton v-if="loading" :row-col="[6]" animation="gradient"></t-skeleton>
-                <t-table v-else :data="tableData" :columns="columns" :pagination="pagination"
+                <t-table v-else :data="tableData" :columns="$HuiYanTableColumns.getVisible('admin.system-log', columns)" :pagination="pagination"
                     row-key="id" hover @page-change="onPageChange">
                     <template #type="{ row }">
                         <t-tag variant="light">[[ row.type ]]</t-tag>

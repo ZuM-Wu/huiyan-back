@@ -68,12 +68,13 @@
                     </t-select>
                     <t-input v-model="keyword" placeholder="搜索标题/关键词..." clearable
                         class="search-input--md" @change="fetchData"></t-input>
+                    <table-column-visibility table-key="plugin.push.tasks" :columns="columns"></table-column-visibility>
                 </div>
             </div>
         </template>
 
         <t-skeleton v-if="loading" :row-col="[6]" animation="gradient"></t-skeleton>
-        <t-table v-else :data="tableData" :columns="columns" :loading="loading"
+        <t-table v-else :data="tableData" :columns="$HuiYanTableColumns.getVisible('plugin.push.tasks', columns)" :loading="loading"
             row-key="id" :pagination="pagination" @page-change="onPageChange" hover>
             <template #title="{ row }">
                 <div class="task-title" @click="viewDetail(row)">[[ row.title ]]</div>
