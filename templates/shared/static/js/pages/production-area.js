@@ -28,7 +28,7 @@
                 { colKey: 'crop_category', title: '主要作物', width: 120, ellipsis: true },
                 { colKey: 'area_size', title: '面积(亩)', width: 100 },
                 { colKey: 'status', title: '状态', width: 90, cell: 'status' },
-                { colKey: 'operation', title: '操作', width: 240, cell: 'operation', fixed: 'right' },
+                { colKey: 'operation', title: '操作', width: 300, cell: 'operation', fixed: 'right' },
             ];
 
             const fetchAreas = () => {
@@ -191,6 +191,11 @@
                 window.location.href = '/admin/area-detail?area_id=' + row.id;
             };
 
+            // 快捷跳转到产区管理插件页：与侧边栏“应用 > 产区管理”进入同一个页面。
+            const goManagement = () => {
+                window.location.href = '/admin/plugin/production_area_management/index';
+            };
+
             /* ========== 地图设置 ========== */
             const mapForm = reactive({ amap_web_key: '', amap_js_security_code: '', amap_web_service_key: '', production_area_map_enabled: '1' });
             const mapSaving = ref(false);
@@ -226,7 +231,7 @@
                 areaList, areaLoading, searchKeyword, areaPagination, areaColumns,
                 fetchAreas, onAreaPageChange,
                 dialogVisible, dialogTitle, saving, form, formRef, rules, geoTab, geoModel, geoKey, geoTabsKey, onGeoUpdate, onDialogOpened,
-                openCreate, openEdit, doSave, toggleStatus, removeArea, goPlots,
+                openCreate, openEdit, doSave, toggleStatus, removeArea, goPlots, goManagement,
                 mapForm, mapSaving, saveMapConfig,
                 mapKey, mapSecurity, mapEnabled,
             };

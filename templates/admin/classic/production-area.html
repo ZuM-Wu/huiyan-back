@@ -79,6 +79,7 @@
                     <template #operation="{ row }">
                         <t-button theme="primary" variant="text" v-permission="'area:update'" @click="openEdit(row)">编辑</t-button>
                         <t-button theme="default" variant="text" @click="goPlots(row)">管理地块</t-button>
+                        <t-button theme="primary" variant="text" @click="goManagement">产区管理</t-button>
                         <t-button :theme="row.status === 1 ? 'warning' : 'success'" variant="text" v-permission="'area:status'" @click="toggleStatus(row)">
                             [[ row.status === 1 ? '停用' : '启用' ]]
                         </t-button>

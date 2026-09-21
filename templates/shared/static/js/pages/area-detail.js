@@ -35,6 +35,9 @@
                 Object.assign(area, res.data.data || res.data || {});
             }).catch(() => { MessagePlugin.error('获取产区详情失败'); });
 
+            const goManagement = () => {
+                window.location.href = '/admin/plugin/production_area_management/index';
+            };
             /* ========== 地块列表 ========== */
             const plotList = ref([]);
             const hardwareMarkers = ref([]);
@@ -232,6 +235,7 @@
                 onPlotDrawn, onPlotUpdated, openEdit, doSave, toggleStatus, removePlot, goBack,
                 boardRef, drawBoundaryFor,
                 mapKey, mapSecurity, mapReady,
+                goManagement,
             };
         }
     });
