@@ -6,6 +6,7 @@
 为系统核心功能，不依赖任何插件。
 """
 import logging
+from datetime import timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
@@ -16,7 +17,8 @@ from core.task_query_service import (
     get_task_log,
     get_task_overview,
 )
-from services.task.task_monitor import task_monitor, clean_window_start
+from services.task.task_monitor import task_monitor
+from core.time_utils import china_now
 from core.response import ok
 from core.log.active_log import active_log
 
@@ -78,19 +80,19 @@ async def list_logs(
 @router.delete("/logs/cleanup", dependencies=[Depends(require_admin_permission("task_monitor:clear_logs"))])
 async def cleanup_logs(
     request: Request,
-    days: int = Query(10, ge=1, le=3650, description="删除最近 N 个自然日内的日志"),
+    retention_days: int = Query(30, ge=1, le=3650, description="日志保留天数"),
 ):
-    """删除最近 N 天内的任务执行日志，不影响队列和其他日志。"""
-    start_time = clean_window_start(days)
-    count = await task_monitor.clean_recent_logs(days)
+    """删除保留期限之前的任务执行日志，不影响队列和其他日志。"""
+    cutoff_time = china_now() - timedelta(days=retention_days)
+    count = await task_monitor.clean_expired_logs(retention_days)
     await active_log(
-        f"清理任务执行日志，删除最近{days}天内的{count}条",
+        f"清理任务执行日志，保留{retention_days}天，删除{count}条",
         "task_monitor_clear_logs", request=request,
     )
     return ok({
         "deleted_count": count,
-        "days": days,
-        "start_time": start_time.isoformat(sep=" ", timespec="seconds"),
+        "retention_days": retention_days,
+        "cutoff_time": cutoff_time.isoformat(sep=" ", timespec="seconds"),
     }, msg="任务日志清理完成")
 
 

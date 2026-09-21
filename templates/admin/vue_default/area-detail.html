@@ -37,6 +37,11 @@
     flex: 0 0 72px; color: var(--app-text-secondary);
 }
 .area-detail-page .ad-info .ad-info-value { flex: 1; min-width: 0; color: var(--app-text-primary); word-break: break-all; }
+.area-detail-page .ad-info .ad-info-visibility {
+    display: inline-flex; align-items: center; gap: var(--app-spacing-xs); min-width: 0; flex: 1;
+}
+.area-detail-page .ad-info .ad-info-visibility .ad-info-value { flex: 1; }
+.area-detail-page .ad-info .ad-info-visibility .t-button { flex: 0 0 auto; }
 .area-detail-page .ad-body {
     display: flex; flex-direction: column; gap: var(--app-spacing-md); margin-top: var(--app-spacing-md);
 }
@@ -77,8 +82,8 @@
             <div class="ad-info-item"><span class="ad-info-label">主要作物</span><span class="ad-info-value">[[ area.crop_category || '—' ]]</span></div>
             <div class="ad-info-item"><span class="ad-info-label">总面积</span><span class="ad-info-value">[[ area.area_size ? area.area_size + ' 亩' : '—' ]]</span></div>
             <div class="ad-info-item"><span class="ad-info-label">绑定农户</span><span class="ad-info-value">[[ area.farmer_count || 0 ]] 人</span></div>
-            <div class="ad-info-item"><span class="ad-info-label">所在地区</span><span class="ad-info-value">[[ regionText ]]</span></div>
-            <div class="ad-info-item"><span class="ad-info-label">详细地址</span><span class="ad-info-value">[[ area.address || '—' ]]</span></div>
+            <div class="ad-info-item"><span class="ad-info-label">所在地区</span><span class="ad-info-visibility"><span class="ad-info-value">[[ addressVisible ? regionText : '******' ]]</span></span></div>
+            <div class="ad-info-item"><span class="ad-info-label">详细地址</span><span class="ad-info-visibility"><span class="ad-info-value">[[ addressVisible ? (area.address || '—') : '******' ]]</span><t-button variant="text" shape="square" size="small" :aria-label="addressVisible ? '隐藏地址' : '显示地址'" @click="toggleAddressVisibility"><template #icon><t-icon :name="addressVisible ? 'browse-off' : 'browse'"></t-icon></template></t-button></span></div>
             <div class="ad-info-item"><span class="ad-info-label">中心坐标</span><span class="ad-info-value">[[ (area.longitude && area.latitude) ? (area.longitude + ', ' + area.latitude) : '—' ]]</span></div>
             <div class="ad-info-item"><span class="ad-info-label">备注</span><span class="ad-info-value">[[ area.description || '—' ]]</span></div>
         </div>

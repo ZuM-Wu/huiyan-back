@@ -26,6 +26,10 @@
             // 地区拼接：省 市 区/县（空段自动跳过）
             const regionText = computed(() =>
                 [area.province, area.city, area.district].filter(Boolean).join(' ') || '—');
+            const addressVisible = ref(false);
+            const toggleAddressVisibility = () => {
+                addressVisible.value = !addressVisible.value;
+            };
 
             const fetchArea = () => request.get('/production-area/' + areaId).then((res) => {
                 Object.assign(area, res.data.data || res.data || {});
@@ -221,7 +225,8 @@
             });
 
             return {
-                area, center, regionText, plotList, plotLoading, plotColumns,
+                area, center, regionText, addressVisible, toggleAddressVisibility,
+                plotList, plotLoading, plotColumns,
                 hardwareMarkers, onHardwareMarkerMoved,
                 dialogVisible, dialogTitle, saving, form, formRef, rules,
                 onPlotDrawn, onPlotUpdated, openEdit, doSave, toggleStatus, removePlot, goBack,

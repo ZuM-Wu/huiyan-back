@@ -7,14 +7,14 @@
 2. 任务失败时写系统日志（平台内告知管理员）
 3. 支持手动重试失败任务
 4. 支持标记已处理/已忽略
-5. 定时清理过期日志，并支持管理员手动清理最近 N 天日志
+5. 定时清理过期日志，并支持管理员手动清理保留期外日志
 6. 任务状态概览
 
 本模块为系统核心，不依赖任何插件。
 周期任务最终失败会发布 task.failed 可靠事件。
 """
 import logging
-from datetime import datetime, timedelta
+from datetime import timedelta
 from core.time_utils import china_now
 from typing import Any, cast
 
@@ -26,16 +26,6 @@ from core.db.task_log import TaskLog
 from core.log.active_log import active_log
 
 logger = logging.getLogger(__name__)
-
-
-def clean_window_start(days: int) -> datetime:
-    """最近 N 个自然日的清理窗口起点
-
-    管理端手动清理按自然日口径计算窗口：起点为今天往前 (N-1) 天的 00:00:00，
-    含今天共 N 天，与任务日志列表按日期筛选的口径保持一致。
-    """
-    start_day = china_now() - timedelta(days=days - 1)
-    return start_day.replace(hour=0, minute=0, second=0, microsecond=0)
 
 
 class TaskMonitorService:
@@ -171,24 +161,6 @@ class TaskMonitorService:
         if count:
             logger.info(f"[TaskMonitor] 清理了 {count} 条过期任务日志")
         return count
-
-    async def clean_recent_logs(self, days: int = 10):
-        """清理最近 N 个自然日内产生的任务日志
-
-        管理员手动清理用于快速清掉最近一段时间的执行历史（默认 10 天），
-        更早的历史日志由每日定时任务按 task_log_retention_days 保留期处理。
-        """
-        start_time = clean_window_start(days)
-        async with async_session_factory() as db:
-            result = cast(CursorResult[Any], await db.execute(
-                delete(TaskLog).where(TaskLog.create_time >= start_time)
-            ))
-            await db.commit()
-            count = result.rowcount or 0
-        if count:
-            logger.info(f"[TaskMonitor] 清理最近 {days} 天内的 {count} 条任务日志")
-        return count
-
 
 # 全局单例
 task_monitor = TaskMonitorService()
